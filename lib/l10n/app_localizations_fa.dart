@@ -77,4 +77,21 @@ class AppLocalizationsFa extends AppLocalizations {
   @override
   // TODO: implement password
   String get password => "گذرواژه";
+
+  @override
+  // TODO: implement appSubTitle
+  String get appSubTitle => "برای مدیریت فروشگاه خود وارد شوید";
+  String get memorizeMe=> "مرا به خاطر بسپار";
+
+  @override
+  // TODO: implement forgotPassword
+  String get forgotPassword => "رمز عبور خود را فراموش کرده اید؟";
+
+  @override
+  // TODO: implement noAccount
+  String get noAccount => "حساب کاربری ندارید؟";
+
+  @override
+  // TODO: implement callWithSupport
+  String get callWithSupport => "تماس با پشتیبانی";
 }

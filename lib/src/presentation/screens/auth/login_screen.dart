@@ -1,126 +1,96 @@
-import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:top_up_shops/src/presentation/screens/home/home_screen.dart';
+import 'dart:math';
 
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:top_up_shops/src/presentation/screens/home/home_screen.dart';
 import 'package:top_up_shops/src/presentation/theme/colors.dart';
-import 'package:top_up_shops/src/utils/colors.dart';
+import 'package:top_up_shops/src/providers/auth_provider.dart';
 
 import '../../../../l10n/app_localizations.dart';
+import '../../../providers/local_provider.dart';
+import '../../../utils/colors.dart';
 
-class LoginPage extends StatefulWidget {
+class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  ConsumerState<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
-  final TextEditingController _phoneController = TextEditingController();
+class _LoginPageState extends ConsumerState<LoginPage> {
+  final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-
   bool _isPasswordVisible = false;
-  bool _isLoading = false;
 
-  String _selectedLanguage = 'fa';
-
-  // ===================== TOP SNACKBAR =====================
-  void _showTopSnackBar(String message) {
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.clearSnackBars();
-
-    messenger.showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.info_outline, color: Colors.white),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                message,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ],
-        ),
-        behavior: SnackBarBehavior.floating,
-        margin: EdgeInsets.only(
-          top: MediaQuery.of(context).padding.top + 8,
-          left: 16,
-          right: 16,
-          bottom: 40,
-        ),
-        backgroundColor: kPrimaryColor,
-        duration: const Duration(seconds: 3),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-        ),
-      ),
-    );
+  @override
+  void initState() {
+    super.initState();
+    // پر کردن ایمیل ذخیره شده
+    _loadSavedEmail();
   }
 
-  // ===================== LOGIN =====================
+  void _loadSavedEmail() {
+    final authState = ref.read(authProvider);
+    if (authState.rememberMe && authState.savedEmail != null) {
+      _emailController.text = authState.savedEmail!;
+    }
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loginWithEmail() async {
-    final email = _phoneController.text.trim();
+    final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
+    final rememberMe = ref.read(authProvider).rememberMe;
 
     if (email.isEmpty || password.isEmpty) {
       _showTopSnackBar('لطفاً ایمیل و رمز عبور را وارد کنید');
       return;
     }
 
-    setState(() => _isLoading = true);
-
     try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
+      await ref.read(authProvider.notifier).loginWithEmailAndPassword(
         email: email,
         password: password,
+        rememberMe: rememberMe,
       );
 
-      if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => HomeScreen()),
-      );
-    } on FirebaseAuthException catch (e) {
-      String message;
-
-      switch (e.code) {
-        case 'user-not-found':
-          message = 'شما هنوز راجستر نشده‌اید';
-          break;
-        case 'wrong-password':
-          message = 'رمز عبور اشتباه است';
-          break;
-        case 'invalid-email':
-          message = 'فرمت ایمیل نادرست است';
-          break;
-        case 'user-disabled':
-          message = 'این حساب غیرفعال شده است';
-          break;
-        case 'too-many-requests':
-          message = 'تعداد تلاش زیاد است، بعداً امتحان کنید';
-          break;
-        case 'network-request-failed':
-          message = 'اتصال اینترنت برقرار نیست';
-          break;
-        default:
-          message = 'خطای نامشخصی رخ داد';
+      // اگر لاگین موفقیت‌آمیز بود
+      if (ref.read(authProvider).isLoggedIn) {
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+        );
       }
-
-      if (!mounted) return;
-      _showTopSnackBar(message);
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+    } catch (e) {
+      // خطا در provider مدیریت می‌شود
     }
   }
 
-  // ===================== UI =====================
+  void _showTopSnackBar(String message) {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.clearSnackBars();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: kPrimaryColor,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final authState = ref.watch(authProvider);
+    final localeState = ref.watch(localeProvider);
+    final currentLanguage = localeState.locale.languageCode;
+
     return Scaffold(
       backgroundColor: kBackgroundColor,
       body: SafeArea(
@@ -131,6 +101,7 @@ class _LoginPageState extends State<LoginPage> {
             children: [
               const SizedBox(height: 40),
 
+              // لوگو
               Container(
                 height: 100,
                 width: 100,
@@ -156,19 +127,39 @@ class _LoginPageState extends State<LoginPage> {
               const SizedBox(height: 8),
 
               Text(
-                'برای مدیریت فروشگاه خود وارد شوید',
+                l10n.appSubTitle,
                 style: TextStyle(fontSize: 16, color: Colors.grey[700]),
                 textAlign: TextAlign.center,
               ),
 
               const SizedBox(height: 16),
-              _buildLanguageSelector(),
+
+              // انتخابگر زبان
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _languageButton(
+                    title: 'فارسی',
+                    value: 'fa',
+                    isSelected: currentLanguage == 'fa',
+                    onTap: () => ref.read(localeProvider.notifier).changeLanguage('fa'),
+                  ),
+                  const SizedBox(width: 12),
+                  _languageButton(
+                    title: 'پشتو',
+                    value: 'ps',
+                    isSelected: currentLanguage == 'ps',
+                    onTap: () => ref.read(localeProvider.notifier).changeLanguage('ps'),
+                  ),
+                ],
+              ),
 
               const SizedBox(height: 30),
 
+              // فیلد ایمیل
               _buildInputField(
-                label: 'ایمیل',
-                controller: _phoneController,
+                label: l10n.email,
+                controller: _emailController,
                 isPassword: false,
                 icon: Icons.email,
                 hintText: 'Ali@gmail.com',
@@ -176,8 +167,9 @@ class _LoginPageState extends State<LoginPage> {
 
               const SizedBox(height: 12),
 
+              // فیلد رمز عبور
               _buildInputField(
-                label: 'رمز عبور',
+                label: l10n.password,
                 controller: _passwordController,
                 isPassword: true,
                 icon: Icons.lock,
@@ -190,12 +182,67 @@ class _LoginPageState extends State<LoginPage> {
                 },
               ),
 
+              // چک‌باکس "مرا به خاطر بسپار"
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  children: [
+                    Checkbox(
+                      value: authState.rememberMe,
+                      onChanged: (value) {
+                        ref.read(authProvider.notifier).toggleRememberMe();
+                      },
+                      activeColor: kPrimaryColor,
+                    ),
+                    Text(l10n.memorizeMe),
+                    const Spacer(),
+                    TextButton(
+                      onPressed: () {},
+                      child: Text(
+                        l10n.forgotPassword,
+                        style: TextStyle(
+                          color: kPrimaryColor,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // نمایش خطا
+              if (authState.error != null) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.error_outline, color: Colors.red),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          authState.error!,
+                          style: const TextStyle(color: Colors.red),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
               const SizedBox(height: 20),
 
+              // دکمه لاگین
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _isLoading ? null : _loginWithEmail,
+                  onPressed: authState.isLoading ? null : _loginWithEmail,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: kPrimaryColor,
                     foregroundColor: Colors.white,
@@ -204,7 +251,7 @@ class _LoginPageState extends State<LoginPage> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: _isLoading
+                  child: authState.isLoading
                       ? const SizedBox(
                     height: 24,
                     width: 24,
@@ -215,16 +262,16 @@ class _LoginPageState extends State<LoginPage> {
                   )
                       : Row(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
+                    children: [
                       Text(
-                        'ورود به سیستم',
-                        style: TextStyle(
+                        l10n.login,
+                        style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      SizedBox(width: 8),
-                      Icon(Icons.login),
+                      const SizedBox(width: 8),
+                      const Icon(Icons.login),
                     ],
                   ),
                 ),
@@ -232,17 +279,18 @@ class _LoginPageState extends State<LoginPage> {
 
               const SizedBox(height: 25),
 
+              // لینک پشتیبانی
               RichText(
                 textAlign: TextAlign.center,
                 text: TextSpan(
                   style: TextStyle(color: Colors.grey[700]),
                   children: [
-                    const TextSpan(text: 'حساب کاربری ندارید؟ '),
+                     TextSpan(text:l10n.noAccount),
                     WidgetSpan(
                       child: GestureDetector(
                         onTap: () {},
                         child: Text(
-                          'تماس با پشتیبانی',
+                         l10n.callWithSupport,
                           style: TextStyle(
                             color: kPrimaryColor,
                             fontWeight: FontWeight.bold,
@@ -260,27 +308,14 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  // ===================== WIDGETS =====================
-  Widget _buildLanguageSelector() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        _languageButton(title: 'فارسی', value: 'fa'),
-        const SizedBox(width: 12),
-        _languageButton(title: 'پشتو', value: 'ps'),
-      ],
-    );
-  }
-
-  Widget _languageButton({required String title, required String value}) {
-    final bool isSelected = _selectedLanguage == value;
-
+  Widget _languageButton({
+    required String title,
+    required String value,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
     return GestureDetector(
-      onTap: () {
-        setState(() {
-          _selectedLanguage = value;
-        });
-      },
+      onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         decoration: BoxDecoration(
@@ -313,27 +348,9 @@ class _LoginPageState extends State<LoginPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              label,
-              style:
-              const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-            ),
-            if (isPassword)
-              TextButton(
-                onPressed: () {},
-                child: Text(
-                  'رمز عبور را فراموش کردید؟',
-                  style: TextStyle(
-                    color: kPrimaryColor,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-          ],
+        Text(
+          label,
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
         Container(

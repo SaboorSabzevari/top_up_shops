@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:core';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
@@ -34,9 +35,7 @@ abstract class AppLocalizations {
   /// of delegates is preferred or required.
   static const List<LocalizationsDelegate<dynamic>> localizationsDelegates = <LocalizationsDelegate<dynamic>>[
     delegate,
-    GlobalMaterialLocalizations.delegate,
-    GlobalCupertinoLocalizations.delegate,
-    GlobalWidgetsLocalizations.delegate,
+    ...GlobalMaterialLocalizations.delegates,
   ];
 
   /// A list of this localizations delegate's supported locales.
@@ -50,6 +49,7 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Top-Up Shops'**
   String get appTitle;
+  String get appSubTitle;
 
   /// No description provided for @login.
   ///
@@ -68,6 +68,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Send code'**
   String get password;
+  String get memorizeMe;
+  String get forgotPassword;
+  String get noAccount;
+  String get callWithSupport;
+
+
 
   /// No description provided for @dashboard.
   ///

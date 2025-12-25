@@ -1,9 +1,11 @@
 {
+//login section
   "appTitle": "فروشگاه‌های تاپ‌آپ",
   "appSubTitle":"برای مدیریت فروشگاه خود وارد شوید",
   "login": "ورود",
   "email": "ایمیل",
   "password": "رمز عبور",
+  "memorizeMe":"مرا به خاطر بسپار",
   "dashboard": "داشبورد",
   "customers": "مشتریان",
   "transactions": "تراکنش‌ها",

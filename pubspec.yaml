@@ -41,6 +41,7 @@ dependencies:
   firebase_auth:
   flutter_riverpod:
   shared_preferences:
+  persistent_bottom_nav_bar:
 
 
 dev_dependencies:

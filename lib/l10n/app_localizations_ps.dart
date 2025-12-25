@@ -15,12 +15,6 @@ class AppLocalizationsPs extends AppLocalizations {
   String get login => 'ننوتل';
 
   @override
-  String get phoneNumber => 'د تلیفون شمیره';
-
-  @override
-  String get sendCode => 'کوډ واستوئ';
-
-  @override
   String get dashboard => 'ډشبورډ';
 
   @override
@@ -83,4 +77,24 @@ class AppLocalizationsPs extends AppLocalizations {
   @override
   // TODO: implement password
   String get password => "رمز";
+
+  @override
+  // TODO: implement appSubTitle
+  String get appSubTitle => "د خپل دوکان د اداره کولو لپاره ننوتل";
+
+  @override
+  // TODO: implement memorizeMe
+  String get memorizeMe =>  "ما په یاد ولره.";
+
+  @override
+  // TODO: implement forgotPassword
+  String get forgotPassword => "پټنوم مو هېر شوی؟";
+
+  @override
+  // TODO: implement noAccount
+  String get noAccount => "حساب نه لرې؟";
+
+  @override
+  // TODO: implement callWithSupport
+  String get callWithSupport => "د ملاتړ سره اړیکه ونیسئ";
 }

@@ -1,18 +1,23 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
+import '../services/prefrence_services.dart';
 
-// State برای مدیریت وضعیت لاگین
 class AuthState {
   final User? user;
   final bool isLoading;
   final String? error;
   final bool isLoggedIn;
+  final bool rememberMe;
+  final String? savedEmail;
 
   const AuthState({
     this.user,
     this.isLoading = false,
     this.error,
     required this.isLoggedIn,
+    this.rememberMe = false,
+    this.savedEmail,
   });
 
   AuthState copyWith({
@@ -20,21 +25,28 @@ class AuthState {
     bool? isLoading,
     String? error,
     bool? isLoggedIn,
+    bool? rememberMe,
+    String? savedEmail,
   }) {
     return AuthState(
       user: user ?? this.user,
       isLoading: isLoading ?? this.isLoading,
       error: error ?? this.error,
       isLoggedIn: isLoggedIn ?? this.isLoggedIn,
+      rememberMe: rememberMe ?? this.rememberMe,
+      savedEmail: savedEmail ?? this.savedEmail,
     );
   }
 }
 
-// Notifier برای مدیریت منطق لاگین
 class AuthNotifier extends StateNotifier<AuthState> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final Ref ref;
 
-  AuthNotifier() : super(AuthState(user: null, isLoggedIn: false)) {
+  AuthNotifier(this.ref) : super(AuthState(user: null, isLoggedIn: false)) {
+    // بارگذاری داده‌های ذخیره شده
+    _loadSavedData();
+
     // گوش دادن به تغییرات وضعیت کاربر
     _auth.authStateChanges().listen((user) {
       state = state.copyWith(
@@ -45,13 +57,28 @@ class AuthNotifier extends StateNotifier<AuthState> {
     });
   }
 
-  // لاگین با ایمیل و پسورد
+  Future<void> _loadSavedData() async {
+    // منتظر می‌شویم تا PreferencesService آماده شود
+    final prefsAsync = await ref.read(preferencesServiceProvider.future);
+
+    // بارگذاری ایمیل ذخیره شده
+    final savedEmail = prefsAsync.userEmail;
+    final rememberMe = prefsAsync.rememberMe;
+
+    if (savedEmail != null) {
+      state = state.copyWith(
+        savedEmail: savedEmail,
+        rememberMe: rememberMe,
+      );
+    }
+  }
+
   Future<void> loginWithEmailAndPassword({
     required String email,
     required String password,
+    required bool rememberMe,
   }) async {
     try {
-      // شروع loading
       state = state.copyWith(isLoading: true, error: null);
 
       await _auth.signInWithEmailAndPassword(
@@ -59,7 +86,20 @@ class AuthNotifier extends StateNotifier<AuthState> {
         password: password.trim(),
       );
 
-      // موفقیت - state در authStateChanges آپدیت می‌شود
+      // ذخیره اطلاعات لاگین
+      final prefs = await ref.read(preferencesServiceProvider.future);
+      await prefs.saveLoginData(
+        email: email.trim(),
+        rememberMe: rememberMe,
+      );
+
+      // آپدیت state
+      state = state.copyWith(
+        savedEmail: rememberMe ? email.trim() : null,
+        rememberMe: rememberMe,
+        isLoading: false,
+      );
+
     } on FirebaseAuthException catch (e) {
       final errorMessage = _getErrorMessage(e.code);
       state = state.copyWith(error: errorMessage, isLoading: false);
@@ -71,6 +111,42 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
       rethrow;
     }
+  }
+
+  Future<void> autoLogin() async {
+    final prefsAsync = await ref.read(preferencesServiceProvider.future);
+
+    if (prefsAsync.isLoggedIn && state.savedEmail != null) {
+      try {
+        state = state.copyWith(isLoading: true);
+        // در اینجا می‌توانید منطق auto-login را اضافه کنید
+        await Future.delayed(const Duration(seconds: 1));
+        state = state.copyWith(isLoading: false);
+      } catch (e) {
+        state = state.copyWith(
+          isLoading: false,
+          error: 'اتوماتیک لاگین ناموفق بود',
+        );
+      }
+    }
+  }
+
+  Future<void> logout() async {
+    await _auth.signOut();
+
+    // حذف اطلاعات لاگین از SharedPreferences
+    final prefs = await ref.read(preferencesServiceProvider.future);
+    await prefs.clearLoginData();
+
+    state = AuthState(
+      user: null,
+      isLoggedIn: false,
+      rememberMe: false,
+    );
+  }
+
+  void toggleRememberMe() {
+    state = state.copyWith(rememberMe: !state.rememberMe);
   }
 
   String _getErrorMessage(String code) {
@@ -91,28 +167,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
         return 'خطای نامشخصی رخ داد';
     }
   }
-
-  // خروج از سیستم
-  Future<void> logout() async {
-    await _auth.signOut();
-    state = AuthState(user: null, isLoggedIn: false);
-  }
-
-  // بررسی آیا کاربر لاگین کرده
-  bool get isAuthenticated => state.isLoggedIn;
 }
 
-// Provider اصلی
-final authProvider = StateNotifierProvider<AuthNotifier, AuthState>(
-      (ref) => AuthNotifier(),
-);
-
-// Provider برای دسترسی آسان به user
-final currentUserProvider = Provider<User?>((ref) {
-  return ref.watch(authProvider).user;
-});
-
-// Provider برای وضعیت لاگین
-final isAuthenticatedProvider = Provider<bool>((ref) {
-  return ref.watch(authProvider).isLoggedIn;
+// Provider اصلی Auth
+final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
+  return AuthNotifier(ref);
 });
