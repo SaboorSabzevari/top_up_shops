@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "332637885308",
+    "project_id": "top-up-shops-4bd5b",
+    "storage_bucket": "top-up-shops-4bd5b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:332637885308:android:9741b46b9b38363ac30af9",
+        "android_client_info": {
+          "package_name": "com.example.top_up_shops"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAUv6DavXR-bYaWRr2nI2HfHyZBngeDwD8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
