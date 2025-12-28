@@ -104,6 +104,10 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Settings'**
   String get settings;
+  String get generalSetting;
+  String get languag;
+  String get notification;
+  String get logout;
 
   /// No description provided for @newSale.
   ///
@@ -182,6 +186,8 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Cancel'**
   String get cancel;
+
+
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

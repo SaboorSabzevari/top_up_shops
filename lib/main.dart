@@ -57,7 +57,7 @@ class MyApp extends ConsumerWidget {
     final authState = ref.watch(authProvider);
 
     // صفحه اصلی بر اساس وضعیت لاگین
-    final home = authState.isLoggedIn ? const HomeScreen() : const LoginPage();
+    final home = authState.isLoggedIn ? HomeScreen() : const LoginPage();
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,

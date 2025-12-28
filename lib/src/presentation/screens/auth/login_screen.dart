@@ -1,4 +1,3 @@
-import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,11 +20,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
+  bool _hasShownSuccessSnackBar = false;
 
   @override
   void initState() {
     super.initState();
-    // پر کردن ایمیل ذخیره شده
     _loadSavedEmail();
   }
 
@@ -43,46 +42,122 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     super.dispose();
   }
 
+  // ================= SNACKBAR =================
+
+  void _showSnackBar({
+    required String message,
+    required Color backgroundColor,
+    IconData? icon,
+    int durationSeconds = 3,
+  }) {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.clearSnackBars();
+
+    messenger.showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(16),
+        backgroundColor: backgroundColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        duration: Duration(seconds: durationSeconds),
+        content: Row(
+          children: [
+            if (icon != null) ...[
+              Icon(icon, color: Colors.white),
+              const SizedBox(width: 10),
+            ],
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ================= LOGIN =================
+
   Future<void> _loginWithEmail() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
     final rememberMe = ref.read(authProvider).rememberMe;
 
+    // اعتبارسنجی فیلدها
     if (email.isEmpty || password.isEmpty) {
-      _showTopSnackBar('لطفاً ایمیل و رمز عبور را وارد کنید');
+      _showSnackBar(
+        message: 'لطفاً ایمیل و رمز عبور را وارد کنید',
+        backgroundColor: Colors.red.shade600,
+        icon: Icons.error_outline,
+        durationSeconds: 3,
+      );
       return;
     }
 
     try {
+      // ریست کردن فلگ
+      _hasShownSuccessSnackBar = false;
+
+      // فراخوانی لاگین
       await ref.read(authProvider.notifier).loginWithEmailAndPassword(
         email: email,
         password: password,
         rememberMe: rememberMe,
       );
 
-      // اگر لاگین موفقیت‌آمیز بود
-      if (ref.read(authProvider).isLoggedIn) {
+      // کمی تأخیر برای به‌روزرسانی state
+      await Future.delayed(const Duration(milliseconds: 300));
+
+      final authState = ref.read(authProvider);
+
+      // بررسی موفقیت‌آمیز بودن لاگین
+      if (authState.isLoggedIn && !_hasShownSuccessSnackBar) {
+        _hasShownSuccessSnackBar = true;
+
+        // نمایش اسنک‌بار موفقیت
+        _showSnackBar(
+          message: 'ورود با موفقیت انجام شد ',
+          backgroundColor: Colors.green.shade600,
+          icon: Icons.check_circle_outline,
+          durationSeconds: 2,
+        );
+
+        // تأخیر برای نمایش اسنک‌بار قبل از ناوبری
+        await Future.delayed(const Duration(seconds: 2));
+
         if (!mounted) return;
-        Navigator.pushReplacement(
+
+        // ناوبری به صفحه اصلی
+        Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          MaterialPageRoute(builder: (_) => HomeScreen()),
+              (route) => false,
         );
       }
-    } catch (e) {
-      // خطا در provider مدیریت می‌شود
+    } catch (_) {
+      // خواندن خطا از provider
+      final authState = ref.read(authProvider);
+      final errorMessage = authState.error ?? 'خطا در ورود، دوباره تلاش کنید';
+
+      // نمایش اسنک‌بار خطا
+      _showSnackBar(
+        message: errorMessage,
+        backgroundColor: Colors.red.shade600,
+        icon: Icons.error_outline,
+        durationSeconds: 4,
+      );
     }
   }
 
-  void _showTopSnackBar(String message) {
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.clearSnackBars();
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: kPrimaryColor,
-      ),
-    );
-  }
+  // ================= UI =================
 
   @override
   Widget build(BuildContext context) {
@@ -90,6 +165,27 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final authState = ref.watch(authProvider);
     final localeState = ref.watch(localeProvider);
     final currentLanguage = localeState.locale.languageCode;
+
+    // گوش دادن به تغییرات auth state برای نمایش خطاها
+    ref.listen<AuthState>(authProvider, (previous, current) {
+      // نمایش خطاها به صورت خودکار (اگر خطای جدیدی وجود داشته باشد)
+      if (current.error != null &&
+          current.error!.isNotEmpty &&
+          (previous == null || previous.error != current.error)) {
+
+        // تأخیر برای اطمینان از mount بودن
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (mounted) {
+            _showSnackBar(
+              message: current.error!,
+              backgroundColor: Colors.red.shade600,
+              icon: Icons.error_outline,
+              durationSeconds: 4,
+            );
+          }
+        });
+      }
+    });
 
     return Scaffold(
       backgroundColor: kBackgroundColor,
@@ -101,7 +197,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             children: [
               const SizedBox(height: 40),
 
-              // لوگو
+              // LOGO
               Container(
                 height: 100,
                 width: 100,
@@ -134,46 +230,46 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
               const SizedBox(height: 16),
 
-              // انتخابگر زبان
+              // LANGUAGE
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   _languageButton(
                     title: 'فارسی',
-                    value: 'fa',
                     isSelected: currentLanguage == 'fa',
-                    onTap: () => ref.read(localeProvider.notifier).changeLanguage('fa'),
+                    onTap: () => ref
+                        .read(localeProvider.notifier)
+                        .changeLanguage('fa'),
                   ),
                   const SizedBox(width: 12),
                   _languageButton(
                     title: 'پشتو',
-                    value: 'ps',
                     isSelected: currentLanguage == 'ps',
-                    onTap: () => ref.read(localeProvider.notifier).changeLanguage('ps'),
+                    onTap: () => ref
+                        .read(localeProvider.notifier)
+                        .changeLanguage('ps'),
                   ),
                 ],
               ),
 
               const SizedBox(height: 30),
 
-              // فیلد ایمیل
               _buildInputField(
                 label: l10n.email,
                 controller: _emailController,
-                isPassword: false,
                 icon: Icons.email,
-                hintText: 'Ali@gmail.com',
+                hintText: 'ایمیل خود را وارد کنید',
+                isPassword: false,
               ),
 
               const SizedBox(height: 12),
 
-              // فیلد رمز عبور
               _buildInputField(
                 label: l10n.password,
                 controller: _passwordController,
-                isPassword: true,
                 icon: Icons.lock,
-                hintText: '********',
+                hintText: 'گذرواژه خود را وارد کنبد',
+                isPassword: true,
                 isPasswordVisible: _isPasswordVisible,
                 onToggleVisibility: () {
                   setState(() {
@@ -182,17 +278,18 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 },
               ),
 
-              // چک‌باکس "مرا به خاطر بسپار"
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Row(
                   children: [
                     Checkbox(
                       value: authState.rememberMe,
-                      onChanged: (value) {
-                        ref.read(authProvider.notifier).toggleRememberMe();
-                      },
                       activeColor: kPrimaryColor,
+                      onChanged: (_) {
+                        ref
+                            .read(authProvider.notifier)
+                            .toggleRememberMe();
+                      },
                     ),
                     Text(l10n.memorizeMe),
                     const Spacer(),
@@ -203,7 +300,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         style: TextStyle(
                           color: kPrimaryColor,
                           fontSize: 13,
-                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ),
@@ -211,34 +307,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 ),
               ),
 
-              // نمایش خطا
-              if (authState.error != null) ...[
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.red.shade200),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.error_outline, color: Colors.red),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          authState.error!,
-                          style: const TextStyle(color: Colors.red),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-
               const SizedBox(height: 20),
 
-              // دکمه لاگین
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -279,18 +349,17 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
               const SizedBox(height: 25),
 
-              // لینک پشتیبانی
               RichText(
                 textAlign: TextAlign.center,
                 text: TextSpan(
                   style: TextStyle(color: Colors.grey[700]),
                   children: [
-                     TextSpan(text:l10n.noAccount),
+                    TextSpan(text: l10n.noAccount),
                     WidgetSpan(
                       child: GestureDetector(
                         onTap: () {},
                         child: Text(
-                         l10n.callWithSupport,
+                          l10n.callWithSupport,
                           style: TextStyle(
                             color: kPrimaryColor,
                             fontWeight: FontWeight.bold,
@@ -308,9 +377,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     );
   }
 
+  // ================= WIDGETS =================
+
   Widget _languageButton({
     required String title,
-    required String value,
     required bool isSelected,
     required VoidCallback onTap,
   }) {
@@ -339,9 +409,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   Widget _buildInputField({
     required String label,
     required TextEditingController controller,
-    required bool isPassword,
     required IconData icon,
     required String hintText,
+    required bool isPassword,
     bool isPasswordVisible = false,
     VoidCallback? onToggleVisibility,
   }) {
@@ -364,9 +434,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             obscureText: isPassword && !isPasswordVisible,
             decoration: InputDecoration(
               hintText: hintText,
+              hintStyle: TextStyle(
+                color: Colors.grey
+              ),
               border: InputBorder.none,
-              contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16, vertical: 16),
               prefixIcon: Icon(icon, size: 20),
               suffixIcon: isPassword
                   ? IconButton(

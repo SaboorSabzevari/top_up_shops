@@ -94,4 +94,17 @@ class AppLocalizationsFa extends AppLocalizations {
   @override
   // TODO: implement callWithSupport
   String get callWithSupport => "تماس با پشتیبانی";
+
+  @override
+  // TODO: implement languag
+  String get languag => "زبان";
+  String get notification => "اعلانات";
+
+  @override
+  // TODO: implement generalSetting
+  String get generalSetting => "تنظیمات عمومی";
+
+  @override
+  // TODO: implement logout
+  String get logout => "خروج از حساب";
 }

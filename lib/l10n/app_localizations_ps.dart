@@ -97,4 +97,20 @@ class AppLocalizationsPs extends AppLocalizations {
   @override
   // TODO: implement callWithSupport
   String get callWithSupport => "د ملاتړ سره اړیکه ونیسئ";
+
+  @override
+  // TODO: implement languag
+  String get languag => "ژبه";
+
+  @override
+  // TODO: implement notification
+  String get notification => "اعلانونه";
+
+  @override
+  // TODO: implement generalSetting
+  String get generalSetting =>"عمومی تنظیمات";
+
+  @override
+  // TODO: implement logout
+  String get logout => "له حساب څخه ننوتل";
 }
