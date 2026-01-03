@@ -2,22 +2,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import '../data/local/app_database.dart';
 import '../domain/entity/customer.dart';
+import '../domain/entity/providers.dart';
 
 
-final companyListProvider = StateNotifierProvider<CompanyNotifier, List<Map<String, dynamic>>>((ref) {
-  return CompanyNotifier();
-});
+final providerListProvider = StateNotifierProvider<ProviderNotifier, List<ProviderCompany>>((ref) => ProviderNotifier());
 
-class CompanyNotifier extends StateNotifier<List<Map<String, dynamic>>> {
-  CompanyNotifier() : super([]) { load(); }
-
-  Future load() async {
-    final db = await DatabaseHelper.instance.database;
-    state = await db.query('providers');
-  }
-
-  Future add(ProviderCompany c) async {
-    await DatabaseHelper.instance.insertProvider(c); // متد CRUD که در db_helper مینویسید
-    load();
+class ProviderNotifier extends StateNotifier<List<ProviderCompany>> {
+  ProviderNotifier() : super([]) { refresh(); }
+  Future refresh() async => state = await DatabaseHelper.instance.getAllProviders();
+  Future add(ProviderCompany p) async {
+    await DatabaseHelper.instance.addProvider(p);
+    refresh();
   }
 }
