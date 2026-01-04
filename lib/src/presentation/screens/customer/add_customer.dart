@@ -11,7 +11,6 @@ import '../../../providers/app_providers.dart';
 import '../../../providers/customer_provider.dart';
 import '../../../services/file_helper.dart';
 
-
 enum CustomerType { normal, shopkeeper }
 
 class AddCustomerPage extends ConsumerStatefulWidget {
@@ -23,7 +22,7 @@ class AddCustomerPage extends ConsumerStatefulWidget {
 }
 
 class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
-  CustomerType _customerType = CustomerType.shopkeeper;
+  CustomerType _customerType = CustomerType.normal; // تغییر پیش‌فرض به عادی
 
   final TextEditingController fullNameCtrl = TextEditingController();
   final TextEditingController addressCtrl = TextEditingController();
@@ -36,81 +35,117 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
   final List<_DealerItem> dealers = [];
 
   @override
-  @override
   void initState() {
     super.initState();
-    if (widget.customerData != null) {
-      fullNameCtrl.text = widget.customerData!['name'] ?? '';
-      addressCtrl.text = widget.customerData!['address'] ?? '';
-      _profilePath = widget.customerData!['profile_image'];
-      _tazkiraPath = widget.customerData!['tazkira_image'];
-      _customerType = widget.customerData!['type'] == 'ORDINARY'
-          ? CustomerType.normal
-          : CustomerType.shopkeeper;
 
-      DatabaseHelper.instance.getCustomerFullDetails(widget.customerData!['id']).then((details) {
-        if (mounted) {
-          setState(() {
-            // ۱. حتماً لیست‌ها را ابتدا پاک کنید تا موارد تکراری ایجاد نشود
-            normalPhones.clear();
-            dealers.clear();
-
-            // ۲. بارگذاری شماره‌های مشتری عادی
-            final List phones = details['phones'] ?? [];
-            if (phones.isNotEmpty) {
-              for (var p in phones) {
-                normalPhones.add(TextEditingController(text: p['phone_number'].toString()));
-              }
-            }
-
-            // ۳. بارگذاری کدهای دیلری مشتری عمده
-            final List codes = details['wholesale_codes'] ?? [];
-            if (codes.isNotEmpty) {
-              for (var c in codes) {
-                final item = _DealerItem();
-                item.companyType = c['company_name']?.toString();
-                item.codeCtrl.text = c['company_code']?.toString() ?? '';
-                dealers.add(item);
-              }
-            }
-
-            // اگر مشتری عمده بود و شماره داشت، شماره اصلی را پر کن
-            if (_customerType == CustomerType.shopkeeper && phones.isNotEmpty) {
-              wholesaleMainPhone.text = phones[0]['phone_number'].toString();
-            }
-          });
-        }
-      });
+    // اضافه کردن فیلدهای پیش‌فرض برای حالت جدید
+    if (widget.customerData == null) {
+      // برای مشتری جدید: اضافه کردن فیلدهای پیش‌فرض
+      _initializeDefaultFields();
+    } else {
+      // برای حالت ویرایش: بارگذاری داده‌های موجود
+      _loadExistingCustomerData();
     }
   }
 
-  void _initEditMode() {
+  void _initializeDefaultFields() {
+    // برای مشتری عادی: یک فیلد شماره تماس پیش‌فرض
+    if (_customerType == CustomerType.normal) {
+      normalPhones.add(TextEditingController());
+    }
+    // برای مشتری عمده: یک شرکت دیلری پیش‌فرض
+    else {
+      dealers.add(_DealerItem());
+    }
+  }
+
+  void _loadExistingCustomerData() {
     final data = widget.customerData!;
     fullNameCtrl.text = data['name'] ?? '';
     addressCtrl.text = data['address'] ?? '';
-    _customerType = data['type'] == 'ORDINARY' ? CustomerType.normal : CustomerType.shopkeeper;
     _profilePath = data['profile_image'];
     _tazkiraPath = data['tazkira_image'];
+    _customerType = data['type'] == 'ORDINARY'
+        ? CustomerType.normal
+        : CustomerType.shopkeeper;
 
-    if (_customerType == CustomerType.normal) {
-      final List phones = data['phones'] ?? [];
-      for (var p in phones) {
-        normalPhones.add(TextEditingController(text: p['phone_number'].toString()));
-      }
-      if (normalPhones.isEmpty) normalPhones.add(TextEditingController());
-    } else {
-      final List codes = data['wholesale_codes'] ?? [];
-      final List phones = data['phones'] ?? [];
-      if (phones.isNotEmpty) wholesaleMainPhone.text = phones[0]['phone_number'].toString();
+    // بارگذاری داده‌های کامل از دیتابیس
+    DatabaseHelper.instance.getCustomerFullDetails(widget.customerData!['id']).then((details) {
+      if (mounted) {
+        setState(() {
+          // پاک کردن لیست‌ها
+          normalPhones.clear();
+          dealers.clear();
 
-      for (var c in codes) {
-        var item = _DealerItem();
-        item.companyType = c['company_name'];
-        item.codeCtrl.text = c['dealer_code'] ?? '';
-        dealers.add(item);
+          // بارگذاری شماره‌های مشتری عادی
+          final List phones = details['phones'] ?? [];
+          if (phones.isNotEmpty) {
+            for (var p in phones) {
+              normalPhones.add(TextEditingController(text: p['phone_number'].toString()));
+            }
+          } else if (_customerType == CustomerType.normal) {
+            // اگر مشتری عادی است و شماره‌ای ندارد، یک فیلد پیش‌فرض اضافه کن
+            normalPhones.add(TextEditingController());
+          }
+
+          // بارگذاری کدهای دیلری مشتری عمده
+          final List codes = details['wholesale_codes'] ?? [];
+          if (codes.isNotEmpty) {
+            for (var c in codes) {
+              final item = _DealerItem();
+              item.companyType = c['company_name']?.toString();
+              item.codeCtrl.text = c['company_code']?.toString() ?? '';
+              dealers.add(item);
+            }
+          } else if (_customerType == CustomerType.shopkeeper) {
+            // اگر مشتری عمده است و کد دیلری ندارد، یک فیلد پیش‌فرض اضافه کن
+            dealers.add(_DealerItem());
+          }
+
+          // اگر مشتری عمده بود و شماره داشت، شماره اصلی را پر کن
+          if (_customerType == CustomerType.shopkeeper && phones.isNotEmpty) {
+            wholesaleMainPhone.text = phones[0]['phone_number'].toString();
+          }
+        });
       }
-      if (dealers.isEmpty) dealers.add(_DealerItem());
-    }
+    });
+  }
+
+  // تابع تغییر نوع مشتری
+  void _changeCustomerType(CustomerType newType) {
+    if (newType == _customerType) return;
+
+    setState(() {
+      _customerType = newType;
+
+      // پاک کردن فیلدهای نوع قبلی و اضافه کردن فیلد پیش‌فرض برای نوع جدید
+      if (newType == CustomerType.normal) {
+        // حذف همه شرکت‌های دیلری
+        for (var dealer in dealers) {
+          dealer.dispose();
+        }
+        dealers.clear();
+
+        // اضافه کردن یک فیلد شماره تماس پیش‌فرض
+        if (normalPhones.isEmpty) {
+          normalPhones.add(TextEditingController());
+        }
+
+        // پاک کردن شماره تماس اصلی (مخصوص عمده)
+        wholesaleMainPhone.clear();
+      } else {
+        // حذف همه شماره‌های عادی
+        for (var phoneCtrl in normalPhones) {
+          phoneCtrl.dispose();
+        }
+        normalPhones.clear();
+
+        // اضافه کردن یک شرکت دیلری پیش‌فرض
+        if (dealers.isEmpty) {
+          dealers.add(_DealerItem());
+        }
+      }
+    });
   }
 
   @override
@@ -122,32 +157,35 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
     for (final d in dealers) d.dispose();
     super.dispose();
   }
+
   Future<void> _pickContact() async {
-    // درخواست اجازه دسترسی
     if (await Permission.contacts.request().isGranted) {
-      // باز کردن لیست مخاطبین برای انتخاب توسط کاربر
       final contact = await FlutterContacts.openExternalPick();
 
       if (contact != null) {
-        // دریافت جزئیات کامل مخاطب منتخب
         final fullContact = await FlutterContacts.getContact(contact.id);
 
         if (fullContact != null) {
           setState(() {
-            // ۱. تنظیم نام
             fullNameCtrl.text = fullContact.displayName;
 
-            // ۲. پردازش شماره‌ها
             if (fullContact.phones.isNotEmpty) {
               if (_customerType == CustomerType.normal) {
-                // برای مشتری عادی: تمام شماره‌ها را به لیست اضافه کن
+                // برای مشتری عادی: پاک کردن فیلدهای قبلی و اضافه کردن شماره‌های جدید
+                for (var ctrl in normalPhones) {
+                  ctrl.dispose();
+                }
                 normalPhones.clear();
+
                 for (var phone in fullContact.phones) {
-                  // پاکسازی شماره (حذف فاصله‌ها و کاراکترهای اضافی)
                   String cleanPhone = phone.number.replaceAll(RegExp(r'[^\d+]'), '');
                   if (cleanPhone.startsWith('+93')) cleanPhone = cleanPhone.substring(3);
-
                   normalPhones.add(TextEditingController(text: cleanPhone));
+                }
+
+                // اگر هیچ شماره‌ای اضافه نشد، یک فیلد خالی اضافه کن
+                if (normalPhones.isEmpty) {
+                  normalPhones.add(TextEditingController());
                 }
               } else {
                 // برای دکان‌دار: فقط اولین شماره را در فیلد اصلی بگذار
@@ -165,15 +203,15 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
       );
     }
   }
+
   Future<void> _pickImage(bool isProfile, ImageSource source) async {
     final picker = ImagePicker();
-    final image = await picker.pickImage(source: source); // گالری یا دوربین
+    final image = await picker.pickImage(source: source);
 
     if (image != null) {
       File selectedFile = File(image.path);
       String prefix = isProfile ? 'profile' : 'tazkira';
 
-      // فشرده‌سازی و ذخیره
       String? savedPath = await ImageService.saveAndCompressImage(selectedFile, prefix);
 
       if (savedPath != null) {
@@ -187,6 +225,7 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
       }
     }
   }
+
   void _showImageSourceSheet(bool isProfile) {
     showModalBottomSheet(
       context: context,
@@ -218,67 +257,6 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
     );
   }
 
-  // void _saveData() async {
-  //   // ۱. بررسی اعتبار نام
-  //   if (fullNameCtrl.text.isEmpty) {
-  //     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('نام کامل الزامی است')));
-  //     return;
-  //   }
-  //
-  //   final typeStr = _customerType == CustomerType.normal ? 'ORDINARY' : 'WHOLESALE';
-  //
-  //   // ۲. جمع‌آوری شماره‌های تماس (برای عادی لیست و برای دکاندار شماره اصلی)
-  //   List<String> phones = _customerType == CustomerType.normal
-  //       ? normalPhones.map((e) => e.text).where((t) => t.isNotEmpty).toList()
-  //       : (wholesaleMainPhone.text.isNotEmpty ? [wholesaleMainPhone.text] : []);
-  //
-  //   // ۳. جمع‌آوری کدهای دیلری (بسیار مهم: بررسی کنید آیا companyType مقدار دارد یا خیر)
-  //   List<Map<String, String>> wholesaleCodes = dealers
-  //       .where((d) => d.companyType != null && d.codeCtrl.text.isNotEmpty)
-  //       .map((e) => {
-  //     'company': e.companyType!,
-  //     'code': e.codeCtrl.text
-  //   })
-  //       .toList();
-  //
-  //   // 🔴 بخش دیباگ: نمایش دقیق داده‌ها در کنسول قبل از ذخیره
-  //   print('========== DEBUG SAVE DATA ==========');
-  //   print('Name: ${fullNameCtrl.text}');
-  //   print('Type: $typeStr');
-  //   print('Phones Count: ${phones.length}');
-  //   print('Phones Data: $phones');
-  //   print('Wholesale Codes Count: ${wholesaleCodes.length}');
-  //   print('Wholesale Codes Data: $wholesaleCodes');
-  //   print('=====================================');
-  //
-  //   // ساخت آبجکت مشتری
-  //   final customer = Customer(
-  //     name: fullNameCtrl.text,
-  //     customerCode: widget.customerData?['customer_code'] ??
-  //         'CUST-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}',
-  //     type: typeStr,
-  //     address: addressCtrl.text,
-  //     profileImage: _profilePath,
-  //     tazkiraImage: _tazkiraPath,
-  //   );
-  //
-  //   try {
-  //     if (widget.customerData != null) {
-  //       print('Status: Updating existing customer...');
-  //       await DatabaseHelper.instance.updateCustomer(widget.customerData!['id'], customer, phones, wholesaleCodes);
-  //     } else {
-  //       print('Status: Adding new customer...');
-  //       await DatabaseHelper.instance.addCustomer(customer, phones, wholesaleCodes);
-  //     }
-  //
-  //     print('✅ Success: Data sent to DatabaseHelper');
-  //     ref.refresh(customerSearchResults);
-  //     Navigator.pop(context);
-  //   } catch (e) {
-  //     print('❌ ERROR during save: $e');
-  //     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطا در ذخیره سازی: $e')));
-  //   }
-  // }
   void _saveData() async {
     if (fullNameCtrl.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('نام کامل الزامی است')));
@@ -287,17 +265,15 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
 
     final typeStr = _customerType == CustomerType.normal ? 'ORDINARY' : 'WHOLESALE';
 
-    // ۱. اصلاح بخش شماره تماس برای مشتری عمده
     List<String> phones = [];
     if (_customerType == CustomerType.normal) {
       phones = normalPhones.map((e) => e.text).where((t) => t.isNotEmpty).toList();
     } else {
       if (wholesaleMainPhone.text.isNotEmpty) {
-        phones.add(wholesaleMainPhone.text); // اضافه کردن شماره مشتری عمده
+        phones.add(wholesaleMainPhone.text);
       }
     }
 
-    // ۲. جمع‌آوری کدهای دیلری
     List<Map<String, String>> wholesaleCodes = dealers
         .where((d) => d.companyType != null && d.codeCtrl.text.isNotEmpty)
         .map((e) => {
@@ -312,14 +288,12 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
           'CUST-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}',
       type: typeStr,
       address: addressCtrl.text,
-      // مقادیر زیر را به درستی پاس دهید تا نال فرستاده نشود
       profileImage: _profilePath,
       tazkiraImage: _tazkiraPath,
     );
 
     try {
       if (widget.customerData != null) {
-        // ⚠️ بسیار مهم: ID را به صورت مستقیم جداگانه بفرستید
         final int customerId = widget.customerData!['id'];
         await DatabaseHelper.instance.updateCustomer(customerId, customer, phones, wholesaleCodes);
       } else {
@@ -329,7 +303,6 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
       ref.refresh(customerSearchResults);
       Navigator.pop(context);
     } catch (e) {
-      // اگر اینجا ارور چاپ شد، یعنی دیتابیس اجازه ذخیره نداده است
       print('❌ ERROR IN SAVE: $e');
     }
   }
@@ -385,8 +358,10 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
       decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(14)),
       child: Row(
         children: [
-          _typeButton('مشتری عادی', _customerType == CustomerType.normal, () => setState(() => _customerType = CustomerType.normal)),
-          _typeButton('دکان‌دار', _customerType == CustomerType.shopkeeper, () => setState(() => _customerType = CustomerType.shopkeeper), primary: true),
+          _typeButton('مشتری عادی', _customerType == CustomerType.normal,
+                  () => _changeCustomerType(CustomerType.normal)),
+          _typeButton('دکان‌دار', _customerType == CustomerType.shopkeeper,
+                  () => _changeCustomerType(CustomerType.shopkeeper), primary: true),
         ],
       ),
     );
@@ -437,7 +412,6 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
           controller: fullNameCtrl,
           decoration: InputDecoration(
             prefixIcon: const Icon(Icons.person),
-            // اضافه کردن آیکون مخاطبین در سمت چپ فیلد (یا راست در RTL)
             suffixIcon: IconButton(
               icon: const Icon(Icons.contact_phone, color: Color(0xffEA2A33)),
               onPressed: _pickContact,
@@ -465,7 +439,14 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
           child: Row(
             children: [
               Expanded(child: _phoneInput(normalPhones[i])),
-              if (normalPhones.length > 1) IconButton(icon: const Icon(Icons.delete, color: Colors.grey), onPressed: () => setState(() => normalPhones.removeAt(i))),
+              // فقط اگر بیش از یک فیلد وجود دارد، دکمه حذف نمایش داده شود
+              if (normalPhones.length > 1) IconButton(
+                  icon: const Icon(Icons.delete, color: Colors.grey),
+                  onPressed: () => setState(() {
+                    normalPhones[i].dispose();
+                    normalPhones.removeAt(i);
+                  })
+              ),
             ],
           ),
         )),
@@ -479,22 +460,24 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
         _input(controller: wholesaleMainPhone, label: 'شماره تماس اصلی', icon: Icons.call, isPhone: true, hint: '7XXXXXXXX'),
         const SizedBox(height: 16),
         _sectionHeader('لیست کدهای دیلری', onAdd: () => setState(() => dealers.add(_DealerItem()))),
-        // در لیست کدهای دیلری
         ...List.generate(dealers.length, (i) => Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: Row(
             children: [
               Expanded(
                 child: dealers[i].buildCompany(ref, () {
-                  // این بخش باعث می‌شود صفحه اصلی متوجه تغییر در کلاس DealerItem شود
                   setState(() {});
                 }),
               ),
               const SizedBox(width: 8),
               Expanded(child: dealers[i].buildCode()),
-              IconButton(
+              // فقط اگر بیش از یک شرکت وجود دارد، دکمه حذف نمایش داده شود
+              if (dealers.length > 1) IconButton(
                   icon: const Icon(Icons.delete, color: Colors.grey),
-                  onPressed: () => setState(() => dealers.removeAt(i))
+                  onPressed: () => setState(() {
+                    dealers[i].dispose();
+                    dealers.removeAt(i);
+                  })
               ),
             ],
           ),
@@ -610,20 +593,18 @@ class _DealerItem {
   final TextEditingController codeCtrl = TextEditingController();
   String? companyType;
 
-  // اضافه کردن پارامتر onChanged به متد
   Widget buildCompany(WidgetRef ref, VoidCallback onUpdate) {
     final providersAsync = ref.watch(providersListProvider);
     return providersAsync.when(
       data: (list) => DropdownButtonFormField<String>(
         value: companyType,
         items: list.map((p) => DropdownMenuItem(
-          // مقدار را نام شرکت بگیرید تا با سیستم ارسال کریدیت هماهنگ باشد
             value: p['name'].toString(),
             child: Text(p['name'].toString())
         )).toList(),
         onChanged: (v) {
           companyType = v;
-          onUpdate(); // فراخوانی تابع برای آپلود State صفحه اصلی
+          onUpdate();
         },
         decoration: InputDecoration(
             filled: true,
@@ -641,9 +622,6 @@ class _DealerItem {
     return TextField(
       controller: codeCtrl,
       textAlign: TextAlign.center,
-      onChanged: (v) {
-        // اختیاری: برای اطمینان از ثبت لحظه‌ای
-      },
       decoration: InputDecoration(
           hintText: 'کد دیلری',
           filled: true,

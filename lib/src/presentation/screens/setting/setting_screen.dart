@@ -1,6 +1,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:top_up_shops/src/presentation/screens/setting/unit_screen.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/local_provider.dart';
@@ -56,7 +57,7 @@ class SettingsScreen extends ConsumerWidget {
             const SizedBox(height: 20),
 
             /// ================= Security =================
-            _groupTitle('واحد'),
+            _groupTitle('تنظیم واحد ارسال کریدیت'),
             _card(
               children: [
                 // _switchTile(
@@ -71,8 +72,10 @@ class SettingsScreen extends ConsumerWidget {
                   icon: Icons.pin,
                   iconBg: Colors.green.shade50,
                   iconColor: Colors.green,
-                  title: 'بخش واحد',
-                  onTap: () {},
+                  title: 'تنظیم واحد',
+                  onTap: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (context)=>UnitScreen()));
+                  },
                 ),
               ],
             ),
