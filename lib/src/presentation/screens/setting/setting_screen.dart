@@ -56,22 +56,22 @@ class SettingsScreen extends ConsumerWidget {
             const SizedBox(height: 20),
 
             /// ================= Security =================
-            _groupTitle('امنیت'),
+            _groupTitle('واحد'),
             _card(
               children: [
-                _switchTile(
-                  icon: Icons.lock,
-                  iconBg: Colors.green.shade50,
-                  iconColor: Colors.green,
-                  title: 'قفل برنامه',
-                  value: false,
-                  onChanged: (_) {},
-                ),
+                // _switchTile(
+                //   icon: Icons.lock,
+                //   iconBg: Colors.green.shade50,
+                //   iconColor: Colors.green,
+                //   title: '',
+                //   value: false,
+                //   onChanged: (_) {},
+                // ),
                 _navigationTile(
                   icon: Icons.pin,
                   iconBg: Colors.green.shade50,
                   iconColor: Colors.green,
-                  title: 'تغییر پین کد',
+                  title: 'بخش واحد',
                   onTap: () {},
                 ),
               ],

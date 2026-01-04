@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/local/app_database.dart';
 import '../../../providers/app_providers.dart'; // اطمینان حاصل کنید این ایمپورت وجود دارد
+import '../../../utils/colors.dart';
+import '../../theme/colors.dart';
 import '../customer/add_customer.dart';
 
 class DigitalTopupSalePage extends ConsumerStatefulWidget {
@@ -330,12 +332,12 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
           _customerTypeSection(),
           const SizedBox(height: 20),
           _operatorSection(), // بخش تغییر یافته
-          const SizedBox(height: 20),
-          _communicationSection(),
+
           const SizedBox(height: 20),
           customerType == 'normal' ? _phoneInput() : _companyCodeInput(),
           const SizedBox(height: 20),
-          _paymentSection(),
+          _paymentSection(), const SizedBox(height: 20),
+          _communicationSection(),
         ],
       ),
     );
@@ -344,15 +346,6 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
   Widget _customerInputs() {
     return Row(
       children: [
-        Expanded(
-          child: _input(
-            label: 'کد مشتری',
-            controller: customerCodeCtrl,
-            keyboardType: TextInputType.number,
-            hint: 'جستجو...',
-            onChanged: _onSearchChanged,
-          ),
-        ),
         const SizedBox(width: 12),
         Expanded(
           child: _input(
@@ -401,7 +394,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
           height: 56,
           margin: const EdgeInsets.symmetric(horizontal: 4),
           decoration: BoxDecoration(
-            color: selected ? primary.withOpacity(0.08) : const Color(0xFFF3F4F6),
+            color: selected ? primary.withValues(alpha: 0.08) : const Color(0xFFF3F4F6),
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: selected ? primary : Colors.transparent, width: 2),
           ),
@@ -583,19 +576,25 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
       children: [
         const Text('شماره موبایل', style: TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 6),
-        TextField(
+        Container(
+        decoration: BoxDecoration(
+        color: kComponentColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[300]!),
+        ),
+        child:TextField(
           controller: phoneCtrl,
           keyboardType: TextInputType.phone,
           textDirection: TextDirection.ltr,
-          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          style: const TextStyle(fontSize:14,),
           decoration: InputDecoration(
-            prefixIcon: const Icon(Icons.contact_phone),
+            prefixIcon: const Icon(Icons.contact_phone,color: kPrimaryColor,),
             suffixText: '93+',
             filled: true,
             fillColor: surfaceLight,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
           ),
-        ),
+        ),),
       ],
     );
   }
@@ -606,18 +605,27 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
       children: [
         const Text('کد شرکت', style: TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 6),
-        TextField(
+        Container(
+        decoration: BoxDecoration(
+        color: kComponentColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[300]!),
+        ),
+        child:TextField(
+          cursorColor: kPrimaryColor,
+          keyboardType: TextInputType.phone,
           controller: companyCodeCtrl,
           readOnly: isCompanySelectionLocked,
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isCompanySelectionLocked ? Colors.grey : Colors.black),
-          decoration: InputDecoration(
-            prefixIcon: const Icon(Icons.business),
-            hintText: 'مثال: CO-4587',
+          style: TextStyle(fontSize: 14,  color: isCompanySelectionLocked ? Colors.grey : Colors.black),
+          decoration: InputDecoration( hoverColor: kPrimaryColor,
+            prefixIcon: const Icon(Icons.business,color: kPrimaryColor,),
+            hintText: 'مثال: 454587',
             filled: true,
             fillColor: isCompanySelectionLocked ? Colors.grey[200] : surfaceLight,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
+            border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
           ),
-        ),
+        ),)
       ],
     );
   }
@@ -739,20 +747,36 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 12)),
+        Text(
+
+            label, style: const TextStyle(fontSize: 12)),
         const SizedBox(height: 4),
-        TextField(
+        Container(
+          decoration: BoxDecoration(
+            color: kComponentColor,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey[300]!),
+          ),
+          child: TextField(
+          cursorColor: kPrimaryColor,
+          autofocus: true,
           controller: controller,
           keyboardType: keyboardType,
           onChanged: onChanged,
           focusNode: focusNode,
           decoration: InputDecoration(
+            prefixIcon: Icon(Icons.search,color: kPrimaryColor,),
+            hintStyle: TextStyle(
+
+                color: Colors.grey
+            ),border: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(
+                horizontal: 6, vertical: 8),
+
             hintText: hint,
-            filled: true,
-            fillColor: surfaceLight,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+           hoverColor: kPrimaryColor
           ),
-        ),
+        ),)
       ],
     );
   }
