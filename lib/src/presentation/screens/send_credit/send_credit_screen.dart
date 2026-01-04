@@ -44,9 +44,19 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
   // لیست کدهای دیلری مشتری انتخاب شده
   List<dynamic> _currentCustomerWholesaleCodes = [];
 
+  // لیست شرکت‌های فیلتر شده برای مشتری عمده
+  List<Map<String, dynamic>> _filteredProviders = [];
+
+  // آیا شرکت "دیگر" انتخاب شده است؟
+  bool _isOtherProviderSelected = false;
+
   // لیست شماره‌های مشتری عادی
   List<String> _normalCustomerPhones = [];
   String? _selectedPhone;
+
+  // لیست شماره‌های مشتری عمده
+  List<String> _bulkCustomerPhones = [];
+  String? _selectedBulkPhone;
 
   // 🎨 Colors
   static const Color primary = Color(0xFFEA2A33);
@@ -63,11 +73,12 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
   // کنترلرها
   final customerCodeCtrl = TextEditingController();
   final customerNameCtrl = TextEditingController();
-  TextEditingController phoneCtrl = TextEditingController();
+  final TextEditingController phoneCtrl = TextEditingController();
   final creditCtrl = TextEditingController(text: '100');
   final discountCtrl = TextEditingController(text: '0');
   final paidCtrl = TextEditingController();
   final companyCodeCtrl = TextEditingController();
+  final wholesalePhoneCtrl = TextEditingController(); // شماره تماس برای مشتری عمده
 
   // برای جستجوی لایو
   Timer? _debounce;
@@ -97,6 +108,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
     customerCodeCtrl.dispose();
     customerNameCtrl.dispose();
     phoneCtrl.dispose();
+    wholesalePhoneCtrl.dispose();
     companyCodeCtrl.dispose();
     super.dispose();
   }
@@ -203,23 +215,35 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
     // دریافت اطلاعات کامل از دیتابیس
     final fullDetails = await DatabaseHelper.instance.getCustomerFullDetails(customer['id']);
 
+    print('جزئیات کامل مشتری: $fullDetails'); // برای دیباگ
+
     setState(() {
       customerNameCtrl.text = customer['name']?.toString() ?? '';
       customerCodeCtrl.text = customer['customer_code']?.toString() ?? '';
       customerType = (customer['type'] == 'WHOLESALE') ? 'bulk' : 'normal';
       isCompanySelectionLocked = false;
       _currentCustomerWholesaleCodes = fullDetails['wholesale_codes'] ?? [];
+
+      print('کدهای عمده فروشی: $_currentCustomerWholesaleCodes'); // برای دیباگ
+
+      // ریست کردن سایر فیلدها
       _normalCustomerPhones = [];
       _selectedPhone = null;
+      _bulkCustomerPhones = [];
+      _selectedBulkPhone = null;
+      _isOtherProviderSelected = false;
+      _filteredProviders = [];
+      wholesalePhoneCtrl.clear();
+      companyCodeCtrl.clear();
+      selectedOperator = '';
     });
 
-    // منطق مشتری عادی: ذخیره لیست شماره‌ها
+    // منطق مشتری عادی
     if (customerType == 'normal') {
       final List phonesList = fullDetails['phones'] ?? [];
       if (phonesList.isNotEmpty) {
         setState(() {
           _normalCustomerPhones = phonesList.map((p) => p['phone_number'].toString()).toList();
-          // اگر فقط یک شماره وجود دارد، آن را به صورت پیش‌فرض انتخاب کن
           if (_normalCustomerPhones.length == 1) {
             _selectedPhone = _normalCustomerPhones[0];
             phoneCtrl.text = _selectedPhone!;
@@ -227,38 +251,182 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
         });
       }
     }
-    // منطق مشتری عمده: انتخاب شرکت و کد
+    // منطق مشتری عمده
     else if (customerType == 'bulk') {
-      _handleWholesaleSelection();
+      final List phonesList = fullDetails['phones'] ?? [];
+      if (phonesList.isNotEmpty) {
+        setState(() {
+          _bulkCustomerPhones = phonesList.map((p) => p['phone_number'].toString()).toList();
+          if (_bulkCustomerPhones.length == 1) {
+            _selectedBulkPhone = _bulkCustomerPhones[0];
+            wholesalePhoneCtrl.text = _selectedBulkPhone!;
+          }
+        });
+      }
+
+      // فراخوانی آماده‌سازی لیست شرکت‌ها
+      _prepareFilteredProviders();
     }
   }
+  // --- آماده‌سازی لیست شرکت‌های فیلتر شده ---
+  void _prepareFilteredProviders() async {
+    try {
+      // دریافت لیست کامل شرکت‌ها به صورت صحیح
+      final providersAsync = ref.read(providersListProvider);
 
-  void _handleWholesaleSelection() {
-    if (_currentCustomerWholesaleCodes.isEmpty) return;
+      providersAsync.when(
+        data: (providersData) {
+          if (!mounted) return;
 
-    _showSelectionDialog(
-      title: 'انتخاب شرکت و کد دیلری',
-      items: _currentCustomerWholesaleCodes.map((e) {
-        final name = e['company_name'] ?? 'نامشخص';
-        final code = e['company_code'] ?? 'بدون کد';
-        return "$name (کد: $code)";
-      }).toList(),
-      onSelected: (selectedString) {
-        final selectedItem = _currentCustomerWholesaleCodes.firstWhere((e) {
-          final name = e['company_name'] ?? '';
-          final code = e['company_code'] ?? '';
-          return "$name (کد: $code)" == selectedString;
-        });
+          // استخراج نام شرکت‌های ثبت شده برای این مشتری
+          final customerCompanyNames = _currentCustomerWholesaleCodes
+              .map((e) => e['company_name']?.toString().trim() ?? '')
+              .where((name) => name.isNotEmpty)
+              .toSet();
 
-        setState(() {
-          selectedOperator = selectedItem['company_name'].toString();
-          companyCodeCtrl.text = selectedItem['company_code'].toString();
-          isCompanySelectionLocked = true;
-        });
-      },
-    );
+          print('Customer Company Names: $customerCompanyNames'); // برای دیباگ
+
+          List<Map<String, dynamic>> filtered;
+          if (customerCompanyNames.isEmpty) {
+            // اگر مشتری هیچ شرکتی ثبت نکرده، تمام شرکت‌ها را نشان بده
+            filtered = List<Map<String, dynamic>>.from(providersData);
+          } else {
+            // فیلتر کردن شرکت‌ها
+            filtered = providersData.where((provider) {
+              final providerName = provider['name']?.toString().trim() ?? '';
+              return customerCompanyNames.contains(providerName);
+            }).toList();
+
+            print('Filtered Providers Count: ${filtered.length}'); // برای دیباگ
+          }
+
+          // اضافه کردن گزینه "دیگر" به لیست
+          final otherProvider = {'name': 'دیگر', 'type': 'other', 'id': -1};
+          final allProviders = [...filtered, otherProvider];
+
+          print('All Providers to show: ${allProviders.map((p) => p['name'])}'); // برای دیباگ
+
+          if (mounted) {
+            setState(() {
+              _filteredProviders = allProviders;
+            });
+          }
+        },
+        loading: () {
+          if (mounted) {
+            setState(() {
+              _filteredProviders = [];
+            });
+          }
+        },
+        error: (error, stackTrace) {
+          print('خطا در بارگذاری شرکت‌ها: $error');
+          if (mounted) {
+            setState(() {
+              _filteredProviders = [];
+            });
+          }
+        },
+      );
+    } catch (error) {
+      print('خطا در prepareFilteredProviders: $error');
+    }
   }
+  // --- انتخاب شرکت برای مشتری عمده ---
+  void _selectProviderForWholesale(Map<String, dynamic> provider) {
+    final providerName = provider['name']?.toString().trim() ?? '';
 
+    print('انتخاب شرکت: $providerName');
+    print('کدهای دیلری مشتری: $_currentCustomerWholesaleCodes');
+    print('شماره‌های ذخیره شده مشتری: $_bulkCustomerPhones');
+
+    setState(() {
+      selectedOperator = providerName;
+      _isOtherProviderSelected = (providerName == 'دیگر');
+
+      if (_isOtherProviderSelected) {
+        // 🟢 منطق انتخاب "دیگر":
+        // 1. قفل فیلد کد شرکت باز شود
+        isCompanySelectionLocked = false;
+
+        // 2. فیلد کد شرکت پاک شود (تا کاربر کد جدید وارد کند)
+        companyCodeCtrl.clear();
+
+        // 3. شماره تماس ذخیره شده مشتری را به صورت خودکار در فیلد قرار بده
+        if (_bulkCustomerPhones.isNotEmpty) {
+          // روش 1: اولین شماره را انتخاب کن
+          _selectedBulkPhone = _bulkCustomerPhones.first;
+          wholesalePhoneCtrl.text = _selectedBulkPhone!;
+
+          print('شماره تماس به صورت خودکار تنظیم شد: ${_selectedBulkPhone}');
+
+          // روش 2: اگر می‌خواهید کاربر انتخاب کند، می‌توانید اینجا Dialog نشان دهید
+          // _showPhoneSelectionDialog();
+        } else {
+          // اگر شماره‌ای ذخیره نشده، فیلد را خالی کن
+          _selectedBulkPhone = null;
+          wholesalePhoneCtrl.clear();
+          print('هیچ شماره تماسی برای این مشتری ذخیره نشده است.');
+        }
+
+        // 4. لاگ برای دیباگ
+        print('شرکت "دیگر" انتخاب شد. فیلد کد شرکت باز شد و شماره تماس تنظیم شد.');
+
+      } else {
+        // 🔵 منطق انتخاب شرکت از لیست:
+        // پیدا کردن کد شرکت برای این مشتری
+        Map<String, dynamic>? foundCompanyData;
+
+        for (var codeData in _currentCustomerWholesaleCodes) {
+          final companyNameInCode = codeData['company_name']?.toString().trim() ?? '';
+          if (companyNameInCode == providerName) {
+            foundCompanyData = codeData;
+            break;
+          }
+        }
+
+        if (foundCompanyData != null && foundCompanyData.isNotEmpty) {
+          final companyCode = foundCompanyData['company_code']?.toString() ??
+              foundCompanyData['dealer_code']?.toString() ??
+              foundCompanyData['code']?.toString() ?? '';
+
+          print('کد شرکت یافت شد: $companyCode');
+
+          // 1. کد شرکت را در فیلد قرار بده
+          companyCodeCtrl.text = companyCode;
+
+          // 2. فیلد کد شرکت را قفل کن (کاربر نتواند تغییر دهد)
+          isCompanySelectionLocked = true;
+
+          // 3. شماره تماس از کد دیلری را تنظیم کن (اگر وجود دارد)
+          final customerPhone = foundCompanyData['phone']?.toString() ??
+              foundCompanyData['contact_number']?.toString();
+          if (customerPhone != null && customerPhone.isNotEmpty) {
+            wholesalePhoneCtrl.text = customerPhone;
+            _selectedBulkPhone = customerPhone;
+            print('شماره تماس از کد دیلری تنظیم شد: $customerPhone');
+          } else if (_bulkCustomerPhones.isNotEmpty) {
+            // اگر شماره در کد دیلری نبود، شماره ذخیره شده مشتری را قرار بده
+            _selectedBulkPhone = _bulkCustomerPhones.first;
+            wholesalePhoneCtrl.text = _selectedBulkPhone!;
+            print('شماره تماس از پروفایل مشتری تنظیم شد: ${_selectedBulkPhone}');
+          }
+
+        } else {
+          print('کد شرکت یافت نشد!');
+          companyCodeCtrl.clear();
+          isCompanySelectionLocked = false;
+
+          // اگر کد شرکت یافت نشد، شماره تماس ذخیره شده مشتری را قرار بده
+          if (_bulkCustomerPhones.isNotEmpty) {
+            _selectedBulkPhone = _bulkCustomerPhones.first;
+            wholesalePhoneCtrl.text = _selectedBulkPhone!;
+            print('کد شرکت یافت نشد، شماره تماس از پروفایل مشتری تنظیم شد.');
+          }
+        }
+      }
+    });
+  }
   void _setCompanyData(Map<String, dynamic> companyData) {
     setState(() {
       String name = (companyData['company'] ?? companyData['company_name'] ?? '').toString();
@@ -327,7 +495,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
           const SizedBox(height: 20),
           _operatorSection(),
           const SizedBox(height: 20),
-          customerType == 'normal' ? _phoneInputSection() : _companyCodeInput(),
+          customerType == 'normal' ? _phoneInputSection() : _bulkCustomerSection(),
           const SizedBox(height: 20),
           _paymentSection(),
           const SizedBox(height: 20),
@@ -380,8 +548,13 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
           setState(() {
             customerType = keyName;
             isCompanySelectionLocked = false;
+            _isOtherProviderSelected = false;
             _normalCustomerPhones.clear();
+            _bulkCustomerPhones.clear();
             _selectedPhone = null;
+            _selectedBulkPhone = null;
+            _filteredProviders.clear();
+            wholesalePhoneCtrl.clear();
             if (keyName == 'normal') {
               companyCodeCtrl.clear();
             }
@@ -391,7 +564,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
           height: 56,
           margin: const EdgeInsets.symmetric(horizontal: 4),
           decoration: BoxDecoration(
-            color: selected ? primary.withOpacity(0.08) : const Color(0xFFF3F4F6),
+            color: selected ? primary.withValues(alpha: 0.08) : const Color(0xFFF3F4F6),
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: selected ? primary : Colors.transparent, width: 2),
           ),
@@ -411,8 +584,6 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
   // --- Operator Section ---
 
   Widget _operatorSection() {
-    final providersAsync = ref.watch(providersListProvider);
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -421,47 +592,112 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
         _cardWrapper(
           SizedBox(
             height: 110,
-            child: providersAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (err, stack) => Center(child: Text('خطا در بارگذاری')),
-              data: (providers) {
-                return ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  physics: const BouncingScrollPhysics(),
-                  itemCount: providers.length,
-                  itemBuilder: (context, index) {
-                    final p = providers[index];
-                    return _operatorItem(
-                      p['name']?.toString() ?? '',
-                      p['type']?.toString() ?? '',
-                    );
-                  },
-                );
-              },
-            ),
+            child: _buildOperatorList(),
           ),
         ),
       ],
     );
   }
 
-  Widget _operatorItem(String title, String type) {
+  Widget _buildOperatorList() {
+    // اگر مشتری عمده است
+    print('Customer Type: $customerType'); // برای دیباگ
+    print('Filtered Providers Count: ${_filteredProviders.length}'); // برای دیباگ
+
+    // اگر مشتری عمده است
+    if (customerType == 'bulk') {
+      if (_filteredProviders.isEmpty) {
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 8),
+              Text(
+                'در حال بارگذاری شرکت‌ها...',
+                style: TextStyle(color: textMuted, fontSize: 12),
+              ),
+            ],
+          ),
+        );
+      }
+
+      return ListView.builder(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        itemCount: _filteredProviders.length,
+        itemBuilder: (context, index) {
+
+          final provider = _filteredProviders[index];
+          final name = provider['name']?.toString() ?? '';
+          final type = provider['type']?.toString() ?? '';
+          print('Provider $index: $name'); //
+          return _operatorItem(
+            name,
+            type,
+            isOther: name == 'دیگر',
+          );
+        },
+      );
+    }
+
+    // برای مشتری عادی
+    final providersAsync = ref.watch(providersListProvider);
+
+    return providersAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (err, stack) => Center(child: Text('خطا در بارگذاری')),
+      data: (providers) {
+        return ListView.builder(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          itemCount: providers.length,
+          itemBuilder: (context, index) {
+            final p = providers[index];
+
+            return _operatorItem(
+              p['name']?.toString() ?? '',
+              p['type']?.toString() ?? '',
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _operatorItem(String title, String type, {bool isOther = false}) {
     final isSelected = selectedOperator == title;
 
     return GestureDetector(
       onTap: () {
-        if (isCompanySelectionLocked) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('شرکت بر اساس کد دیلری مشتری انتخاب شده قفل شده است.'),
-              behavior: SnackBarBehavior.floating,
-            ),
+        if (customerType == 'bulk') {
+          // برای مشتری عمده
+          if (_filteredProviders.isEmpty) return;
+
+          // پیدا کردن provider کامل از لیست فیلتر شده
+          final provider = _filteredProviders.firstWhere(
+                (p) => p['name']?.toString() == title,
+            orElse: () => {},
           );
-          return;
+
+          if (provider.isNotEmpty) {
+            _selectProviderForWholesale(provider);
+          }
+        } else {
+          // برای مشتری عادی
+          if (isCompanySelectionLocked) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('شرکت بر اساس کد دیلری مشتری انتخاب شده قفل شده است.'),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+            return;
+          }
+          setState(() {
+            selectedOperator = title;
+          });
         }
-        setState(() {
-          selectedOperator = title;
-        });
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
@@ -485,13 +721,13 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: isSelected ? primary : const Color(0xFFF3F4F6),
+                color: isOther ? Colors.orange : (isSelected ? primary : const Color(0xFFF3F4F6)),
                 shape: BoxShape.circle,
               ),
               child: Icon(
-                Icons.business_center,
-                color: isSelected ? Colors.white : Colors.grey,
-                size: 24,
+                isOther ? Icons.add_business : Icons.business_center,
+                color: isOther ? Colors.white : (isSelected ? Colors.white : Colors.grey),
+                size: 18,
               ),
             ),
             const SizedBox(height: 10),
@@ -508,15 +744,14 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
             ),
             if (isSelected)
               const Padding(
-                padding: EdgeInsets.only(top: 4),
-                child: Icon(Icons.check_circle, color: primary, size: 16),
+                padding: EdgeInsets.only(top: 2),
+                child: Icon(Icons.check_circle, color: primary, size: 12),
               ),
           ],
         ),
       ),
     );
   }
-
   // --- Communication Section ---
 
   Widget _communicationSection() {
@@ -564,7 +799,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
     );
   }
 
-  // --- Phone Input Section (تغییر اصلی) ---
+  // --- Phone Input Section برای مشتری عادی ---
 
   Widget _phoneInputSection() {
     return Column(
@@ -631,17 +866,10 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
         border: Border.all(color: Colors.grey[300]!),
       ),
       child: TextField(
-        controller: isAdditional ? phoneCtrl:null,
+        controller: phoneCtrl,
         keyboardType: TextInputType.phone,
         textDirection: TextDirection.ltr,
         style: const TextStyle(fontSize: 14),
-        onChanged: isAdditional ? null : (value) {
-          if (_normalCustomerPhones.isNotEmpty && !_normalCustomerPhones.contains(value)) {
-            setState(() {
-              _selectedPhone = null;
-            });
-          }
-        },
         decoration: InputDecoration(
           prefixIcon: const Icon(Icons.contact_phone, color: kPrimaryColor),
           suffixText: '93+',
@@ -657,41 +885,123 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
     );
   }
 
-  Widget _companyCodeInput() {
+  // --- بخش مشتری عمده ---
+  Widget _bulkCustomerSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('کد شرکت', style: TextStyle(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 6),
+        // اگر شرکت "دیگر" انتخاب شده، فقط فیلد شماره تماس نمایش داده شود
+        if (_isOtherProviderSelected) ...[
+          const Text('شماره تماس', style: TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 6),
+
+          // اگر شماره‌های مشتری ذخیره شده‌اند، لیست را نمایش بده
+          if (_bulkCustomerPhones.isNotEmpty)
+            _buildBulkPhoneInputField(),
+        ],
+
+        // فیلد کد شرکت فقط وقتی نمایش داده شود که شرکت "دیگر" انتخاب نشده باشد
+        if (!_isOtherProviderSelected) ...[
+          const Text('کد شرکت', style: TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 6),
+          Container(
+            decoration: BoxDecoration(
+              color: kComponentColor,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey[300]!),
+            ),
+            child: TextField(
+              cursorColor: kPrimaryColor,
+              keyboardType: TextInputType.text,
+              controller: companyCodeCtrl,
+              readOnly: isCompanySelectionLocked,
+              style: TextStyle(
+                fontSize: 14,
+                color: isCompanySelectionLocked ? Colors.grey : Colors.black,
+              ),
+              decoration: InputDecoration(
+                hoverColor: kPrimaryColor,
+                prefixIcon: const Icon(Icons.business, color: kPrimaryColor),
+                hintText: 'مثال: 454587',
+                filled: true,
+                fillColor: isCompanySelectionLocked ? Colors.grey[200] : surfaceLight,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildBulkPhoneSelectionList() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
         Container(
           decoration: BoxDecoration(
             color: kComponentColor,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: Colors.grey[300]!),
           ),
-          child: TextField(
-            cursorColor: kPrimaryColor,
-            keyboardType: TextInputType.phone,
-            controller: companyCodeCtrl,
-            readOnly: isCompanySelectionLocked,
-            style: TextStyle(
-              fontSize: 14,
-              color: isCompanySelectionLocked ? Colors.grey : Colors.black,
-            ),
-            decoration: InputDecoration(
-              hoverColor: kPrimaryColor,
-              prefixIcon: const Icon(Icons.business, color: kPrimaryColor),
-              hintText: 'مثال: 454587',
-              filled: true,
-              fillColor: isCompanySelectionLocked ? Colors.grey[200] : surfaceLight,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide.none,
-              ),
-            ),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Column(
+            children: _bulkCustomerPhones.map((phone) {
+              return RadioListTile<String>(
+                activeColor: kPrimaryColor,
+                title: Text(
+                  phone,
+                  style: const TextStyle(fontSize: 14),
+                ),
+                value: phone,
+                groupValue: _selectedBulkPhone,
+                onChanged: (String? value) {
+                  setState(() {
+                    _selectedBulkPhone = value;
+                    wholesalePhoneCtrl.text = value ?? '';
+                  });
+                },
+                controlAffinity: ListTileControlAffinity.leading,
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+              );
+            }).toList(),
           ),
         ),
+        const SizedBox(height: 8),
+        // امکان وارد کردن شماره جدید
+        _buildBulkPhoneInputField(isAdditional: true),
       ],
+    );
+  }
+
+  Widget _buildBulkPhoneInputField({bool isAdditional = false}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: kComponentColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[300]!),
+      ),
+      child: TextField(
+        controller: wholesalePhoneCtrl,
+        keyboardType: TextInputType.phone,
+        textDirection: TextDirection.ltr,
+        style: const TextStyle(fontSize: 14),
+        decoration: InputDecoration(
+          prefixIcon: const Icon(Icons.contact_phone, color: kPrimaryColor),
+          suffixText: '93+',
+          filled: true,
+          fillColor: surfaceLight,
+          hintText: isAdditional ? 'شماره جدید (اختیاری)' : 'شماره تماس',
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide.none,
+          ),
+        ),
+      ),
     );
   }
 
