@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../data/local/app_database.dart';
 
 class UnitScreen extends StatefulWidget {
   const UnitScreen({super.key});
@@ -8,240 +9,167 @@ class UnitScreen extends StatefulWidget {
 }
 
 class _UnitScreenState extends State<UnitScreen> {
-  final List<Map<String, int?>> units = [
-    {'buy': 45, 'sell': 50},
-    {'buy': 90, 'sell': 100},
-    {'buy': null, 'sell': null},
-  ];
+  final TextEditingController buyCtrl = TextEditingController();
+  final TextEditingController sellCtrl = TextEditingController();
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  // بارگذاری تنظیمات از دیتابیس
+  Future<void> _loadSettings() async {
+    final unit = await DatabaseHelper.instance.getSingleUnit();
+    setState(() {
+      buyCtrl.text = unit['buy_price'].toString();
+      sellCtrl.text = unit['sell_price'].toString();
+      isLoading = false;
+    });
+  }
+
+  // ذخیره تغییرات
+  Future<void> _save() async {
+    double buy = double.tryParse(buyCtrl.text) ?? 0.0;
+    double sell = double.tryParse(sellCtrl.text) ?? 0.0;
+
+    await DatabaseHelper.instance.updateSingleUnit(buy, sell);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('تنظیمات واحد با موفقیت ذخیره شد', textAlign: TextAlign.center),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
+    return Scaffold(
+      backgroundColor: const Color(0xffF8F6F6),
+      appBar: AppBar(
+        elevation: 0,
         backgroundColor: const Color(0xffF8F6F6),
-
-        // AppBar
-        appBar: AppBar(
-          elevation: 0,
-          backgroundColor: const Color(0xffF8F6F6),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_forward, color: Colors.black),
-            onPressed: () => Navigator.pop(context),
-          ),
-          title: const Text(
-            'تنظیمات واحدها',
-            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-          ),
-          actions: [
-            TextButton(
-              onPressed: _save,
-              child: const Text(
-                'ذخیره',
-                style: TextStyle(
-                  color: Color(0xffEA2A33),
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ],
+        title: const Text('تنظیمات واحد',
+            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: () => Navigator.pop(context),
         ),
-
-        // Body
-        body: Column(
-          children: [
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  // Header
-                  const Text(
-                    'لیست واحدهای شارژ',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'مقادیر خرید و فروش کارت‌های شارژ را برای هر واحد تعیین کنید. قیمت‌ها به افغانی هستند.',
-                    style: TextStyle(color: Colors.grey, fontSize: 13),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Units
-                  ...List.generate(units.length, (index) {
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.grey.shade200),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.03),
-                            blurRadius: 10,
-                          )
-                        ],
-                      ),
-                      child: Column(
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(6),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xffEA2A33).withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: const Icon(
-                                  Icons.sim_card,
-                                  size: 20,
-                                  color: Color(0xffEA2A33),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                index < 2 ? 'واحد ${index + 1}' : 'واحد جدید',
-                                style: const TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              const Spacer(),
-                              IconButton(
-                                icon: const Icon(Icons.delete, color: Colors.grey),
-                                onPressed: () {
-                                  setState(() => units.removeAt(index));
-                                },
-                              ),
-                            ],
-                          ),
-
-                          const SizedBox(height: 12),
-
-                          Row(
-                            children: [
-                              // Buy
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'مقدار خرید',
-                                      style: TextStyle(fontSize: 12, color: Colors.grey),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    TextFormField(
-                                      initialValue: units[index]['buy']?.toString(),
-                                      keyboardType: TextInputType.number,
-                                      decoration: InputDecoration(
-                                        suffixText: 'AFN',
-                                        contentPadding: const EdgeInsets.symmetric(
-                                            horizontal: 12, vertical: 14),
-                                        border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                      ),
-                                      onChanged: (v) {
-                                        units[index]['buy'] = int.tryParse(v);
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-
-                              // Sell
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'مقدار فروش',
-                                      style: TextStyle(fontSize: 12, color: Colors.grey),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    TextFormField(
-                                      initialValue: units[index]['sell']?.toString(),
-                                      keyboardType: TextInputType.number,
-                                      decoration: InputDecoration(
-                                        suffixText: 'AFN',
-                                        contentPadding: const EdgeInsets.symmetric(
-                                            horizontal: 12, vertical: 14),
-                                        border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                      ),
-                                      onChanged: (v) {
-                                        units[index]['sell'] = int.tryParse(v);
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    );
-                  }),
-
-                  // Add Unit Button
-                  InkWell(
-                    onTap: () {
-                      setState(() {
-                        units.add({'buy': null, 'sell': null});
-                      });
-                    },
-                    borderRadius: BorderRadius.circular(16),
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade300),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: const [
-                          Icon(Icons.add_circle_outline),
-                          SizedBox(width: 8),
-                          Text(
-                            'افزودن واحد جدید',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 90),
-                ],
-              ),
-            ),
-
-            // Bottom Save Button
-            Container(
+      ),
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
+        children: [
+          Expanded(
+            child: ListView(
               padding: const EdgeInsets.all(16),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                border: Border(top: BorderSide(color: Color(0xffE5E7EB))),
-              ),
-              child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xffEA2A33),
-                  minimumSize: const Size.fromHeight(48),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
+              children: [
+                const Text('تعیین نرخ واحد سیستم',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                const Text(
+                  'این نرخ‌ها برای محاسبه قیمت تمام‌شده و سود شما در تراکنش‌ها استفاده می‌شوند.',
+                  style: TextStyle(color: Colors.grey, fontSize: 13),
                 ),
-                onPressed: _save,
-                icon: const Icon(Icons.save),
-                label: const Text('ذخیره تغییرات'),
-              ),
+                const SizedBox(height: 24),
+
+                _buildSettingsCard(),
+              ],
             ),
-          ],
-        ),
+          ),
+          _buildBottomButton(),
+        ],
       ),
     );
   }
 
-  void _save() {
-    debugPrint(units.toString());
+  Widget _buildSettingsCard() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)
+        ],
+      ),
+      child: Column(
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.payments_outlined, color: Color(0xffEA2A33)),
+              SizedBox(width: 10),
+              Text('نرخ‌های خرید و فروش',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+            ],
+          ),
+          const Divider(height: 30),
+          Row(
+            children: [
+              _buildField(label: 'نرخ خرید', controller: buyCtrl),
+              const SizedBox(width: 16),
+              _buildField(label: 'نرخ فروش', controller: sellCtrl),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildField({required String label, required TextEditingController controller}) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+          const SizedBox(height: 8),
+          TextField(
+            controller: controller,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(
+              suffixText: 'AFN',
+              filled: true,
+              fillColor: const Color(0xffF9FAFB),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.grey.shade100),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomButton() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: Color(0xffEEEEEE))),
+      ),
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xffEA2A33),
+          minimumSize: const Size.fromHeight(55),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          elevation: 0,
+        ),
+        onPressed: _save,
+        child: const Text('ذخیره تغییرات',
+            style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+      ),
+    );
   }
 }

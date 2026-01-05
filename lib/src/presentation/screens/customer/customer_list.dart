@@ -17,45 +17,49 @@ class CustomerListPage extends ConsumerWidget {
     final customersAsync = ref.watch(customerSearchResults);
     final activeFilter = ref.watch(customerFilterProvider);
 
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: const Text(
+          'لیست مشتریان',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        centerTitle: true,
+        elevation: 0,
         backgroundColor: Colors.white,
-        appBar: AppBar(
-          title: const Text('لیست مشتریان', style: TextStyle(fontWeight: FontWeight.bold)),
-          centerTitle: true,
-          elevation: 0,
-          backgroundColor: Colors.white,
-          foregroundColor: textMain,
-        ),
-        body: Stack(
-          children: [
-            Column(
-              children: [
-                _searchBar(ref),
-                _filterChips(ref), // اصلاح شده برای کارکرد فیلتر
-                Expanded(
-                  child: customersAsync.when(
-                    data: (customers) {
-                      // اعمال فیلتر دکان‌دار/عادی روی لیست دریافتی
-                      final filteredList = customers.where((c) {
-                        if (activeFilter == 'همه') return true;
-                        if (activeFilter == 'دکان‌دار') return c['type'] == 'WHOLESALE';
-                        if (activeFilter == 'عادی') return c['type'] == 'ORDINARY';
-                        return true;
-                      }).toList();
+        foregroundColor: textMain,
+      ),
+      body: Stack(
+        children: [
+          Column(
+            children: [
+              _searchBar(ref),
+              _filterChips(ref), // اصلاح شده برای کارکرد فیلتر
+              Expanded(
+                child: customersAsync.when(
+                  data: (customers) {
+                    // اعمال فیلتر دکان‌دار/عادی روی لیست دریافتی
+                    final filteredList = customers.where((c) {
+                      if (activeFilter == 'همه') return true;
+                      if (activeFilter == 'دکان‌دار')
+                        return c['type'] == 'WHOLESALE';
+                      if (activeFilter == 'عادی')
+                        return c['type'] == 'ORDINARY';
+                      return true;
+                    }).toList();
 
-                      return _buildCustomerList(filteredList, ref);
-                    },
-                    loading: () => const Center(child: CircularProgressIndicator(color: primary)),
-                    error: (err, _) => Center(child: Text('خطا: $err')),
+                    return _buildCustomerList(filteredList, ref);
+                  },
+                  loading: () => const Center(
+                    child: CircularProgressIndicator(color: primary),
                   ),
+                  error: (err, _) => Center(child: Text('خطا: $err')),
                 ),
-              ],
-            ),
-            _buildAddButton(context),
-          ],
-        ),
+              ),
+            ],
+          ),
+          _buildAddButton(context),
+        ],
       ),
     );
   }
@@ -70,7 +74,10 @@ class CustomerListPage extends ConsumerWidget {
           prefixIcon: const Icon(Icons.search),
           filled: true,
           fillColor: const Color(0xFFF9F9F9),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
         ),
       ),
     );
@@ -93,13 +100,17 @@ class CustomerListPage extends ConsumerWidget {
           return Padding(
             padding: const EdgeInsets.only(left: 8),
             child: ChoiceChip(
+              backgroundColor: Colors.white,
               label: Text(label),
               selected: isSelected,
 
               selectedColor: primary,
-              labelStyle: TextStyle(color: isSelected ? Colors.white : textSecondary),
+              labelStyle: TextStyle(
+                color: isSelected ? Colors.white : textSecondary,
+              ),
               onSelected: (selected) {
-                if (selected) ref.read(customerFilterProvider.notifier).state = label;
+                if (selected)
+                  ref.read(customerFilterProvider.notifier).state = label;
               },
             ),
           );
@@ -120,25 +131,36 @@ class CustomerListPage extends ConsumerWidget {
           leading: CircleAvatar(
             backgroundColor: const Color(0xFFE5E7EB),
             backgroundImage: customer['profile_image'] != null
-                ? FileImage(File(customer['profile_image'])) : null,
+                ? FileImage(File(customer['profile_image']))
+                : null,
             child: customer['profile_image'] == null
-                ? Text(customer['name'][0], style: const TextStyle(color: textMain)) : null,
+                ? Text(
+                    customer['name'][0],
+                    style: const TextStyle(color: textMain),
+                  )
+                : null,
           ),
-          title: Text(customer['name'], style: const TextStyle(fontWeight: FontWeight.bold)),
-          subtitle: Text("کد: ${customer['customer_code']} | ${customer['type'] == 'WHOLESALE' ? 'دکان‌دار' : 'عادی'}"),
+          title: Text(
+            customer['name'],
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          subtitle: Text(
+            "کد: ${customer['customer_code']} | ${customer['type'] == 'WHOLESALE' ? 'دکان‌دار' : 'عادی'}",
+          ),
           trailing: const Icon(Icons.chevron_right),
-            onTap: () async {
-              // ۱. گرفتن دیتای کامل از دیتابیس
-              final fullData = await DatabaseHelper.instance.getCustomerFullDetails(customer['id']);
+          onTap: () async {
+            // ۱. گرفتن دیتای کامل از دیتابیس
+            final fullData = await DatabaseHelper.instance
+                .getCustomerFullDetails(customer['id']);
 
-              // ۲. رفتن به صفحه با دیتای موجود
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => AddCustomerPage(customerData: fullData),
-                ),
-              );
-            }
+            // ۲. رفتن به صفحه با دیتای موجود
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => AddCustomerPage(customerData: fullData),
+              ),
+            );
+          },
         );
       },
     );
@@ -146,11 +168,26 @@ class CustomerListPage extends ConsumerWidget {
 
   Widget _buildAddButton(BuildContext context) {
     return Positioned(
-      left: 16, right: 16, bottom: 24,
+      left: 16,
+      right: 16,
+      bottom: 24,
       child: ElevatedButton(
-        style: ElevatedButton.styleFrom(backgroundColor: primary, minimumSize: const Size.fromHeight(54)),
-        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AddCustomerPage())),
-        child: const Text('مشتری جدید', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+        style: ElevatedButton.styleFrom( shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          backgroundColor: primary,
+          minimumSize: const Size.fromHeight(54),
+        ),
+        onPressed: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (c) => const AddCustomerPage()),
+        ),
+        child: const Text(
+          'مشتری جدید',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
     );
   }

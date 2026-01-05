@@ -1,27 +1,38 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../data/local/app_database.dart';
-import '../../../providers/app_providers.dart';
-import '../../../utils/colors.dart';
-import '../../theme/colors.dart';
-import '../customer/add_customer.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import '../../../../data/local/app_database.dart';
+import '../../../../providers/app_providers.dart';
+import '../../../../utils/colors.dart';
+import '../../../theme/colors.dart';
+import '../../customer/add_customer.dart';
 
 class DigitalTopupSalePage extends ConsumerStatefulWidget {
   const DigitalTopupSalePage({super.key});
 
   @override
-  ConsumerState<DigitalTopupSalePage> createState() => _DigitalTopupSalePageState();
+  ConsumerState<DigitalTopupSalePage> createState() =>
+      _DigitalTopupSalePageState();
 }
 
 class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
   // ---------------- State ----------------
-  void _showSelectionDialog({required String title, required List<String> items, required Function(String) onSelected}) {
+  void _showSelectionDialog({
+    required String title,
+    required List<String> items,
+    required Function(String) onSelected,
+  }) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-        title: Text(title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        title: Text(
+          title,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
         content: SizedBox(
           width: double.maxFinite,
           child: ListView.separated(
@@ -78,7 +89,8 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
   final discountCtrl = TextEditingController(text: '0');
   final paidCtrl = TextEditingController();
   final companyCodeCtrl = TextEditingController();
-  final wholesalePhoneCtrl = TextEditingController(); // شماره تماس برای مشتری عمده
+  final wholesalePhoneCtrl =
+      TextEditingController(); // شماره تماس برای مشتری عمده
 
   // برای جستجوی لایو
   Timer? _debounce;
@@ -87,8 +99,13 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
   OverlayEntry? _overlayEntry;
   final FocusNode _searchFocusNode = FocusNode();
 
+  // متغیرهای ذخیره کد شرکت برای تولید USSD
+  String? _selectedNormalProviderCode; // کد شرکت برای مشتری عادی
+  String? _selectedBulkProviderCode; // کد شرکت برای مشتری عمده
+
   int get total =>
-      (int.tryParse(creditCtrl.text) ?? 0) - (int.tryParse(discountCtrl.text) ?? 0);
+      (int.tryParse(creditCtrl.text) ?? 0) -
+      (int.tryParse(discountCtrl.text) ?? 0);
 
   @override
   void initState() {
@@ -154,20 +171,28 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
               child: _searchResults.isEmpty
                   ? _buildNotFoundWidget()
                   : ListView.separated(
-                padding: EdgeInsets.zero,
-                shrinkWrap: true,
-                itemCount: _searchResults.length,
-                separatorBuilder: (_, __) => const Divider(height: 1),
-                itemBuilder: (context, index) {
-                  final customer = _searchResults[index];
-                  return ListTile(
-                    leading: const Icon(Icons.person_search, color: Color(0xFF6B7280)),
-                    title: Text(customer['name'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text("کد: ${customer['customer_code']} | ${customer['type'] == 'WHOLESALE' ? 'عمده' : 'عادی'}"),
-                    onTap: () => _selectCustomer(customer),
-                  );
-                },
-              ),
+                      padding: EdgeInsets.zero,
+                      shrinkWrap: true,
+                      itemCount: _searchResults.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (context, index) {
+                        final customer = _searchResults[index];
+                        return ListTile(
+                          leading: const Icon(
+                            Icons.person_search,
+                            color: Color(0xFF6B7280),
+                          ),
+                          title: Text(
+                            customer['name'],
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          subtitle: Text(
+                            "کد: ${customer['customer_code']} | ${customer['type'] == 'WHOLESALE' ? 'عمده' : 'عادی'}",
+                          ),
+                          onTap: () => _selectCustomer(customer),
+                        );
+                      },
+                    ),
             ),
           ),
         ),
@@ -195,12 +220,18 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
           ElevatedButton.icon(
             onPressed: () {
               _removeOverlay();
-              Navigator.push(context, MaterialPageRoute(builder: (c) => const AddCustomerPage()));
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (c) => const AddCustomerPage()),
+              );
             },
             icon: const Icon(Icons.add),
             label: const Text('ثبت مشتری جدید'),
-            style: ElevatedButton.styleFrom(backgroundColor: primary, foregroundColor: Colors.white),
-          )
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primary,
+              foregroundColor: Colors.white,
+            ),
+          ),
         ],
       ),
     );
@@ -213,7 +244,9 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
     FocusScope.of(context).unfocus();
 
     // دریافت اطلاعات کامل از دیتابیس
-    final fullDetails = await DatabaseHelper.instance.getCustomerFullDetails(customer['id']);
+    final fullDetails = await DatabaseHelper.instance.getCustomerFullDetails(
+      customer['id'],
+    );
 
     print('جزئیات کامل مشتری: $fullDetails'); // برای دیباگ
 
@@ -223,6 +256,10 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
       customerType = (customer['type'] == 'WHOLESALE') ? 'bulk' : 'normal';
       isCompanySelectionLocked = false;
       _currentCustomerWholesaleCodes = fullDetails['wholesale_codes'] ?? [];
+
+      // ریست کردن متغیرهای USSD
+      _selectedNormalProviderCode = null;
+      _selectedBulkProviderCode = null;
 
       print('کدهای عمده فروشی: $_currentCustomerWholesaleCodes'); // برای دیباگ
 
@@ -243,7 +280,9 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
       final List phonesList = fullDetails['phones'] ?? [];
       if (phonesList.isNotEmpty) {
         setState(() {
-          _normalCustomerPhones = phonesList.map((p) => p['phone_number'].toString()).toList();
+          _normalCustomerPhones = phonesList
+              .map((p) => p['phone_number'].toString())
+              .toList();
           if (_normalCustomerPhones.length == 1) {
             _selectedPhone = _normalCustomerPhones[0];
             phoneCtrl.text = _selectedPhone!;
@@ -256,7 +295,9 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
       final List phonesList = fullDetails['phones'] ?? [];
       if (phonesList.isNotEmpty) {
         setState(() {
-          _bulkCustomerPhones = phonesList.map((p) => p['phone_number'].toString()).toList();
+          _bulkCustomerPhones = phonesList
+              .map((p) => p['phone_number'].toString())
+              .toList();
           if (_bulkCustomerPhones.length == 1) {
             _selectedBulkPhone = _bulkCustomerPhones[0];
             wholesalePhoneCtrl.text = _selectedBulkPhone!;
@@ -268,6 +309,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
       _prepareFilteredProviders();
     }
   }
+
   // --- آماده‌سازی لیست شرکت‌های فیلتر شده ---
   void _prepareFilteredProviders() async {
     try {
@@ -301,10 +343,18 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
           }
 
           // اضافه کردن گزینه "دیگر" به لیست
-          final otherProvider = {'name': 'دیگر', 'type': 'other', 'id': -1};
+          final otherProvider = {
+            'name': 'دیگر',
+            'type': 'other',
+            'id': -1,
+            'ordinary_code': '*999*',
+            'wholesale_code': '*999*',
+          };
           final allProviders = [...filtered, otherProvider];
 
-          print('All Providers to show: ${allProviders.map((p) => p['name'])}'); // برای دیباگ
+          print(
+            'All Providers to show: ${allProviders.map((p) => p['name'])}',
+          ); // برای دیباگ
 
           if (mounted) {
             setState(() {
@@ -332,9 +382,11 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
       print('خطا در prepareFilteredProviders: $error');
     }
   }
+
   // --- انتخاب شرکت برای مشتری عمده ---
   void _selectProviderForWholesale(Map<String, dynamic> provider) {
     final providerName = provider['name']?.toString().trim() ?? '';
+    final providerCode = provider['wholesale_code']?.toString().trim() ?? '';
 
     print('انتخاب شرکت: $providerName');
     print('کدهای دیلری مشتری: $_currentCustomerWholesaleCodes');
@@ -342,6 +394,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
 
     setState(() {
       selectedOperator = providerName;
+      _selectedBulkProviderCode = providerCode; // ذخیره کد شرکت برای مشتری عمده
       _isOtherProviderSelected = (providerName == 'دیگر');
 
       if (_isOtherProviderSelected) {
@@ -370,15 +423,17 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
         }
 
         // 4. لاگ برای دیباگ
-        print('شرکت "دیگر" انتخاب شد. فیلد کد شرکت باز شد و شماره تماس تنظیم شد.');
-
+        print(
+          'شرکت "دیگر" انتخاب شد. فیلد کد شرکت باز شد و شماره تماس تنظیم شد.',
+        );
       } else {
         // 🔵 منطق انتخاب شرکت از لیست:
         // پیدا کردن کد شرکت برای این مشتری
         Map<String, dynamic>? foundCompanyData;
 
         for (var codeData in _currentCustomerWholesaleCodes) {
-          final companyNameInCode = codeData['company_name']?.toString().trim() ?? '';
+          final companyNameInCode =
+              codeData['company_name']?.toString().trim() ?? '';
           if (companyNameInCode == providerName) {
             foundCompanyData = codeData;
             break;
@@ -386,9 +441,11 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
         }
 
         if (foundCompanyData != null && foundCompanyData.isNotEmpty) {
-          final companyCode = foundCompanyData['company_code']?.toString() ??
+          final companyCode =
+              foundCompanyData['company_code']?.toString() ??
               foundCompanyData['dealer_code']?.toString() ??
-              foundCompanyData['code']?.toString() ?? '';
+              foundCompanyData['code']?.toString() ??
+              '';
 
           print('کد شرکت یافت شد: $companyCode');
 
@@ -399,7 +456,8 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
           isCompanySelectionLocked = true;
 
           // 3. شماره تماس از کد دیلری را تنظیم کن (اگر وجود دارد)
-          final customerPhone = foundCompanyData['phone']?.toString() ??
+          final customerPhone =
+              foundCompanyData['phone']?.toString() ??
               foundCompanyData['contact_number']?.toString();
           if (customerPhone != null && customerPhone.isNotEmpty) {
             wholesalePhoneCtrl.text = customerPhone;
@@ -409,9 +467,10 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
             // اگر شماره در کد دیلری نبود، شماره ذخیره شده مشتری را قرار بده
             _selectedBulkPhone = _bulkCustomerPhones.first;
             wholesalePhoneCtrl.text = _selectedBulkPhone!;
-            print('شماره تماس از پروفایل مشتری تنظیم شد: ${_selectedBulkPhone}');
+            print(
+              'شماره تماس از پروفایل مشتری تنظیم شد: ${_selectedBulkPhone}',
+            );
           }
-
         } else {
           print('کد شرکت یافت نشد!');
           companyCodeCtrl.clear();
@@ -427,15 +486,127 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
       }
     });
   }
+
   void _setCompanyData(Map<String, dynamic> companyData) {
     setState(() {
-      String name = (companyData['company'] ?? companyData['company_name'] ?? '').toString();
-      String code = (companyData['code'] ?? companyData['dealer_code'] ?? '').toString();
+      String name =
+          (companyData['company'] ?? companyData['company_name'] ?? '')
+              .toString();
+      String code = (companyData['code'] ?? companyData['dealer_code'] ?? '')
+          .toString();
 
       selectedOperator = name;
       companyCodeCtrl.text = code;
       isCompanySelectionLocked = true;
     });
+  }
+
+  // --- تابع ساخت کد USSD ---
+  String _buildUSSDCode() {
+    if (customerType == 'normal') {
+      // برای مشتری عادی
+      if (_selectedNormalProviderCode == null ||
+          phoneCtrl.text.isEmpty ||
+          creditCtrl.text.isEmpty) {
+        return '';
+      }
+
+      // شکل: *کد شرکت*شماره تماس*مقدار#
+      return '*${_selectedNormalProviderCode}*${phoneCtrl.text}*${creditCtrl.text}#';
+    } else if (customerType == 'bulk') {
+      // برای مشتری عمده
+      if (_selectedBulkProviderCode == null || creditCtrl.text.isEmpty) {
+        return '';
+      }
+
+      if (_isOtherProviderSelected) {
+        // اگر گزینه "دیگر" انتخاب شده
+        if (wholesalePhoneCtrl.text.isEmpty) return '';
+        // شکل: *کد شرکت*شماره تماس*مقدار#
+        return '*${_selectedBulkProviderCode}*${wholesalePhoneCtrl.text}*${creditCtrl.text}#';
+      } else {
+        // اگر شرکت مشخص انتخاب شده
+        if (companyCodeCtrl.text.isEmpty) return '';
+        // شکل: *کد شرکت*کد مشتری*مقدار#
+        return '*${_selectedBulkProviderCode}*${companyCodeCtrl.text}*${creditCtrl.text}#';
+      }
+    }
+
+    return '';
+  }
+
+  // --- ویجت نمایش کد USSD ---
+  Widget _buildUSSDCodePreview() {
+    String ussdCode = _buildUSSDCode();
+    if (ussdCode.isEmpty) return Container();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionHeader('کد USSD تولید شده'),
+        const SizedBox(height: 8),
+        _cardWrapper(
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.green[50],
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey),
+            ),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.phone_callback, color: kPrimaryColor),
+                    onPressed: () async {
+                      final Uri phoneUri = Uri(
+                        scheme: 'tel',
+                        path: ussdCode, // شماره تلفن
+                      );
+
+                      try {
+                        await launchUrl(
+                          phoneUri,
+                          mode: LaunchMode.externalApplication, // خیلی مهم
+                        );
+                      } catch (e) {
+                        debugPrint('خطا در باز کردن شماره‌گیر: $e');
+                      }
+                    }
+
+
+                  // // کپی کردن کد به کلیپ‌بورد
+                  // // می‌توانید از package clipboard استفاده کنید
+                  // // Clipboard.setData(ClipboardData(text: ussdCode));
+                  // ScaffoldMessenger.of(context).showSnackBar(
+                  //   const SnackBar(
+                  //     content: Text('کد در کلیپ‌بورد کپی شد'),
+                  //     duration: Duration(seconds: 2),
+                  //   ),
+                  // );
+                ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        textDirection: TextDirection.ltr,
+                        ussdCode,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'monospace',
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -472,7 +643,15 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
             icon: const Icon(Icons.arrow_forward, color: Color(0xFF1B0E0E)),
           ),
           const Expanded(
-            child: Text('فروش شارژ دیجیتال', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF1B0E0E))),
+            child: Text(
+              'فروش شارژ دیجیتال',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+                color: Color(0xFF1B0E0E),
+              ),
+            ),
           ),
           const Icon(Icons.notifications, color: Colors.grey),
         ],
@@ -486,20 +665,21 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CompositedTransformTarget(
-            link: _layerLink,
-            child: _customerInputs(),
-          ),
+          CompositedTransformTarget(link: _layerLink, child: _customerInputs()),
           const SizedBox(height: 20),
           _customerTypeSection(),
           const SizedBox(height: 20),
           _operatorSection(),
           const SizedBox(height: 20),
-          customerType == 'normal' ? _phoneInputSection() : _bulkCustomerSection(),
+          customerType == 'normal'
+              ? _phoneInputSection()
+              : _bulkCustomerSection(),
           const SizedBox(height: 20),
           _paymentSection(),
           const SizedBox(height: 20),
           _communicationSection(),
+          const SizedBox(height: 20),
+          _buildUSSDCodePreview(),
         ],
       ),
     );
@@ -531,8 +711,16 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
         _cardWrapper(
           Row(
             children: [
-              _customerTypeItem(keyName: 'normal', icon: Icons.person, label: 'عادی'),
-              _customerTypeItem(keyName: 'bulk', icon: Icons.inventory_2, label: 'عمده'),
+              _customerTypeItem(
+                keyName: 'normal',
+                icon: Icons.person,
+                label: 'عادی',
+              ),
+              _customerTypeItem(
+                keyName: 'bulk',
+                icon: Icons.inventory_2,
+                label: 'عمده',
+              ),
             ],
           ),
         ),
@@ -540,7 +728,11 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
     );
   }
 
-  Widget _customerTypeItem({required String keyName, required IconData icon, required String label}) {
+  Widget _customerTypeItem({
+    required String keyName,
+    required IconData icon,
+    required String label,
+  }) {
     final selected = customerType == keyName;
     return Expanded(
       child: GestureDetector(
@@ -555,6 +747,9 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
             _selectedBulkPhone = null;
             _filteredProviders.clear();
             wholesalePhoneCtrl.clear();
+            // ریست کردن متغیرهای USSD
+            _selectedNormalProviderCode = null;
+            _selectedBulkProviderCode = null;
             if (keyName == 'normal') {
               companyCodeCtrl.clear();
             }
@@ -564,16 +759,28 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
           height: 56,
           margin: const EdgeInsets.symmetric(horizontal: 4),
           decoration: BoxDecoration(
-            color: selected ? primary.withValues(alpha: 0.08) : const Color(0xFFF3F4F6),
+            color: selected
+                ? primary.withValues(alpha: 0.08)
+                : const Color(0xFFF3F4F6),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: selected ? primary : Colors.transparent, width: 2),
+            border: Border.all(
+              color: selected ? primary : Colors.transparent,
+              width: 2,
+            ),
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(icon, size: 18, color: selected ? primary : textMuted),
               const SizedBox(height: 4),
-              Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: selected ? primary : textMuted)),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: selected ? primary : textMuted,
+                ),
+              ),
             ],
           ),
         ),
@@ -589,12 +796,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
       children: [
         _sectionHeader('انتخاب شرکت (سرویس‌دهنده)'),
         const SizedBox(height: 8),
-        _cardWrapper(
-          SizedBox(
-            height: 110,
-            child: _buildOperatorList(),
-          ),
-        ),
+        _cardWrapper(SizedBox(height: 110, child: _buildOperatorList())),
       ],
     );
   }
@@ -602,7 +804,9 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
   Widget _buildOperatorList() {
     // اگر مشتری عمده است
     print('Customer Type: $customerType'); // برای دیباگ
-    print('Filtered Providers Count: ${_filteredProviders.length}'); // برای دیباگ
+    print(
+      'Filtered Providers Count: ${_filteredProviders.length}',
+    ); // برای دیباگ
 
     // اگر مشتری عمده است
     if (customerType == 'bulk') {
@@ -627,7 +831,6 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
         physics: const BouncingScrollPhysics(),
         itemCount: _filteredProviders.length,
         itemBuilder: (context, index) {
-
           final provider = _filteredProviders[index];
           final name = provider['name']?.toString() ?? '';
           final type = provider['type']?.toString() ?? '';
@@ -635,6 +838,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
           return _operatorItem(
             name,
             type,
+            provider: provider,
             isOther: name == 'دیگر',
           );
         },
@@ -658,6 +862,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
             return _operatorItem(
               p['name']?.toString() ?? '',
               p['type']?.toString() ?? '',
+              provider: p,
             );
           },
         );
@@ -665,7 +870,12 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
     );
   }
 
-  Widget _operatorItem(String title, String type, {bool isOther = false}) {
+  Widget _operatorItem(
+    String title,
+    String type, {
+    Map<String, dynamic>? provider,
+    bool isOther = false,
+  }) {
     final isSelected = selectedOperator == title;
 
     return GestureDetector(
@@ -676,7 +886,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
 
           // پیدا کردن provider کامل از لیست فیلتر شده
           final provider = _filteredProviders.firstWhere(
-                (p) => p['name']?.toString() == title,
+            (p) => p['name']?.toString() == title,
             orElse: () => {},
           );
 
@@ -688,7 +898,9 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
           if (isCompanySelectionLocked) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('شرکت بر اساس کد دیلری مشتری انتخاب شده قفل شده است.'),
+                content: Text(
+                  'شرکت بر اساس کد دیلری مشتری انتخاب شده قفل شده است.',
+                ),
                 behavior: SnackBarBehavior.floating,
               ),
             );
@@ -696,6 +908,11 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
           }
           setState(() {
             selectedOperator = title;
+            // ذخیره کد شرکت برای مشتری عادی
+            if (provider != null) {
+              _selectedNormalProviderCode =
+                  provider['ordinary_code']?.toString() ?? '';
+            }
           });
         }
       },
@@ -712,7 +929,13 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
             width: isSelected ? 2 : 1,
           ),
           boxShadow: isSelected
-              ? [BoxShadow(color: primary.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, 2))]
+              ? [
+                  BoxShadow(
+                    color: primary.withOpacity(0.1),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
               : [],
         ),
         child: Column(
@@ -721,12 +944,16 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: isOther ? Colors.orange : (isSelected ? primary : const Color(0xFFF3F4F6)),
+                color: isOther
+                    ? Colors.orange
+                    : (isSelected ? primary : const Color(0xFFF3F4F6)),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 isOther ? Icons.add_business : Icons.business_center,
-                color: isOther ? Colors.white : (isSelected ? Colors.white : Colors.grey),
+                color: isOther
+                    ? Colors.white
+                    : (isSelected ? Colors.white : Colors.grey),
                 size: 18,
               ),
             ),
@@ -783,15 +1010,27 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
           height: 56,
           margin: const EdgeInsets.symmetric(horizontal: 4),
           decoration: BoxDecoration(
-            color: selected ? primary.withOpacity(0.08) : const Color(0xFFF3F4F6),
+            color: selected
+                ? primary.withOpacity(0.08)
+                : const Color(0xFFF3F4F6),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: selected ? primary : Colors.transparent, width: 2),
+            border: Border.all(
+              color: selected ? primary : Colors.transparent,
+              width: 2,
+            ),
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(icon, size: 18, color: selected ? primary : textMuted),
-              Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: selected ? primary : textMuted)),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: selected ? primary : textMuted,
+                ),
+              ),
             ],
           ),
         ),
@@ -805,7 +1044,10 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('شماره موبایل', style: TextStyle(fontWeight: FontWeight.bold)),
+        const Text(
+          'شماره موبایل',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         const SizedBox(height: 6),
 
         // اگر شماره‌های مشتری ذخیره شده‌اند، لیست را نمایش بده
@@ -832,10 +1074,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
             children: _normalCustomerPhones.map((phone) {
               return RadioListTile<String>(
                 activeColor: kPrimaryColor,
-                title: Text(
-                  phone,
-                  style: const TextStyle(fontSize: 14),
-                ),
+                title: Text(phone, style: const TextStyle(fontSize: 14)),
                 value: phone,
                 groupValue: _selectedPhone,
                 onChanged: (String? value) {
@@ -892,12 +1131,14 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
       children: [
         // اگر شرکت "دیگر" انتخاب شده، فقط فیلد شماره تماس نمایش داده شود
         if (_isOtherProviderSelected) ...[
-          const Text('شماره تماس', style: TextStyle(fontWeight: FontWeight.bold)),
+          const Text(
+            'شماره تماس',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 6),
 
           // اگر شماره‌های مشتری ذخیره شده‌اند، لیست را نمایش بده
-          if (_bulkCustomerPhones.isNotEmpty)
-            _buildBulkPhoneInputField(),
+          if (_bulkCustomerPhones.isNotEmpty) _buildBulkPhoneInputField(),
         ],
 
         // فیلد کد شرکت فقط وقتی نمایش داده شود که شرکت "دیگر" انتخاب نشده باشد
@@ -924,7 +1165,9 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
                 prefixIcon: const Icon(Icons.business, color: kPrimaryColor),
                 hintText: 'مثال: 454587',
                 filled: true,
-                fillColor: isCompanySelectionLocked ? Colors.grey[200] : surfaceLight,
+                fillColor: isCompanySelectionLocked
+                    ? Colors.grey[200]
+                    : surfaceLight,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
                   borderSide: BorderSide.none,
@@ -952,10 +1195,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
             children: _bulkCustomerPhones.map((phone) {
               return RadioListTile<String>(
                 activeColor: kPrimaryColor,
-                title: Text(
-                  phone,
-                  style: const TextStyle(fontSize: 14),
-                ),
+                title: Text(phone, style: const TextStyle(fontSize: 14)),
                 value: phone,
                 groupValue: _selectedBulkPhone,
                 onChanged: (String? value) {
@@ -1024,10 +1264,20 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
                 children: const [
                   Icon(Icons.calculate, color: Colors.grey),
                   SizedBox(width: 6),
-                  Text('مجموع (قابل پرداخت)', style: TextStyle(fontWeight: FontWeight.bold)),
+                  Text(
+                    'مجموع (قابل پرداخت)',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ],
               ),
-              Text('$total AFN', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: primary)),
+              Text(
+                '$total AFN',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: primary,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -1067,7 +1317,9 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
           backgroundColor: primaryBtn ? primary : surfaceLight,
           foregroundColor: primaryBtn ? Colors.white : primary,
           side: primaryBtn ? null : const BorderSide(color: primary, width: 2),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
         ),
       ),
     );
@@ -1096,7 +1348,10 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
   }
 
   Widget _sectionHeader(String title) {
-    return Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14));
+    return Text(
+      title,
+      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+    );
   }
 
   Widget _cardWrapper(Widget child) {
@@ -1141,7 +1396,10 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
               prefixIcon: Icon(Icons.search, color: kPrimaryColor),
               hintStyle: const TextStyle(color: Colors.grey),
               border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 6,
+                vertical: 8,
+              ),
               hintText: hint,
               hoverColor: kPrimaryColor,
             ),

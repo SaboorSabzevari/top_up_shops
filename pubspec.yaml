@@ -50,6 +50,7 @@ dependencies:
   persistent_bottom_nav_bar:
   flutter_contacts:
   permission_handler:
+  url_launcher:
 
 
 dev_dependencies:

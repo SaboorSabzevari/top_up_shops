@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:top_up_shops/src/presentation/screens/dashboard/send_credit/send_credit_screen.dart';
 
-import '../send_credit/send_credit_screen.dart';
+
 
 class DashboardPage extends StatelessWidget {
   const DashboardPage({super.key});

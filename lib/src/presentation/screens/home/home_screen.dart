@@ -74,6 +74,7 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PersistentTabView(
+    hideNavigationBarWhenKeyboardAppears: false,
       context,
       controller: _controller,
       screens: _buildScreens(),

@@ -59,6 +59,14 @@ class DatabaseHelper {
     await db.execute('CREATE TABLE customer_phones (id INTEGER PRIMARY KEY AUTOINCREMENT, customer_id INTEGER, phone_number TEXT)');
     // جدول کدهای شرکت (عمده)
     await db.execute('CREATE TABLE customer_wholesale_codes (id INTEGER PRIMARY KEY AUTOINCREMENT, customer_id INTEGER, company_name TEXT, company_code TEXT)');
+    await db.execute('''
+  CREATE TABLE units (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    buy_price REAL NOT NULL,
+    sell_price REAL NOT NULL,
+    name TEXT
+  )
+''');
     // جدول شرکت‌های تامین کننده
     await db.execute('CREATE TABLE providers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, type TEXT, ordinary_code TEXT, wholesale_code TEXT)'); // جدول تراکنش‌ها
     await db.execute('''CREATE TABLE transactions (
@@ -73,8 +81,8 @@ class DatabaseHelper {
       {
         'name': 'ستارگان متحد',
         'type': 'ستارگان متحد',
-        'ordinary_code': '*543*2*', // کدی که خودت تعیین می‌کنی
-        'wholesale_code': '*543*6*'
+        'ordinary_code': '543*2', // کدی که خودت تعیین می‌کنی
+        'wholesale_code': '543*6'
       },
       {
         'name': 'اکتیو سرویس',
@@ -85,14 +93,14 @@ class DatabaseHelper {
       {
         'name': 'افغان پی',
         'type': 'افغان پی',
-        'ordinary_code': '*511*',
-        'wholesale_code': '*511*5*'
+        'ordinary_code': '511',
+        'wholesale_code': '511*5'
       },
       {
         'name': 'شاهی ایزیلود',
         'type': 'شاهی ایزیلود',
-        'ordinary_code': '*545*',
-        'wholesale_code': '*511*5*'
+        'ordinary_code': '545',
+        'wholesale_code': '511*5'
       },
       {
         'name': 'سلام (Salaam)',
@@ -205,4 +213,62 @@ class DatabaseHelper {
     return await db.insert('transactions', data);
   }
 
+
+  Future<Map<String, dynamic>> getSingleUnit() async {
+    final db = await instance.database;
+    final List<Map<String, dynamic>> maps = await db.query('units', where: 'id = ?', whereArgs: [1]);
+
+    if (maps.isNotEmpty) {
+      return maps.first;
+    } else {
+      // ایجاد ردیف پیش‌فرض در صورت عدم وجود
+      await db.insert('units', {
+        'id': 1,
+        'buy_price': 0.95,
+        'sell_price': 0.96,
+        'name': 'واحد اصلی سیستم'
+      });
+      return {'id': 1, 'buy_price': 0.95, 'sell_price': 0.96, 'name': 'واحد اصلی سیستم'};
+    }
+  }
+
+  // بروزرسانی تنظیمات واحد واحد
+  Future<int> updateSingleUnit(double buy, double sell) async {
+    final db = await instance.database;
+    return await db.update(
+      'units',
+      {
+        'buy_price': buy,
+        'sell_price': sell,
+      },
+      where: 'id = ?',
+      whereArgs: [1],
+    );
+  }
+
+// ۲. افزودن واحد جدید
+Future<int> addUnit(double buy, double sell) async {
+  final db = await instance.database;
+  return await db.insert('units', {
+    'buy_price': buy,
+    'sell_price': sell,
+    'name': 'واحد جدید'
+  });
 }
+
+// ۳. بروزرسانی واحد
+Future<int> updateUnit(int id, double buy, double sell) async {
+  final db = await instance.database;
+  return await db.update(
+    'units',
+    {'buy_price': buy, 'sell_price': sell},
+    where: 'id = ?',
+    whereArgs: [id],
+  );
+}
+
+// ۴. حذف واحد
+Future<int> deleteUnit(int id) async {
+  final db = await instance.database;
+  return await db.delete('units', where: 'id = ?', whereArgs: [id]);
+}}
