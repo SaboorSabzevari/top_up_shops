@@ -70,10 +70,19 @@ class DatabaseHelper {
     // جدول شرکت‌های تامین کننده
     await db.execute('CREATE TABLE providers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, type TEXT, ordinary_code TEXT, wholesale_code TEXT)'); // جدول تراکنش‌ها
     await db.execute('''CREATE TABLE transactions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT, customer_id INTEGER, customer_name TEXT, customer_code TEXT, customer_type TEXT,
-      provider_id INTEGER, provider_name TEXT, target_destination TEXT, provider_used_code TEXT,
-      credit_amount REAL, discount REAL, total_amount REAL, paid_amount REAL, remaining_amount REAL,
-      communication_method TEXT, transaction_date TEXT)''');
+  id INTEGER PRIMARY KEY AUTOINCREMENT, 
+  customer_id INTEGER, 
+  customer_name TEXT, 
+  customer_type TEXT,
+  operator_name TEXT, 
+  phone_number TEXT, 
+  company_code TEXT,
+  sent_amount REAL, 
+  received_amount REAL, 
+  cost_price REAL, 
+  profit REAL, 
+  ussd_command TEXT, 
+  created_at TEXT)''');
     await _seedProviders(db);
   }
   Future<void> _seedProviders(Database db) async {
@@ -292,3 +301,20 @@ class DatabaseHelper {
       'created_at': DateTime.now().toIso8601String(),
     });
   }}
+
+// Future<int> saveDetailedTransaction(Map<String, dynamic> data) async {
+//   final db = await instance.database;
+//   return await db.insert('transactions', {
+//     'customer_id': data['customer_id'],
+//     'customer_name': data['customer_name'],
+//     'customer_type': data['customer_type'],
+//     'provider_name': data['operator_name'], // اصلاح شد
+//     'target_destination': data['phone_number'], // اصلاح شد
+//     'provider_used_code': data['company_code'], // اصلاح شد
+//     'credit_amount': data['sent_amount'], // اصلاح شد
+//     'total_amount': data['received_amount'], // اصلاح شد
+//     'transaction_date': DateTime.now().toIso8601String(), // اصلاح شد
+//     // نکته: ستون‌های profit و cost_price در تعریف جدول شما وجود ندارند
+//     // اگر به آن‌ها نیاز دارید، راه حل دوم را انجام دهید.
+//   });
+// }

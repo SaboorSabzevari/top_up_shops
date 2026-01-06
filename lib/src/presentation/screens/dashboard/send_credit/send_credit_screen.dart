@@ -211,6 +211,10 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
     _overlayEntry = null;
   }
   Future<void> _processAndSaveTransaction() async {
+    String finalPhone = (customerType == 'normal') ? phoneCtrl.text : wholesalePhoneCtrl.text;
+
+// سپس در مپ دیتا:
+
     try {
       // ۱. پاکسازی متن ورودی از فاصله‌های احتمالی
       String amountText = creditCtrl.text.trim();
@@ -240,7 +244,6 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
         return;
       }
 
-      // ۴. دریافت نرخ واحد و محاسبات
       final unitSettings = await DatabaseHelper.instance.getSingleUnit();
       double buyRate = unitSettings['buy_price'] ?? 0.0;
       double sellRate = unitSettings['sell_price'] ?? 0.0;
@@ -248,28 +251,24 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
       double costPrice = sentAmount * buyRate;
       double receivedAmount = sentAmount * sellRate;
       double profit = receivedAmount - costPrice;
-
-      // ۵. ساخت کد USSD
       String finalCode = "*${companyCodeCtrl.text}*${phoneCtrl.text}*${sentAmount.toInt()}#";
 
-      // ۶. ذخیره در دیتابیس
       await DatabaseHelper.instance.saveDetailedTransaction({
         'customer_id': selectedCustomerId,
         'customer_name': customerNameCtrl.text,
         'customer_type': customerType,
         'operator_name': selectedOperator,
-        'phone_number': phoneCtrl.text,
         'company_code': companyCodeCtrl.text,
         'sent_amount': sentAmount,
         'received_amount': receivedAmount,
         'cost_price': costPrice,
         'profit': profit,
         'ussd_command': finalCode,
+        'phone_number': finalPhone,
       });
 
       if (mounted) {
         _showSuccessDialog(receivedAmount, profit, finalCode);
-        // پاکسازی فیلد مبلغ بعد از موفقیت
         amountCtrl.clear();
       }
 
