@@ -26,10 +26,10 @@ class DatabaseHelper {
   }
 
   // متد پیشرفته ثبت تراکنش با محاسبه آنی
-  Future<int> insertFullTransaction(TransactionEntity txn) async {
-    final db = await instance.database;
-    return await db.insert('transactions', txn.toMap());
-  }
+  // Future<int> insertFullTransaction(TransactionEntity txn) async {
+  //   final db = await instance.database;
+  //   return await db.insert('transactions', txn.toMap());
+  // }
   // پیشنهادی برای اضافه کردن به app_database.dart
   Future<List<Map<String, dynamic>>> getDailyTransactions(String date) async {
     final db = await instance.database;

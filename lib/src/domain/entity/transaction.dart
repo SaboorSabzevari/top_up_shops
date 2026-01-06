@@ -1,41 +1,52 @@
-class TransactionEntity {
-  final int? id;
-  final int customerId;
+class TransactionModel {
+  final int id;
   final String customerName;
-  final String customerCode;
-  final String customerType;
-  final int providerId;
-  final String providerName;
-  final String targetDestination; // شماره یا کد شرکت
-  final String providerUsedCode;
-  final double creditAmount;
-  final double discount;
-  final double totalAmount;
-  final double paidAmount;
-  final double remainingAmount;
-  final String communicationMethod;
-  final String transactionDate;
-  final String transactionTime;
+  final String customerType; // اضافه شده
+  final String phoneNumber;  // تغییر نام از phone به phoneNumber برای هماهنگی با UI
+  final String companyCode;  // اضافه شده
+  final String operator;
+  final int sentAmount;
+  final int receivedAmount;
+  final int profit;
+  final String createdAt;
 
-  TransactionEntity({
-    this.id, required this.customerId, required this.customerName,
-    required this.customerCode, required this.customerType,
-    required this.providerId, required this.providerName,
-    required this.targetDestination, required this.providerUsedCode,
-    required this.creditAmount, required this.discount,
-    required this.totalAmount, required this.paidAmount,
-    required this.remainingAmount, required this.communicationMethod,
-    required this.transactionDate, required this.transactionTime,
+  TransactionModel({
+    required this.id,
+    required this.customerName,
+    required this.customerType,
+    required this.phoneNumber,
+    required this.companyCode,
+    required this.operator,
+    required this.sentAmount,
+    required this.receivedAmount,
+    required this.profit,
+    required this.createdAt,
   });
 
-  Map<String, dynamic> toMap() => {
-    'customer_id': customerId, 'customer_name': customerName,
-    'customer_code': customerCode, 'customer_type': customerType,
-    'provider_id': providerId, 'provider_name': providerName,
-    'target_destination': targetDestination, 'provider_used_code': providerUsedCode,
-    'credit_amount': creditAmount, 'discount': discount,
-    'total_amount': totalAmount, 'paid_amount': paidAmount,
-    'remaining_amount': remainingAmount, 'communication_method': communicationMethod,
-    'transaction_date': transactionDate, 'transaction_time': transactionTime,
-  };
+  factory TransactionModel.fromMap(Map<String, dynamic> map) {
+    return TransactionModel(
+      id: map['id'] as int,
+
+      // دریافت نام مشتری
+      customerName: (map['customer_name'] ?? '—') as String,
+
+      // دریافت نوع مشتری (مطابق با نام ستون در app_database.dart)
+      customerType: (map['customer_type'] ?? 'normal') as String,
+
+      // دریافت شماره تماس (نام ستون در دیتابیس phone_number است)
+      phoneNumber: (map['phone_number'] ?? '') as String,
+
+      // دریافت کد شرکت (مطابق با نام ستون در app_database.dart)
+      companyCode: (map['company_code'] ?? '') as String,
+
+      // نکته مهم: در دیتابیس شما نام ستون operator_name است، نه operator
+      operator: (map['operator_name'] ?? 'نامشخص') as String,
+
+      sentAmount: (map['sent_amount'] ?? 0).toInt(),
+      receivedAmount: (map['received_amount'] ?? 0).toInt(),
+      profit: (map['profit'] ?? 0).toInt(),
+
+      createdAt: (map['created_at'] ?? '') as String,
+    );
+  }
 }
