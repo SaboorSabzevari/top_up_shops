@@ -87,8 +87,8 @@ class DatabaseHelper {
       {
         'name': 'اکتیو سرویس',
         'type': 'اکتیو سرویس',
-        'ordinary_code': '*683*',
-        'wholesale_code': '*683*2*'
+        'ordinary_code': '683',
+        'wholesale_code': '683*2'
       },
       {
         'name': 'افغان پی',
@@ -247,28 +247,48 @@ class DatabaseHelper {
   }
 
 // ۲. افزودن واحد جدید
-Future<int> addUnit(double buy, double sell) async {
-  final db = await instance.database;
-  return await db.insert('units', {
-    'buy_price': buy,
-    'sell_price': sell,
-    'name': 'واحد جدید'
-  });
-}
+  Future<int> addUnit(double buy, double sell) async {
+    final db = await instance.database;
+    return await db.insert('units', {
+      'buy_price': buy,
+      'sell_price': sell,
+      'name': 'واحد جدید'
+    });
+  }
 
 // ۳. بروزرسانی واحد
-Future<int> updateUnit(int id, double buy, double sell) async {
-  final db = await instance.database;
-  return await db.update(
-    'units',
-    {'buy_price': buy, 'sell_price': sell},
-    where: 'id = ?',
-    whereArgs: [id],
-  );
-}
+  Future<int> updateUnit(int id, double buy, double sell) async {
+    final db = await instance.database;
+    return await db.update(
+      'units',
+      {'buy_price': buy, 'sell_price': sell},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
 
 // ۴. حذف واحد
-Future<int> deleteUnit(int id) async {
-  final db = await instance.database;
-  return await db.delete('units', where: 'id = ?', whereArgs: [id]);
-}}
+  Future<int> deleteUnit(int id) async {
+    final db = await instance.database;
+    return await db.delete('units', where: 'id = ?', whereArgs: [id]);
+  }
+// در بخش متدهای DatabaseHelper اضافه کنید
+// این متد را به انتهای کلاس DatabaseHelper اضافه کنید
+// متد ذخیره تراکنش با تمام جزئیات مالی
+  Future<int> saveDetailedTransaction(Map<String, dynamic> data) async {
+    final db = await instance.database;
+    return await db.insert('transactions', {
+      'customer_id': data['customer_id'],
+      'customer_name': data['customer_name'],
+      'customer_type': data['customer_type'],
+      'operator_name': data['operator_name'],
+      'phone_number': data['phone_number'],
+      'company_code': data['company_code'],
+      'sent_amount': data['sent_amount'],
+      'received_amount': data['received_amount'],
+      'cost_price': data['cost_price'],
+      'profit': data['profit'],
+      'ussd_command': data['ussd_command'],
+      'created_at': DateTime.now().toIso8601String(),
+    });
+  }}
