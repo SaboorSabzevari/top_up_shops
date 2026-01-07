@@ -714,18 +714,21 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
             _appBar(context),
             Expanded(child: _content()),
             // در انتهای لیست ویجت‌های Column در body
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: _processAndSaveTransaction,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: kPrimaryColor,
-                minimumSize: const Size.fromHeight(55),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              ),
-              icon: const Icon(Icons.save, color: Colors.white),
-              label: const Text(
-                'ذخیره و ثبت تراکنش',
-                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.only(top:0.0,bottom: 14,right: 14,left: 14),
+              child: ElevatedButton.icon(
+                onPressed: _processAndSaveTransaction,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: kPrimaryColor,
+                  minimumSize: const Size.fromHeight(50),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+                icon: const Icon(Icons.save, color: Colors.white),
+                label: const Text(
+                  'ذخیره و ثبت تراکنش',
+                  style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                ),
               ),
             ),
           ],
