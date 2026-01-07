@@ -23,30 +23,20 @@ class TransactionModel {
     required this.createdAt,
   });
 
+  // در فایل transaction.dart متد fromMap را چک کنید:
+
   factory TransactionModel.fromMap(Map<String, dynamic> map) {
     return TransactionModel(
       id: map['id'] as int,
-
-      // دریافت نام مشتری
       customerName: (map['customer_name'] ?? '—') as String,
-
-      // دریافت نوع مشتری (مطابق با نام ستون در app_database.dart)
       customerType: (map['customer_type'] ?? 'normal') as String,
-
-      // دریافت شماره تماس (نام ستون در دیتابیس phone_number است)
       phoneNumber: (map['phone_number'] ?? '') as String,
-
-      // دریافت کد شرکت (مطابق با نام ستون در app_database.dart)
       companyCode: (map['company_code'] ?? '') as String,
-
-      // نکته مهم: در دیتابیس شما نام ستون operator_name است، نه operator
       operator: (map['operator_name'] ?? 'نامشخص') as String,
-
-      sentAmount: (map['sent_amount'] ?? 0).toInt(),
-      receivedAmount: (map['received_amount'] ?? 0).toInt(),
-      profit: (map['profit'] ?? 0).toInt(),
-
+      // استفاده از .toDouble().toInt() برای اطمینان از عدم خطا در مقادیر REAL
+      sentAmount: (map['sent_amount'] as num? ?? 0).toInt(),
+      receivedAmount: (map['received_amount'] as num? ?? 0).toInt(),
+      profit: (map['profit'] as num? ?? 0).toInt(),
       createdAt: (map['created_at'] ?? '') as String,
     );
-  }
-}
+  }}

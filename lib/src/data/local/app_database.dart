@@ -301,20 +301,3 @@ class DatabaseHelper {
       'created_at': DateTime.now().toIso8601String(),
     });
   }}
-
-// Future<int> saveDetailedTransaction(Map<String, dynamic> data) async {
-//   final db = await instance.database;
-//   return await db.insert('transactions', {
-//     'customer_id': data['customer_id'],
-//     'customer_name': data['customer_name'],
-//     'customer_type': data['customer_type'],
-//     'provider_name': data['operator_name'], // اصلاح شد
-//     'target_destination': data['phone_number'], // اصلاح شد
-//     'provider_used_code': data['company_code'], // اصلاح شد
-//     'credit_amount': data['sent_amount'], // اصلاح شد
-//     'total_amount': data['received_amount'], // اصلاح شد
-//     'transaction_date': DateTime.now().toIso8601String(), // اصلاح شد
-//     // نکته: ستون‌های profit و cost_price در تعریف جدول شما وجود ندارند
-//     // اگر به آن‌ها نیاز دارید، راه حل دوم را انجام دهید.
-//   });
-// }

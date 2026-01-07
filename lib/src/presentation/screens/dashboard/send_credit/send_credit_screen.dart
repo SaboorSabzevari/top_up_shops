@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../data/local/app_database.dart';
 import '../../../../providers/app_providers.dart';
+import '../../../../providers/transaction_provider.dart';
 import '../../../../utils/colors.dart';
 import '../../../theme/colors.dart';
 import '../../customer/add_customer.dart';
@@ -269,6 +270,9 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
 
       if (mounted) {
         _showSuccessDialog(receivedAmount, profit, finalCode);
+        ref.invalidate(transactionsProvider);
+        ref.invalidate(todayProfitProvider);
+        ref.invalidate(todayCountProvider);
         amountCtrl.clear();
       }
 

@@ -18,27 +18,29 @@ class TransactionRepository {
   }
 
   /// سود امروز
+  // در فایل transaction_repository.dart متد را به این شکل اصلاح کنید:
+
   Future<int> todayProfit() async {
     final database = await _db.database;
-
     final result = await database.rawQuery('''
-      SELECT SUM(profit) as total
-      FROM transactions
-      WHERE date(created_at) = date('now','localtime')
-    ''');
+    SELECT SUM(profit) as total
+    FROM transactions
+    WHERE date(created_at) = date('now','localtime')
+  ''');
 
-    return result.first['total'] as int? ?? 0;
+    // تبدیل امن num به int برای جلوگیری از خطای نوع داده
+    final total = result.first['total'];
+    if (total == null) return 0;
+    return (total as num).toInt();
   }
 
-  /// موجودی صندوق
-  Future<int> walletBalance() async {
-    final database = await _db.database;
-
-    final result = await database.rawQuery('''
-      SELECT SUM(received_amount) as total
-      FROM transactions
-    ''');
-
-    return result.first['total'] as int? ?? 0;
-  }
-}
+/// تعداد تراکنش‌های امروز
+Future<int> todayTransactionsCount() async {
+  final database = await _db.database;
+  final result = await database.rawQuery('''
+    SELECT COUNT(*) as count 
+    FROM transactions 
+    WHERE date(created_at) = date('now','localtime')
+  ''');
+  return result.first['count'] as int? ?? 0;
+}}

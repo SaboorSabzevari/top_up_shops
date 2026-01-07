@@ -189,11 +189,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:top_up_shops/src/presentation/theme/colors.dart';
 import '../../../domain/entity/transaction.dart'; // آدرس مدل تراکنش شما
 import '../../../providers/transaction_provider.dart'; // آدرس پرووایدرهای شما
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-// import 'package:top_up_shops/src/presentation/theme/colors.dart'; // اگر این فایل وجود دارد، آنکامنت کنید
-import '../../../domain/entity/transaction.dart';
-import '../../../providers/transaction_provider.dart';
 import 'package:intl/intl.dart' as intl; // برای فرمت تاریخ
 
 // تعریف رنگ‌ها در صورت عدم دسترسی به فایل colors.dart
@@ -205,11 +200,9 @@ class TransactionHistoryPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     bool isDark = Theme.of(context).brightness == Brightness.dark;
-
-    final transactionsAsync = ref.watch(transactionsProvider);
+    final transactionsAsync = ref.watch(filteredTransactionsProvider);
     final todayProfitAsync = ref.watch(todayProfitProvider);
-    final walletBalanceAsync = ref.watch(walletBalanceProvider);
-    final transactionsAsync1 = ref.watch(filteredTransactionsProvider);
+    final todayCountAsync = ref.watch(todayCountProvider);
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -224,12 +217,13 @@ class TransactionHistoryPage extends ConsumerWidget {
             'تاریخچه تراکنش‌ها',
             style: TextStyle(color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.bold, fontSize: 18),
           ),
-          centerTitle: true,
+          centerTitle:  true,
         ),
         body: Column(
           children: [
-            _buildSummaryCards(todayProfitAsync, walletBalanceAsync),
-            _buildSearchBar(ref),
+            _buildSummaryCards(todayProfitAsync, todayCountAsync),
+            _buildSearchBar(ref, isDark),
+            _buildFilterChips(ref, isDark),
 
             Expanded(
               child: transactionsAsync.when(
@@ -256,32 +250,31 @@ class TransactionHistoryPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildSummaryCards(AsyncValue<int> profit, AsyncValue<int> balance) {
+  Widget _buildSummaryCards(AsyncValue<int> profit, AsyncValue<int> count) {
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Row(
         children: [
           Expanded(
             child: profit.when(
-              loading: () => _summaryBox("سود خالص امروز", "...", const Color(0xFF1E1E1E), textColor: Colors.white, subTextColor: Colors.red),
-              error: (_, __) => _summaryBox("سود خالص امروز", "خطا", const Color(0xFF1E1E1E), textColor: Colors.white, subTextColor: Colors.red),
-              data: (value) => _summaryBox("سود خالص امروز", value.toString(), const Color(0xFF1E1E1E), textColor: Colors.white, subTextColor: const Color(0xFFEA2A33)),
+              loading: () => _summaryBox("سود خالص امروز", "...", "",const Color(0xFF1E1E1E), textColor: Colors.white, subTextColor: Colors.red),
+              error: (_, __) => _summaryBox("سود خالص امروز", "خطا","", const Color(0xFF1E1E1E), textColor: Colors.white, subTextColor: Colors.red),
+              data: (value) => _summaryBox("سود خالص امروز", value.toString(), "افغانی",const Color(0xFF1E1E1E), textColor: Colors.white, subTextColor: const Color(0xFFEA2A33)),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: balance.when(
-              loading: () => _summaryBox("موجودی صندوق", "...", const Color(0xFFEA2A33), textColor: Colors.white, subTextColor: Colors.white70),
-              error: (_, __) => _summaryBox("موجودی صندوق", "خطا", const Color(0xFFEA2A33), textColor: Colors.white, subTextColor: Colors.white70),
-              data: (value) => _summaryBox("موجودی صندوق", value.toString(), const Color(0xFFEA2A33), textColor: Colors.white, subTextColor: Colors.white70),
+            child: count.when(
+              loading: () => _summaryBox("تعداد تراکنش امروز", "...", "",const Color(0xFFEA2A33), textColor: Colors.white, subTextColor: Colors.white70),
+              error: (_, __) => _summaryBox("تعداد تراکنش امروز", "خطا", "",const Color(0xFFEA2A33), textColor: Colors.white, subTextColor: Colors.white70),
+              data: (value) => _summaryBox("تعداد تراکنش امروز", value.toString(), "تراکنش",const Color(0xFFEA2A33), textColor: Colors.white, subTextColor: Colors.white70),
             ),
           ),
         ],
       ),
     );
   }
-
-  Widget _summaryBox(String title, String amount, Color bgColor, {required Color textColor, required Color subTextColor}) {
+  Widget _summaryBox(String title, String amount,String amountType, Color bgColor, {required Color textColor, required Color subTextColor}) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(16)),
@@ -295,7 +288,7 @@ class TransactionHistoryPage extends ConsumerWidget {
               children: [
                 Text(amount, style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 18)),
                 const SizedBox(width: 4),
-                Text("افغانی", style: TextStyle(color: subTextColor, fontSize: 10)),
+                Text(amountType, style: TextStyle(color: subTextColor, fontSize: 10)),
               ],
             ),
           )
@@ -488,23 +481,47 @@ class TransactionHistoryPage extends ConsumerWidget {
       ),
     );
   }
-  Widget _buildSearchBar(WidgetRef ref) {
+
+  Widget _buildSearchBar(WidgetRef ref, bool isDark) {
     return Padding(
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: TextField(
-        onChanged: (value) {
-          // آپدیت کردن استیت با هر تغییر در متن
-          ref.read(transactionSearchQueryProvider.notifier).state = value;
-        },
+        onChanged: (value) => ref.read(transactionSearchQueryProvider.notifier).state = value,
         decoration: InputDecoration(
-          hintText: "جستجو نام، شماره یا کد...",
-          prefixIcon: const Icon(Icons.search),
-          filled: true,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
-          ),
+          hintText: "جستجو (نام، شماره، کد شرکت)...",
+          prefixIcon: const Icon(Icons.search, color: Colors.grey),
+          // ... بقیه استایل‌ها
         ),
+      ),
+    );
+  }
+  Widget _buildFilterChips(WidgetRef ref, bool isDark) {
+    final currentType = ref.watch(filterCustomerTypeProvider);
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          FilterChip(
+            label: const Text("همه"),
+            selected: currentType == null,
+            onSelected: (_) => ref.read(filterCustomerTypeProvider.notifier).state = null,
+          ),
+          const SizedBox(width: 8),
+          FilterChip(
+            label: const Text("عادی"),
+            selected: currentType == 'normal',
+            onSelected: (_) => ref.read(filterCustomerTypeProvider.notifier).state = 'normal',
+          ),
+          const SizedBox(width: 8),
+          FilterChip(
+            label: const Text("عمده"),
+            selected: currentType == 'bulk',
+            onSelected: (_) => ref.read(filterCustomerTypeProvider.notifier).state = 'bulk',
+          ),
+          // می‌توانید فیلتر تاریخ را هم با یک IconButton و showDatePicker اینجا اضافه کنید
+        ],
       ),
     );
   }
