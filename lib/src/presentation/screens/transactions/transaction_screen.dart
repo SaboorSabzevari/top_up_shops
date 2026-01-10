@@ -34,7 +34,25 @@ class TransactionHistoryPage extends ConsumerWidget {
             _buildSummaryCards(todayProfitAsync, todayCountAsync),
             _buildSearchBar(ref, isDark),
             _buildFilterChips(context,ref, isDark),
-
+            if (ref.watch(filterDateProvider) != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  children: [
+                    const Icon(Icons.history_toggle_off, size: 14, color: Colors.grey),
+                    const SizedBox(width: 4),
+                    Text(
+                      "گزارش از ${intl.DateFormat('yyyy/MM/dd').format(ref.watch(filterDateProvider)!.start)} تا ${intl.DateFormat('yyyy/MM/dd').format(ref.watch(filterDateProvider)!.end)}",
+                      style: const TextStyle(fontSize: 10, color: Colors.grey, fontFamily: 'Manrope'),
+                    ),
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: () => ref.read(filterDateProvider.notifier).state = null,
+                      child: const Text("لغو فیلتر", style: TextStyle(fontSize: 10, color: Color(0xFFEA2A33))),
+                    )
+                  ],
+                ),
+              ),
             Expanded(
               child: transactionsAsync.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
@@ -339,6 +357,7 @@ class TransactionHistoryPage extends ConsumerWidget {
       ),
     );
   }
+
   // اضافه کردن BuildContext به ورودی متد
   Widget _buildFilterChips(BuildContext context, WidgetRef ref, bool isDark) {
     final currentType = ref.watch(filterCustomerTypeProvider);
@@ -379,27 +398,22 @@ class TransactionHistoryPage extends ConsumerWidget {
           const SizedBox(width: 8),
 
           // بخش تقویم
+          // در متد _buildFilterBar یا بخشی که آیکون تقویم قرار دارد:
           IconButton(
             onPressed: () async {
-              final DateTime? picked = await showDatePicker(
+              final DateTimeRange? picked = await showDateRangePicker(
                 context: context,
-                // حالا این متغیر شناخته شده است
-                initialDate: DateTime.now(),
-                firstDate: DateTime(2020),
-                lastDate: DateTime(2030),
+                initialDateRange: ref.read(filterDateProvider),
+                firstDate: DateTime(2023),
+                lastDate: DateTime.now(),
                 builder: (context, child) {
                   return Theme(
                     data: Theme.of(context).copyWith(
                       colorScheme: ColorScheme.light(
-                        primary: const Color(0xFFEA2A33), // رنگ هدر و روز انتخاب شده
-                        onPrimary: Colors.white,         // رنگ متن روی هدر
-                        onSurface: isDark ? Colors.white : Colors.black, // رنگ متن اعداد تقویم
+                        primary: const Color(0xFFEA2A33),
+                        onPrimary: Colors.white,
+                        onSurface: isDark ? Colors.white : Colors.black,
                       ),
-                      textButtonTheme: TextButtonThemeData(
-                        style: TextButton.styleFrom(
-                          foregroundColor: const Color(0xFFEA2A33), // رنگ دکمه‌های تایید و انصراف
-                        ),
-                      ), dialogTheme: DialogThemeData(backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white), // رنگ پس‌زمینه دیالوگ
                     ),
                     child: child!,
                   );
@@ -410,8 +424,10 @@ class TransactionHistoryPage extends ConsumerWidget {
                 ref.read(filterDateProvider.notifier).state = picked;
               }
             },
-            icon: Icon(Icons.calendar_month,
-                color: ref.watch(filterDateProvider) != null ? brandRed : Colors.grey),
+            icon: Icon(
+              Icons.date_range_rounded, // تغییر آیکون به بازه زمانی
+              color: ref.watch(filterDateProvider) != null ? kPrimaryColor : Colors.grey,
+            ),
             style: IconButton.styleFrom(
               backgroundColor: isDark ? Colors.white.withOpacity(0.05) : Colors.grey.shade100,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),

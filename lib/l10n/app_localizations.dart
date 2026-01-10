@@ -108,6 +108,53 @@ abstract class AppLocalizations {
   String get languag;
   String get notification;
   String get logout;
+  String get setUnitPrice;
+  String get setUnit;
+  String get aboutUs;
+
+  /// ** "TRANSACTION "
+  String get transactionHistory;
+  String get todayProfit;
+  String get todayTransactions;
+  String get searchHintText;
+  /// ** "CUSTOMERS"
+  String get customerList;
+  String get newCustomer;
+  String get customer;
+  /// ** "addNewCustomer"
+  String get addNewCustomer;
+  String get normalCustomer;
+  String get SalesCustomer;
+  String get uploadImage;
+  String get fullName;
+  String get fullnameHint;
+  String get phoneNumbers;
+  String get add;
+  String get uploadIDImage;
+  String get address;
+  String get addressHint;
+  String get salesCodes;
+  String get saveBotton;
+
+  /// ** "SendCredit"
+  String get sellCredit;
+  String get customerName;
+  String get customerType;
+  String get chooseCompany;
+  String get customerNumber;
+  String get creditAmount;
+  String get discount;
+  String get totalPayAble;
+  String get paiedAmount;
+  String get communicationWay;
+  String get verbal;
+  String get call;
+  String get whatsApp;
+  String get telegram;
+  String get transactionSaveAndSubmit;
+  String get customerNotFound;
+  String get submitNewCustomer;
+
 
   /// No description provided for @newSale.
   ///

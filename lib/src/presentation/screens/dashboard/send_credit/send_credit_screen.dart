@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../../l10n/app_localizations.dart';
 import '../../../../data/local/app_database.dart';
 import '../../../../providers/app_providers.dart';
 import '../../../../providers/transaction_provider.dart';
@@ -20,6 +22,8 @@ class DigitalTopupSalePage extends ConsumerStatefulWidget {
 
 class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
   int? selectedCustomerId;
+  late final l10n = AppLocalizations.of(context)!;
+
 
   final TextEditingController amountCtrl = TextEditingController();
   final TextEditingController customerNameCtrl = TextEditingController();
@@ -314,7 +318,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
         children: [
           const Icon(Icons.search_off, size: 40, color: Colors.grey),
           const SizedBox(height: 8),
-          const Text('مشتری با این مشخصات یافت نشد'),
+          Text(l10n.customerNotFound),
           const SizedBox(height: 12),
           ElevatedButton.icon(
             onPressed: () {
@@ -325,7 +329,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
               );
             },
             icon: const Icon(Icons.add),
-            label: const Text('ثبت مشتری جدید'),
+            label:  Text(l10n.addNewCustomer),
             style: ElevatedButton.styleFrom(
               backgroundColor: primary,
               foregroundColor: Colors.white,
@@ -706,6 +710,8 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+
     return Scaffold(
       backgroundColor: kBackgroundColor,
       body: SafeArea(
@@ -725,8 +731,8 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 ),
                 icon: const Icon(Icons.save, color: Colors.white),
-                label: const Text(
-                  'ذخیره و ثبت تراکنش',
+                label: Text(
+                  l10n.transactionSaveAndSubmit,
                   style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),
@@ -750,13 +756,13 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
         children: [
           IconButton(
             onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.arrow_forward, color: Color(0xFF1B0E0E)),
+            icon: const Icon(Icons.arrow_back, color: Color(0xFF1B0E0E)),
           ),
-          const Expanded(
+          Expanded(
             child: Text(
-              'فروش شارژ دیجیتال',
+              l10n.transactionHistory,
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 18,
                 color: Color(0xFF1B0E0E),

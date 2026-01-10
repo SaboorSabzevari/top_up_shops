@@ -3,6 +3,7 @@ import 'package:persistent_bottom_nav_bar/persistent_bottom_nav_bar.dart';
 import 'package:top_up_shops/src/presentation/screens/dashboard/dashboard_screen.dart';
 import 'package:top_up_shops/src/presentation/theme/colors.dart' hide kPrimaryColor;
 
+import '../analyze/analyze_screen.dart';
 import '../customer/customer_list.dart';
 import '../setting/setting_screen.dart';
 import '../transactions/transaction_screen.dart';
@@ -20,7 +21,7 @@ class HomeScreen extends StatelessWidget {
       DashboardPage(),
       CustomerListPage(),
       TransactionHistoryPage(),
-      _buildReportsPage(),
+      CustomerReportScreen(),
       SettingsScreen(),
     ];
   }

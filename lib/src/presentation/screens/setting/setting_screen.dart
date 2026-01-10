@@ -57,7 +57,7 @@ class SettingsScreen extends ConsumerWidget {
             const SizedBox(height: 20),
 
             /// ================= Security =================
-            _groupTitle('تنظیم واحد ارسال کریدیت'),
+            _groupTitle(l10n.setUnitPrice),
             _card(
               children: [
                 // _switchTile(
@@ -72,7 +72,7 @@ class SettingsScreen extends ConsumerWidget {
                   icon: Icons.pin,
                   iconBg: Colors.green.shade50,
                   iconColor: Colors.green,
-                  title: 'تنظیم واحد',
+                  title: l10n.setUnit,
                   onTap: () {
                     Navigator.push(context, MaterialPageRoute(builder: (context)=>UnitScreen()));
                   },
@@ -104,7 +104,7 @@ class SettingsScreen extends ConsumerWidget {
                   icon: Icons.info,
                   iconBg: Colors.purple.shade50,
                   iconColor: Colors.purple,
-                  title: 'درباره ما',
+                  title: l10n.aboutUs,
                   onTap: () {},
                 ),
               ],

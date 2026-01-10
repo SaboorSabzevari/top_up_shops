@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import '../data/repository/transaction_repository.dart';
@@ -11,7 +12,7 @@ final transactionsProvider = FutureProvider<List<TransactionModel>>((ref) {
   return ref.read(transactionRepositoryProvider).getTransactions();
 });
 
-// سود امروز (خروجی را به double تغییر دادیم برای دقت بیشتر)
+// سود امروز
 final todayProfitProvider = FutureProvider<int>((ref) {
   return ref.read(transactionRepositoryProvider).todayProfit();
 });
@@ -21,48 +22,86 @@ final todayCountProvider = FutureProvider<int>((ref) {
   return ref.read(transactionRepositoryProvider).todayTransactionsCount();
 });
 
-// وضعیت‌های فیلتر (StateProviders)
+// وضعیت‌های فیلتر (اصلاح شده)
 final transactionSearchQueryProvider = StateProvider<String>((ref) => '');
 final filterCustomerTypeProvider = StateProvider<String?>((ref) => null);
 final filterOperatorProvider = StateProvider<String?>((ref) => null);
-final filterDateProvider = StateProvider<DateTime?>((ref) => null);
 
-// --- پرووایدر اصلی برای نمایش لیست (این تنها پرووایدر فیلتر است) ---
+// ۱. اصلاح مهم: تغییر تاریخ تکی به بازه زمانی (DateTimeRange) برای هماهنگی با صفحه آنالیز
+final filterDateProvider = StateProvider<DateTimeRange?>((ref) => null);
+
+// پروایدر مخصوص صفحه آنالیز (گزارش مشتری خاص)
+final reportDateRangeProvider = StateProvider<DateTimeRange?>((ref) => null);
+final selectedCustomerNameProvider = StateProvider<String?>((ref) => null);
+
+// --- ۲. پروایدر فیلتر شده برای صفحه "تاریخچه تراکنش‌ها" ---
 final filteredTransactionsProvider = Provider<AsyncValue<List<TransactionModel>>>((ref) {
   final transactionsAsync = ref.watch(transactionsProvider);
   final query = ref.watch(transactionSearchQueryProvider).trim().toLowerCase();
   final customerType = ref.watch(filterCustomerTypeProvider);
   final operator = ref.watch(filterOperatorProvider);
-  final selectedDate = ref.watch(filterDateProvider);
+  final dateRange = ref.watch(filterDateProvider); // بازه زمانی
 
   return transactionsAsync.whenData((list) {
     return list.where((t) {
-      // ۱. فیلتر متنی
+      // فیلتر متنی
       final matchesQuery = query.isEmpty ||
           t.customerName.toLowerCase().contains(query) ||
           t.phoneNumber.contains(query) ||
           t.companyCode.toLowerCase().contains(query);
 
-      // ۲. فیلتر نوع مشتری
+      // فیلتر نوع مشتری
       final matchesType = customerType == null || t.customerType == customerType;
 
-      // ۳. فیلتر اپراتور
+      // فیلتر اپراتور
       final matchesOperator = operator == null || t.operator == operator;
 
-      // ۴. فیلتر تاریخ
+      // اصلاح فیلتر تاریخ: بررسی قرار گرفتن در بازه
       bool matchesDate = true;
-      if (selectedDate != null) {
+      if (dateRange != null) {
         try {
           final tDate = DateTime.parse(t.createdAt);
-          matchesDate = tDate.year == selectedDate.year &&
-              tDate.month == selectedDate.month &&
-              tDate.day == selectedDate.day;
+          final start = DateTime(dateRange.start.year, dateRange.start.month, dateRange.start.day);
+          final end = DateTime(dateRange.end.year, dateRange.end.month, dateRange.end.day, 23, 59, 59);
+          matchesDate = tDate.isAfter(start.subtract(const Duration(seconds: 1))) &&
+              tDate.isBefore(end.add(const Duration(seconds: 1)));
         } catch (e) {
           matchesDate = false;
         }
       }
 
       return matchesQuery && matchesType && matchesOperator && matchesDate;
+    }).toList();
+  });
+});
+
+// --- ۳. پروایدر فیلتر شده برای صفحه "آنالیز مشتری" ---
+final customerReportTransactionsProvider = Provider<AsyncValue<List<TransactionModel>>>((ref) {
+  final transactionsAsync = ref.watch(transactionsProvider);
+  final selectedName = ref.watch(selectedCustomerNameProvider);
+  final dateRange = ref.watch(reportDateRangeProvider);
+
+  if (selectedName == null) return const AsyncValue.data([]);
+
+  return transactionsAsync.whenData((list) {
+    return list.where((t) {
+      // فیلتر دقیق بر اساس نام مشتری
+      final matchesCustomer = t.customerName.trim() == selectedName.trim();
+
+      // فیلتر بازه زمانی
+      bool matchesDate = true;
+      if (dateRange != null) {
+        try {
+          final tDate = DateTime.parse(t.createdAt);
+          final start = DateTime(dateRange.start.year, dateRange.start.month, dateRange.start.day);
+          final end = DateTime(dateRange.end.year, dateRange.end.month, dateRange.end.day, 23, 59, 59);
+          matchesDate = tDate.isAfter(start.subtract(const Duration(seconds: 1))) &&
+              tDate.isBefore(end.add(const Duration(seconds: 1)));
+        } catch (e) {
+          matchesDate = false;
+        }
+      }
+      return matchesCustomer && matchesDate;
     }).toList();
   });
 });
