@@ -23,63 +23,60 @@ class DashboardScreen extends ConsumerWidget {
     final growth = ref.watch(salesGrowthProvider);
     final recentTxns = ref.watch(recentTransactionsProvider);
 
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: bgColor,
-        appBar: _buildAppBar(isDark, brandRed),
-        body: SafeArea(
-          child: RefreshIndicator(
-            onRefresh: () async {
-              ref.invalidate(transactionsProvider);
-              ref.invalidate(todaySalesProvider);
-              ref.invalidate(todayProfitProvider);
-            },
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Column(
-                children: [
-                  const SizedBox(height: 20),
-                  // ردیف کارت‌های کوچک
-                  Row(
-                    children: [
-                      _buildMiniCard("تعداد امروز", "${todayCount.value ?? 0}", "عدد", isDark, brandRed),
-                      const SizedBox(width: 10),
-                      _buildMiniCard1("سود امروز", "${todayProfit.value ?? 0}", "افغانی", isDark, brandRed, highlight: true),
-                    ],
+    return Scaffold(
+      backgroundColor: bgColor,
+      appBar: _buildAppBar(isDark, brandRed),
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: () async {
+            ref.invalidate(transactionsProvider);
+            ref.invalidate(todaySalesProvider);
+            ref.invalidate(todayProfitProvider);
+          },
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              children: [
+                const SizedBox(height: 20),
+                // ردیف کارت‌های کوچک
+                Row(
+                  children: [
+                    _buildMiniCard("تعداد امروز", "${todayCount.value ?? 0}", "عدد", isDark, brandRed),
+                    const SizedBox(width: 10),
+                    _buildMiniCard1("سود امروز", "${todayProfit.value ?? 0}", "افغانی", isDark, brandRed, highlight: true),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                // کارت بزرگ فروش کل
+                _buildMainSalesCard(todaySales.value ?? 0, growth.value ?? 0, isDark, brandRed),
+                const SizedBox(height: 25),
+                // دکمه عملیاتی اصلی
+                _buildBigActionButton(brandRed,context),
+                const SizedBox(height: 30),
+                // هدر تراکنش‌های اخیر
+                _buildSectionHeader("تراکنش‌های اخیر", brandRed,context),
+                const SizedBox(height: 15),
+                // لیست تراکنش‌ها
+                recentTxns.when(
+                  data: (txns) => Column(
+                    children: txns.map((t) => _buildRecentItem(t, isDark, brandRed)).toList(),
                   ),
-                  const SizedBox(height: 20),
-                  // کارت بزرگ فروش کل
-                  _buildMainSalesCard(todaySales.value ?? 0, growth.value ?? 0, isDark, brandRed),
-                  const SizedBox(height: 25),
-                  // دکمه عملیاتی اصلی
-                  _buildBigActionButton(brandRed,context),
-                  const SizedBox(height: 30),
-                  // هدر تراکنش‌های اخیر
-                  _buildSectionHeader("تراکنش‌های اخیر", brandRed,context),
-                  const SizedBox(height: 15),
-                  // لیست تراکنش‌ها
-                  recentTxns.when(
-                    data: (txns) => Column(
-                      children: txns.map((t) => _buildRecentItem(t, isDark, brandRed)).toList(),
-                    ),
-                    loading: () => const Center(child: CircularProgressIndicator()),
-                    error: (_, __) => const Text("خطا در بارگذاری"),
-                  ),
-                  const SizedBox(height: 100),
-                ],
-              ),
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (_, __) => const Text("خطا در بارگذاری"),
+                ),
+                const SizedBox(height: 100),
+              ],
             ),
           ),
         ),
-         ),
-    );
+      ),
+       );
   }
 
   PreferredSizeWidget _buildAppBar(bool isDark, Color red) {
     return AppBar(
       backgroundColor: Colors.transparent,
-      elevation: 0,
+      elevation: 1,
       title: Row(
         children: [
           CircleAvatar(radius: 20, backgroundColor: red.withOpacity(0.1), child: Icon(Icons.person, color: red)),

@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:flutter/services.dart';
+
 import '../../../data/local/app_database.dart';
 import '../../../domain/entity/transaction.dart';
 import '../../../providers/transaction_provider.dart';
@@ -42,67 +44,119 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
   Future<void> _generatePdfReport(List<TransactionModel> transactions, String customerName) async {
     try {
       final pdf = pw.Document();
-      final arabicFont = await PdfGoogleFonts.notoSansArabicRegular();
+      final fontData = await rootBundle.load("assets/fonts/Vazirmatn-Regular.ttf");
+      final ttfFont = pw.Font.ttf(fontData);
+
+      // محاسبه مجموع مبلغ
+      int totalAmount = transactions.fold(0, (sum, item) => sum + item.sentAmount);
 
       pdf.addPage(
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
           textDirection: pw.TextDirection.rtl,
           build: (pw.Context context) => [
-            pw.Header(level: 0, child: pw.Text("گزارش مشتری: $customerName", style: pw.TextStyle(font: arabicFont))),
+            pw.Center(child: pw.Text("گزارش تراکنش‌های $customerName", style: pw.TextStyle(font: ttfFont, fontSize: 18, color: PdfColors.red900))),
+            pw.SizedBox(height: 15),
             pw.TableHelper.fromTextArray(
               border: pw.TableBorder.all(color: PdfColors.grey300),
-              headerStyle: pw.TextStyle(font: arabicFont, color: PdfColors.white),
+              headerStyle: pw.TextStyle(font: ttfFont, color: PdfColors.white, fontSize: 10),
               headerDecoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFFEA2A33)),
-              headers: ['تاریخ', 'اپراتور', 'مبلغ'],
-              data: transactions.map((t) => [t.createdAt, t.operator, t.sentAmount.toString()]).toList(),
+              cellStyle: pw.TextStyle(font: ttfFont, fontSize: 9),
+              headers: ['تاریخ', 'مبلغ (AFN)', 'شماره/کد شرکت', 'اپراتور', 'ردیف'],
+              data: [
+                ...transactions.asMap().entries.map((entry) {
+                  int index = entry.key;
+                  var t = entry.value;
+                  String formattedDate = "";
+                  try {
+                    DateTime dt = DateTime.parse(t.createdAt);
+                    formattedDate = "${dt.year}/${dt.month.toString().padLeft(2, '0')}/${dt.day.toString().padLeft(2, '0')} - ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
+                  } catch (e) {
+                    formattedDate = t.createdAt; // اگر فرمت اشتباه بود خودش را نشان بده
+                  }
+                  final contact = (t.companyCode.isNotEmpty && t.companyCode != '—') ? "کد: ${t.companyCode}" : t.phoneNumber;
+                  return [
+                    formattedDate,
+
+                    t.sentAmount.toString(), contact, t.operator, index + 1];
+                }),
+                // ردیف مجموع در انتهای جدول
+                [
+                  '',
+                  totalAmount.toString(),
+                  'مجموع کل',
+                  '',
+                  ''
+                ],
+              ],
             ),
+            pw.SizedBox(height: 10),
+            pw.Text("تعداد کل تراکنش‌ها: ${transactions.length}", style: pw.TextStyle(font: ttfFont, fontSize: 10)),
           ],
         ),
       );
 
-      // باز کردن صفحه چاپ
+      // ذخیره در دانلودها
+      final directory = Directory('/storage/emulated/0/Download');
+      final file = File("${directory.path}/Report_$customerName.pdf");
+      await file.writeAsBytes(await pdf.save());
+
       await Printing.layoutPdf(onLayout: (PdfPageFormat format) async => pdf.save());
-
-      // پیام موفقیت (اختیاری چون صفحه چاپ خودش گویای همه چیز است)
-      _showSnackBar("آماده‌سازی PDF موفقیت‌آمیز بود", Colors.green);
-
+      _showSnackBar("PDF در پوشه Downloads ذخیره شد", Colors.green);
     } catch (e) {
-      _showSnackBar("خطا در تولید PDF: $e", Colors.red);
+      _showSnackBar("خطا در PDF: $e", Colors.red);
     }
   }
-
-  // --- اصلاح شده: خروجی EXCEL با مدیریت خطا ---
   Future<void> _generateExcelReport(List<TransactionModel> transactions, String customerName) async {
     try {
       var excel = xl.Excel.createExcel();
       xl.Sheet sheetObject = excel['Report'];
 
-      sheetObject.appendRow([xl.TextCellValue('تاریخ'), xl.TextCellValue('اپراتور'), xl.TextCellValue('مبلغ')]);
+      // هدر
+      sheetObject.appendRow([
+        xl.TextCellValue('ردیف'),
+        xl.TextCellValue('اپراتور'),
+        xl.TextCellValue('شماره/کد شرکت'),
+        xl.TextCellValue('مبلغ (AFN)'),
+        xl.TextCellValue('تاریخ'),
+      ]);
 
-      for (var t in transactions) {
+      int totalAmount = 0;
+
+      for (int i = 0; i < transactions.length; i++) {
+        final t = transactions[i];
+        totalAmount += t.sentAmount;
+        final contact = (t.companyCode.isNotEmpty && t.companyCode != '—') ? "کد: ${t.companyCode}" : t.phoneNumber;
+
         sheetObject.appendRow([
-          xl.TextCellValue(t.createdAt),
+          xl.IntCellValue(i + 1),
           xl.TextCellValue(t.operator),
+          xl.TextCellValue(contact),
           xl.IntCellValue(t.sentAmount),
+          xl.TextCellValue(t.createdAt),
         ]);
       }
 
-      final directory = await getTemporaryDirectory();
-      final filePath = "${directory.path}/Report_$customerName.xlsx";
-      final file = File(filePath);
+      // اضافه کردن ردیف مجموع
+      sheetObject.appendRow([
+        xl.TextCellValue(''),
+        xl.TextCellValue(''),
+        xl.TextCellValue('مجموع کل:'),
+        xl.IntCellValue(totalAmount),
+        xl.TextCellValue(''),
+      ]);
+
+      // ذخیره در مسیر دانلودها
+      final directory = Directory('/storage/emulated/0/Download');
+      final String fileName = "Report_${customerName}_${DateTime.now().millisecondsSinceEpoch}.xlsx";
+      final File file = File("${directory.path}/$fileName");
+
       await file.writeAsBytes(excel.save()!);
-
-      // نمایش پیام موفقیت
-      _showSnackBar("فایل اکسل با موفقیت در پوشه موقت تولید شد", Colors.green);
-
+      _showSnackBar("فایل اکسل در پوشه Downloads ذخیره شد", Colors.green);
     } catch (e) {
-      // نمایش پیام خطا
-      _showSnackBar("تولید فایل اکسل ناموفق بود: $e", Colors.red);
+      _showSnackBar("خطا در ذخیره اکسل: $e", Colors.red);
     }
-  }
-
-  // متد کمکی برای نمایش اسنک‌بار
+  } // متد کمکی برای نمایش اسنک‌بار
   void _showSnackBar(String message, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -273,16 +327,12 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
         if (_selectedCustomer != null)
           Consumer(
             builder: (context, ref, child) {
-              // ۱. اصلاح نام پرووایدر مطابق فایل شما
-              // ۲. مقداردهی به selectedCustomerNameProvider برای فعال شدن فیلتر
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                ref.read(selectedCustomerNameProvider.notifier).state =
-                    _selectedCustomer!['name'];
-              });
+              // این بخش را حذف یا کامنت کنید چون دیگر نیازی به ست کردن نام در پروایدر نیست
+              // WidgetsBinding.instance.addPostFrameCallback((_) {
+              //   ref.read(selectedCustomerIdProvider.notifier).state = _selectedCustomer!['id'];
+              // });
 
-              final transactionsAsync = ref.watch(
-                customerReportTransactionsProvider,
-              );
+              final transactionsAsync = ref.watch(customerReportTransactionsProvider);
 
               return transactionsAsync.when(
                 data: (list) {
@@ -390,9 +440,9 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                 _searchController.text = customer['name'];
               });
 
-              // ۱. تنظیم پروایدر نام برای فیلتر شدن جدول (حیاتی)
-              ref.read(selectedCustomerNameProvider.notifier).state =
-                  customer['name'];
+              // اصلاح ریشه‌ای: به جای نام، آیدی را در پروایدر ست می‌کنیم
+              // توجه: فیلد id باید در خروجی ajaxSearch وجود داشته باشد
+              ref.read(selectedCustomerIdProvider.notifier).state = customer['id'];    customer['name'];
 
               // ۲. بستن کیبورد برای باز شدن فضای جدول
               FocusScope.of(context).unfocus();

@@ -1410,13 +1410,13 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
         border: Border.all(color: Colors.grey[300]!),
       ),
       child: TextField(
+        cursorColor: kPrimaryColor,
         controller: phoneCtrl,
         keyboardType: TextInputType.phone,
         textDirection: TextDirection.ltr,
         style: const TextStyle(fontSize: 14),
         decoration: InputDecoration(
           prefixIcon: const Icon(Icons.contact_phone, color: kPrimaryColor),
-          suffixText: '93+',
           filled: true,
           fillColor: surfaceLight,
           hintText: isAdditional ? 'شماره جدید (اختیاری)' : 'شماره موبایل',
@@ -1526,13 +1526,13 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
         border: Border.all(color: Colors.grey[300]!),
       ),
       child: TextField(
+        cursorColor: kPrimaryColor,
         controller: wholesalePhoneCtrl,
         keyboardType: TextInputType.phone,
         textDirection: TextDirection.ltr,
         style: const TextStyle(fontSize: 14),
         decoration: InputDecoration(
           prefixIcon: const Icon(Icons.contact_phone, color: kPrimaryColor),
-          suffixText: '93+',
           filled: true,
           fillColor: surfaceLight,
           hintText: isAdditional ? 'شماره جدید (اختیاری)' : 'شماره تماس',
@@ -1597,17 +1597,27 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
       children: [
         Text(label, style: const TextStyle(fontSize: 12, color: textMuted)),
         const SizedBox(height: 6),
-        TextField(
-          controller: ctrl,
-          keyboardType: TextInputType.number,
-          textAlign: TextAlign.center,
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: const Color(0xFFF3F4F6),
-            suffixText: suffixText,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        Container(
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(12),
+            border: BoxBorder.all(
+                
+                color: Colors.red.shade200)
           ),
-          onChanged: (_) => setState(() {}),
+          child: TextField(textDirection: TextDirection.ltr,
+            cursorColor: kPrimaryColor,
+            controller: ctrl,
+            keyboardType: TextInputType.number,
+            textAlign: TextAlign.center,
+            decoration: InputDecoration(
+              filled: true,
+              fillColor: const Color(0xFFF3F4F6),
+              suffixText: suffixText,
+              border:OutlineInputBorder(borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none
+              )
+            ),
+            onChanged: (_) => setState(() {}),
+          ),
         ),
       ],
     );

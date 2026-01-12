@@ -200,31 +200,49 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
   }
 
   // متد _pickContact موجود را با این نسخه جایگزین کنید
-  Future<void> _pickContact(int index) async {
-    if (await FlutterContacts.requestPermission()) {
+  Future<void> _pickContact() async {
+    if (await Permission.contacts.request().isGranted) {
       final contact = await FlutterContacts.openExternalPick();
-      if (contact != null && contact.phones.isNotEmpty) {
-        String rawNumber = contact.phones.first.number;
 
-        // >>> اینجا تغییر اصلی اتفاق می‌افتد <<<
-        String formattedNumber = _formatPhoneNumber(rawNumber);
+      if (contact != null) {
+        final fullContact = await FlutterContacts.getContact(contact.id);
 
-        setState(() {
-          if (_customerType == CustomerType.normal) {
-            // برای مشتری عادی (لیست شماره‌ها)
-            normalPhones[index].text = formattedNumber;
-          } else {
-            // برای مغازه‌دار (تک شماره)
-            wholesaleMainPhone.text = formattedNumber;
-          }
-        });
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('مخاطب انتخاب شده شماره تماس ندارد'))
-          );
+        if (fullContact != null) {
+          setState(() {
+            fullNameCtrl.text = fullContact.displayName;
+
+            if (fullContact.phones.isNotEmpty) {
+              if (_customerType == CustomerType.normal) {
+                // برای مشتری عادی: پاک کردن فیلدهای قبلی و اضافه کردن شماره‌های جدید
+                for (var ctrl in normalPhones) {
+                  ctrl.dispose();
+                }
+                normalPhones.clear();
+
+                for (var phone in fullContact.phones) {
+                  String cleanPhone = phone.number.replaceAll(RegExp(r'[^\d+]'), '');
+                  if (cleanPhone.startsWith('+93')) cleanPhone = '0${cleanPhone.substring(3)}';
+                  normalPhones.add(TextEditingController(text: cleanPhone));
+                }
+
+                // اگر هیچ شماره‌ای اضافه نشد، یک فیلد خالی اضافه کن
+                if (normalPhones.isEmpty) {
+                  normalPhones.add(TextEditingController());
+                }
+              } else {
+                // برای دکان‌دار: فقط اولین شماره را در فیلد اصلی بگذار
+                String cleanPhone = fullContact.phones.first.number.replaceAll(RegExp(r'[^\d+]'), '');
+                if (cleanPhone.startsWith('+93')) cleanPhone = '0${cleanPhone.substring(3)}';
+                wholesaleMainPhone.text = cleanPhone;
+              }
+            }
+          });
         }
       }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('اجازه دسترسی به مخاطبین داده نشد'))
+      );
     }
   }
   Future<void> _pickImage(bool isProfile, ImageSource source) async {
@@ -485,8 +503,8 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
             prefixIcon: const Icon(Icons.person),
             suffixIcon: IconButton(
               icon: const Icon(Icons.contact_phone, color: Color(0xffEA2A33)),
-              onPressed: ()async{_pickContact;
-    },
+              onPressed: _pickContact,
+
     tooltip: 'انتخاب از مخاطبین گوشی',
     ),
 

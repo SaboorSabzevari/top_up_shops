@@ -1,5 +1,6 @@
 class TransactionModel {
   final int id;
+  final int? customerId;
   final String customerName;
   final String customerType; // اضافه شده
   final String phoneNumber;  // تغییر نام از phone به phoneNumber برای هماهنگی با UI
@@ -21,6 +22,7 @@ class TransactionModel {
     required this.receivedAmount,
     required this.profit,
     required this.createdAt,
+    this.customerId,
   });
 
   // در فایل transaction.dart متد fromMap را چک کنید:
@@ -28,6 +30,7 @@ class TransactionModel {
   factory TransactionModel.fromMap(Map<String, dynamic> map) {
     return TransactionModel(
       id: map['id'] as int,
+      customerId: map['customer_id'] as int?,
       customerName: (map['customer_name'] ?? '—') as String,
       customerType: (map['customer_type'] ?? 'normal') as String,
       phoneNumber: (map['phone_number'] ?? '') as String,

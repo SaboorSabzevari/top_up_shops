@@ -22,10 +22,6 @@ class SettingsScreen extends ConsumerWidget {
         backgroundColor: const Color(0xFFF8F6F6),
         elevation: 0,
         centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.chevron_right, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
         title:  Text(
           l10n.settings,
           style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
