@@ -18,7 +18,7 @@ class HomeScreen extends StatelessWidget {
   // لیست صفحات اصلی
   List<Widget> _buildScreens() {
     return [
-      DashboardPage(),
+      DashboardScreen(),
       CustomerListPage(),
       TransactionHistoryPage(),
       CustomerReportScreen(),

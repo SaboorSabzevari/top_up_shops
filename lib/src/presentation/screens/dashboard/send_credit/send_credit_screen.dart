@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -23,83 +24,38 @@ class DigitalTopupSalePage extends ConsumerStatefulWidget {
 class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
   int? selectedCustomerId;
   late final l10n = AppLocalizations.of(context)!;
+  static const platform = MethodChannel('com.example.top_up_shops/ussd');
 
+  // متغیرهای USSD
+  String _ussdResponse = "";
+  bool _isUssdLoading = false;
+  bool _isResponseExpanded = false;
 
+  // کنترلرها
   final TextEditingController amountCtrl = TextEditingController();
   final TextEditingController customerNameCtrl = TextEditingController();
   final TextEditingController phoneCtrl = TextEditingController();
   final TextEditingController companyCodeCtrl = TextEditingController();
+  final TextEditingController creditCtrl = TextEditingController(text: '100');
+  final TextEditingController discountCtrl = TextEditingController(text: '0');
+  final TextEditingController paidCtrl = TextEditingController();
+  final TextEditingController wholesalePhoneCtrl = TextEditingController();
+  final customerCodeCtrl = TextEditingController();
 
-  //---------------- State ----------------
-  void _showSelectionDialog({
-    required String title,
-    required List<String> items,
-    required Function(String) onSelected,
-  }) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-        title: Text(
-          title,
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: ListView.separated(
-            shrinkWrap: true,
-            itemCount: items.length,
-            separatorBuilder: (_, __) => const Divider(),
-            itemBuilder: (context, index) => ListTile(
-              title: Text(items[index], textAlign: TextAlign.center),
-              onTap: () {
-                onSelected(items[index]);
-                Navigator.pop(context);
-              },
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // لیست کدهای دیلری مشتری انتخاب شده
+  // لیست‌ها و متغیرهای حالت
   List<dynamic> _currentCustomerWholesaleCodes = [];
-
-  // لیست شرکت‌های فیلتر شده برای مشتری عمده
   List<Map<String, dynamic>> _filteredProviders = [];
-
-  // آیا شرکت "دیگر" انتخاب شده است؟
   bool _isOtherProviderSelected = false;
-
-  // لیست شماره‌های مشتری عادی
   List<String> _normalCustomerPhones = [];
   String? _selectedPhone;
-
-  // لیست شماره‌های مشتری عمده
   List<String> _bulkCustomerPhones = [];
   String? _selectedBulkPhone;
-
-  // 🎨 Colors
-  static const Color primary = Color(0xFFEA2A33);
-  static const Color bgLight = Color(0xFFFFFFFF);
-  static const Color surfaceLight = Colors.white;
-  static const Color textMain = Color(0xFF1B0E0E);
-  static const Color textMuted = Color(0xFF6B7280);
-
   String customerType = 'normal';
   String selectedOperator = '';
   String commMethod = 'person';
   bool isCompanySelectionLocked = false;
-
-  // کنترلرها
-  final customerCodeCtrl = TextEditingController();
-  final creditCtrl = TextEditingController(text: '100');
-  final discountCtrl = TextEditingController(text: '0');
-  final paidCtrl = TextEditingController();
-  final wholesalePhoneCtrl =
-  TextEditingController(); // شماره تماس برای مشتری عمده
+  String? _selectedNormalProviderCode;
+  String? _selectedBulkProviderCode;
 
   // برای جستجوی لایو
   Timer? _debounce;
@@ -108,9 +64,12 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
   OverlayEntry? _overlayEntry;
   final FocusNode _searchFocusNode = FocusNode();
 
-  // متغیرهای ذخیره کد شرکت برای تولید USSD
-  String? _selectedNormalProviderCode; // کد شرکت برای مشتری عادی
-  String? _selectedBulkProviderCode; // کد شرکت برای مشتری عمده
+  // رنگ‌ها
+  static const Color primary = Color(0xFFEA2A33);
+  static const Color bgLight = Color(0xFFFFFFFF);
+  static const Color surfaceLight = Colors.white;
+  static const Color textMain = Color(0xFF1B0E0E);
+  static const Color textMuted = Color(0xFF6B7280);
 
   int get total =>
       (int.tryParse(creditCtrl.text) ?? 0) -
@@ -139,8 +98,224 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
     super.dispose();
   }
 
-  // --- Logic جستجو و نمایش Overlay ---
+  // --- متدهای USSD ---
+  Future<void> _executeUssdAndSave(int simSlot) async {
+    String ussdCode = _buildUSSDCode();
 
+    if (ussdCode.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('کد USSD معتبر تولید نشد! فیلدها را چک کنید.')),
+      );
+      return;
+    }
+
+    await _processAndSaveTransaction();
+
+    setState(() {
+      _isUssdLoading = true;
+      _ussdResponse = "در حال ارسال درخواست به سیم‌کارت ${simSlot + 1}...";
+    });
+
+    try {
+      final String result = await platform.invokeMethod('sendUssd', {
+        "code": ussdCode,
+        "slot": simSlot,
+      });
+
+      setState(() {
+        _ussdResponse = result;
+      });
+
+      _showUssdResponseDialog(result);
+    } on PlatformException catch (e) {
+      setState(() => _ussdResponse = "خطا: ${e.message}");
+    } finally {
+      setState(() => _isUssdLoading = false);
+    }
+  }
+
+  Future<void> _executeUssdOnly(int simSlot) async {
+    String ussdCode = _buildUSSDCode(); // تولید کد بر اساس فیلدها
+
+    if (ussdCode.isEmpty || ussdCode == "*#") {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("لطفاً اطلاعات را کامل وارد کنید")),
+      );
+      return;
+    }
+
+    setState(() {
+      _isUssdLoading = true;
+      _ussdResponse = ""; // پاک کردن پاسخ قبلی
+    });
+
+    try {
+      // فراخوانی متد کاتلین و دریافت پاسخ واقعی از اپراتور
+      final String? result = await platform.invokeMethod('sendUssd', {
+        "code": ussdCode,
+        "slot": simSlot,
+      });
+
+      setState(() {
+        // قرار دادن پاسخ مستقیم سیستم در متغیر
+        _ussdResponse = result ?? "پاسخی از شبکه دریافت نشد";
+      });
+
+    } on PlatformException catch (e) {
+      setState(() {
+        _ussdResponse = "خطای سیستم: ${e.message}";
+      });
+    } catch (e) {
+      setState(() {
+        _ussdResponse = "خطای نامشخص رخ داد";
+      });
+    } finally {
+      setState(() => _isUssdLoading = false);
+    }
+  }
+  void _showUssdResponseDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("پاسخ شبکه"),
+        content: SingleChildScrollView(
+          child: Text(message),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("بستن"),
+          ),
+          IconButton(
+            icon: const Icon(Icons.copy),
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: message));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('پاسخ کپی شد')),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- متدهای ذخیره تراکنش ---
+  Future<void> _processAndSaveTransaction() async {
+    String finalPhone = (customerType == 'normal') ? phoneCtrl.text : wholesalePhoneCtrl.text;
+
+    try {
+      String amountText = creditCtrl.text.trim();
+
+      if (amountText.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('لطفاً مبلغ را وارد کنید'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+
+      double? sentAmount = double.tryParse(amountText);
+
+      if (sentAmount == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('مبلغ وارد شده معتبر نیست (فقط عدد وارد کنید)'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      if (selectedCustomerId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('لطفاً مشتری را انتخاب کنید'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+
+      final unitSettings = await DatabaseHelper.instance.getSingleUnit();
+      double buyRate = unitSettings['buy_price'] ?? 0.0;
+      double sellRate = unitSettings['sell_price'] ?? 0.0;
+
+      double costPrice = sentAmount * buyRate;
+      double receivedAmount = sentAmount * sellRate;
+      double profit = receivedAmount - costPrice;
+      String finalCode = _buildUSSDCode();
+
+      await DatabaseHelper.instance.saveDetailedTransaction({
+        'customer_id': selectedCustomerId,
+        'customer_name': customerNameCtrl.text,
+        'customer_type': customerType,
+        'operator_name': selectedOperator,
+        'company_code': companyCodeCtrl.text,
+        'sent_amount': sentAmount,
+        'received_amount': receivedAmount,
+        'cost_price': costPrice,
+        'profit': profit,
+        'ussd_command': finalCode,
+        'phone_number': finalPhone,
+      });
+
+      if (mounted) {
+        _showSuccessDialog(receivedAmount, profit, finalCode);
+        ref.invalidate(transactionsProvider);
+        ref.invalidate(todayProfitProvider);
+        ref.invalidate(todayCountProvider);
+        ref.invalidate(todaySalesProvider);      // مجموع فروش کل
+        ref.invalidate(salesGrowthProvider);     // درصد افزایش نسبت به دیروز
+        ref.invalidate(recentTransactionsProvider); // لیست تراکنش‌های اخیر داشبورد
+
+        // پاکسازی فیلدها
+        creditCtrl.clear();
+        amountCtrl.clear();
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('خطای غیرمنتظره: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _showSuccessDialog(double received, double profit, String code) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Icon(Icons.check_circle, color: Colors.green, size: 50),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'تراکنش با موفقیت ثبت شد',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 15),
+            Text('مبلغ دریافتی: $received AFN'),
+            Divider(),
+            Text('سود شما: ${profit.toStringAsFixed(2)} AFN'),
+            
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('تایید',style: TextStyle(color: kPrimaryColor),),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- جستجو و انتخاب مشتری ---
   void _onSearchChanged(String query) {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
 
@@ -215,100 +390,6 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
     _overlayEntry?.remove();
     _overlayEntry = null;
   }
-  Future<void> _processAndSaveTransaction() async {
-    String finalPhone = (customerType == 'normal') ? phoneCtrl.text : wholesalePhoneCtrl.text;
-
-// سپس در مپ دیتا:
-
-    try {
-      // ۱. پاکسازی متن ورودی از فاصله‌های احتمالی
-      String amountText = creditCtrl.text.trim();
-
-      // ۲. بررسی خالی نبودن فیلد
-      if (amountText.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('لطفاً مبلغ را وارد کنید'), backgroundColor: Colors.orange),
-        );
-        return;
-      }
-
-      // ۳. تبدیل امن متن به عدد (جلوگیری از کرش و خطای FormatException)
-      double? sentAmount = double.tryParse(amountText);
-
-      if (sentAmount == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('مبلغ وارد شده معتبر نیست (فقط عدد وارد کنید)'), backgroundColor: Colors.red),
-        );
-        return;
-      }
-
-      if (selectedCustomerId == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('لطفاً مشتری را انتخاب کنید'), backgroundColor: Colors.orange),
-        );
-        return;
-      }
-
-      final unitSettings = await DatabaseHelper.instance.getSingleUnit();
-      double buyRate = unitSettings['buy_price'] ?? 0.0;
-      double sellRate = unitSettings['sell_price'] ?? 0.0;
-
-      double costPrice = sentAmount * buyRate;
-      double receivedAmount = sentAmount * sellRate;
-      double profit = receivedAmount - costPrice;
-      String finalCode = "*${companyCodeCtrl.text}*${phoneCtrl.text}*${sentAmount.toInt()}#";
-
-      await DatabaseHelper.instance.saveDetailedTransaction({
-        'customer_id': selectedCustomerId,
-        'customer_name': customerNameCtrl.text,
-        'customer_type': customerType,
-        'operator_name': selectedOperator,
-        'company_code': companyCodeCtrl.text,
-        'sent_amount': sentAmount,
-        'received_amount': receivedAmount,
-        'cost_price': costPrice,
-        'profit': profit,
-        'ussd_command': finalCode,
-        'phone_number': finalPhone,
-      });
-
-      if (mounted) {
-        _showSuccessDialog(receivedAmount, profit, finalCode);
-        ref.invalidate(transactionsProvider);
-        ref.invalidate(todayProfitProvider);
-        ref.invalidate(todayCountProvider);
-        amountCtrl.clear();
-      }
-
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('خطای غیرمنتظره: $e'), backgroundColor: Colors.red),
-      );
-    }
-  }
-  void _showSuccessDialog(double received, double profit, String code) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Icon(Icons.check_circle, color: Colors.green, size: 50),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('تراکنش با موفقیت ثبت شد', style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 15),
-            Text('مبلغ دریافتی: $received AFN'),
-            Text('سود شما: $profit AFN'),
-            const Divider(),
-            Text('کد: $code', style: const TextStyle(fontSize: 12, color: Colors.blueGrey)),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('تایید'))
-        ],
-      ),
-    );
-  }
 
   Widget _buildNotFoundWidget() {
     return Container(
@@ -329,7 +410,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
               );
             },
             icon: const Icon(Icons.add),
-            label:  Text(l10n.addNewCustomer),
+            label: Text(l10n.addNewCustomer),
             style: ElevatedButton.styleFrom(
               backgroundColor: primary,
               foregroundColor: Colors.white,
@@ -340,18 +421,13 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
     );
   }
 
-  // --- Logic انتخاب مشتری ---
-
   Future<void> _selectCustomer(Map<String, dynamic> customer) async {
     _removeOverlay();
     FocusScope.of(context).unfocus();
 
-    // دریافت اطلاعات کامل از دیتابیس
     final fullDetails = await DatabaseHelper.instance.getCustomerFullDetails(
       customer['id'],
     );
-
-    print('جزئیات کامل مشتری: $fullDetails'); // برای دیباگ
 
     setState(() {
       selectedCustomerId = customer['id'];
@@ -360,14 +436,8 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
       customerType = (customer['type'] == 'WHOLESALE') ? 'bulk' : 'normal';
       isCompanySelectionLocked = false;
       _currentCustomerWholesaleCodes = fullDetails['wholesale_codes'] ?? [];
-
-      // ریست کردن متغیرهای USSD
       _selectedNormalProviderCode = null;
       _selectedBulkProviderCode = null;
-
-      print('کدهای عمده فروشی: $_currentCustomerWholesaleCodes'); // برای دیباگ
-
-      // ریست کردن سایر فیلدها
       _normalCustomerPhones = [];
       _selectedPhone = null;
       _bulkCustomerPhones = [];
@@ -379,7 +449,6 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
       selectedOperator = '';
     });
 
-    // منطق مشتری عادی
     if (customerType == 'normal') {
       final List phonesList = fullDetails['phones'] ?? [];
       if (phonesList.isNotEmpty) {
@@ -393,9 +462,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
           }
         });
       }
-    }
-    // منطق مشتری عمده
-    else if (customerType == 'bulk') {
+    } else if (customerType == 'bulk') {
       final List phonesList = fullDetails['phones'] ?? [];
       if (phonesList.isNotEmpty) {
         setState(() {
@@ -409,44 +476,33 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
         });
       }
 
-      // فراخوانی آماده‌سازی لیست شرکت‌ها
       _prepareFilteredProviders();
     }
   }
 
-  // --- آماده‌سازی لیست شرکت‌های فیلتر شده ---
   void _prepareFilteredProviders() async {
     try {
-      // دریافت لیست کامل شرکت‌ها به صورت صحیح
       final providersAsync = ref.read(providersListProvider);
 
       providersAsync.when(
         data: (providersData) {
           if (!mounted) return;
 
-          // استخراج نام شرکت‌های ثبت شده برای این مشتری
           final customerCompanyNames = _currentCustomerWholesaleCodes
               .map((e) => e['company_name']?.toString().trim() ?? '')
               .where((name) => name.isNotEmpty)
               .toSet();
 
-          print('Customer Company Names: $customerCompanyNames'); // برای دیباگ
-
           List<Map<String, dynamic>> filtered;
           if (customerCompanyNames.isEmpty) {
-            // اگر مشتری هیچ شرکتی ثبت نکرده، تمام شرکت‌ها را نشان بده
             filtered = List<Map<String, dynamic>>.from(providersData);
           } else {
-            // فیلتر کردن شرکت‌ها
             filtered = providersData.where((provider) {
               final providerName = provider['name']?.toString().trim() ?? '';
               return customerCompanyNames.contains(providerName);
             }).toList();
-
-            print('Filtered Providers Count: ${filtered.length}'); // برای دیباگ
           }
 
-          // اضافه کردن گزینه "دیگر" به لیست
           final otherProvider = {
             'name': 'دیگر',
             'type': 'other',
@@ -455,10 +511,6 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
             'wholesale_code': '*999*',
           };
           final allProviders = [...filtered, otherProvider];
-
-          print(
-            'All Providers to show: ${allProviders.map((p) => p['name'])}',
-          ); // برای دیباگ
 
           if (mounted) {
             setState(() {
@@ -487,52 +539,27 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
     }
   }
 
-  // --- انتخاب شرکت برای مشتری عمده ---
   void _selectProviderForWholesale(Map<String, dynamic> provider) {
     final providerName = provider['name']?.toString().trim() ?? '';
     final providerCode = provider['wholesale_code']?.toString().trim() ?? '';
 
-    print('انتخاب شرکت: $providerName');
-    print('کدهای دیلری مشتری: $_currentCustomerWholesaleCodes');
-    print('شماره‌های ذخیره شده مشتری: $_bulkCustomerPhones');
-
     setState(() {
       selectedOperator = providerName;
-      _selectedBulkProviderCode = providerCode; // ذخیره کد شرکت برای مشتری عمده
+      _selectedBulkProviderCode = providerCode;
       _isOtherProviderSelected = (providerName == 'دیگر');
 
       if (_isOtherProviderSelected) {
-        // 🟢 منطق انتخاب "دیگر":
-        // 1. قفل فیلد کد شرکت باز شود
         isCompanySelectionLocked = false;
-
-        // 2. فیلد کد شرکت پاک شود (تا کاربر کد جدید وارد کند)
         companyCodeCtrl.clear();
 
-        // 3. شماره تماس ذخیره شده مشتری را به صورت خودکار در فیلد قرار بده
         if (_bulkCustomerPhones.isNotEmpty) {
-          // روش 1: اولین شماره را انتخاب کن
           _selectedBulkPhone = _bulkCustomerPhones.first;
           wholesalePhoneCtrl.text = _selectedBulkPhone!;
-
-          print('شماره تماس به صورت خودکار تنظیم شد: ${_selectedBulkPhone}');
-
-          // روش 2: اگر می‌خواهید کاربر انتخاب کند، می‌توانید اینجا Dialog نشان دهید
-          // _showPhoneSelectionDialog();
         } else {
-          // اگر شماره‌ای ذخیره نشده، فیلد را خالی کن
           _selectedBulkPhone = null;
           wholesalePhoneCtrl.clear();
-          print('هیچ شماره تماسی برای این مشتری ذخیره نشده است.');
         }
-
-        // 4. لاگ برای دیباگ
-        print(
-          'شرکت "دیگر" انتخاب شد. فیلد کد شرکت باز شد و شماره تماس تنظیم شد.',
-        );
       } else {
-        // 🔵 منطق انتخاب شرکت از لیست:
-        // پیدا کردن کد شرکت برای این مشتری
         Map<String, dynamic>? foundCompanyData;
 
         for (var codeData in _currentCustomerWholesaleCodes) {
@@ -545,93 +572,55 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
         }
 
         if (foundCompanyData != null && foundCompanyData.isNotEmpty) {
-          final companyCode =
-              foundCompanyData['company_code']?.toString() ??
-                  foundCompanyData['dealer_code']?.toString() ??
-                  foundCompanyData['code']?.toString() ??
-                  '';
+          final companyCode = foundCompanyData['company_code']?.toString() ??
+              foundCompanyData['dealer_code']?.toString() ??
+              foundCompanyData['code']?.toString() ??
+              '';
 
-          print('کد شرکت یافت شد: $companyCode');
-
-          // 1. کد شرکت را در فیلد قرار بده
           companyCodeCtrl.text = companyCode;
-
-          // 2. فیلد کد شرکت را قفل کن (کاربر نتواند تغییر دهد)
           isCompanySelectionLocked = true;
 
-          // 3. شماره تماس از کد دیلری را تنظیم کن (اگر وجود دارد)
-          final customerPhone =
-              foundCompanyData['phone']?.toString() ??
-                  foundCompanyData['contact_number']?.toString();
+          final customerPhone = foundCompanyData['phone']?.toString() ??
+              foundCompanyData['contact_number']?.toString();
           if (customerPhone != null && customerPhone.isNotEmpty) {
             wholesalePhoneCtrl.text = customerPhone;
             _selectedBulkPhone = customerPhone;
-            print('شماره تماس از کد دیلری تنظیم شد: $customerPhone');
           } else if (_bulkCustomerPhones.isNotEmpty) {
-            // اگر شماره در کد دیلری نبود، شماره ذخیره شده مشتری را قرار بده
             _selectedBulkPhone = _bulkCustomerPhones.first;
             wholesalePhoneCtrl.text = _selectedBulkPhone!;
-            print(
-              'شماره تماس از پروفایل مشتری تنظیم شد: ${_selectedBulkPhone}',
-            );
           }
         } else {
-          print('کد شرکت یافت نشد!');
           companyCodeCtrl.clear();
           isCompanySelectionLocked = false;
 
-          // اگر کد شرکت یافت نشد، شماره تماس ذخیره شده مشتری را قرار بده
           if (_bulkCustomerPhones.isNotEmpty) {
             _selectedBulkPhone = _bulkCustomerPhones.first;
             wholesalePhoneCtrl.text = _selectedBulkPhone!;
-            print('کد شرکت یافت نشد، شماره تماس از پروفایل مشتری تنظیم شد.');
           }
         }
       }
     });
   }
 
-  void _setCompanyData(Map<String, dynamic> companyData) {
-    setState(() {
-      String name =
-      (companyData['company'] ?? companyData['company_name'] ?? '')
-          .toString();
-      String code = (companyData['code'] ?? companyData['dealer_code'] ?? '')
-          .toString();
-
-      selectedOperator = name;
-      companyCodeCtrl.text = code;
-      isCompanySelectionLocked = true;
-    });
-  }
-
-  // --- تابع ساخت کد USSD ---
+  // --- ساخت کد USSD ---
   String _buildUSSDCode() {
     if (customerType == 'normal') {
-      // برای مشتری عادی
       if (_selectedNormalProviderCode == null ||
           phoneCtrl.text.isEmpty ||
           creditCtrl.text.isEmpty) {
         return '';
       }
-
-      // شکل: *کد شرکت*شماره تماس*مقدار#
       return '*${_selectedNormalProviderCode}*${phoneCtrl.text}*${creditCtrl.text}#';
     } else if (customerType == 'bulk') {
-      // برای مشتری عمده
       if (_selectedBulkProviderCode == null || creditCtrl.text.isEmpty) {
         return '';
       }
 
       if (_isOtherProviderSelected) {
-        // اگر گزینه "دیگر" انتخاب شده
         if (wholesalePhoneCtrl.text.isEmpty) return '';
-        // شکل: *کد شرکت*شماره تماس*مقدار#
         return '*${_selectedBulkProviderCode}*${wholesalePhoneCtrl.text}*${creditCtrl.text}#';
       } else {
-        // اگر شرکت مشخص انتخاب شده
         if (companyCodeCtrl.text.isEmpty) return '';
-        // شکل: *کد شرکت*کد مشتری*مقدار#
         return '*${_selectedBulkProviderCode}*${companyCodeCtrl.text}*${creditCtrl.text}#';
       }
     }
@@ -639,7 +628,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
     return '';
   }
 
-  // --- ویجت نمایش کد USSD ---
+  // --- UI ویجت‌ها ---
   Widget _buildUSSDCodePreview() {
     String ussdCode = _buildUSSDCode();
     if (ussdCode.isEmpty) return Container();
@@ -664,18 +653,18 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
                   onPressed: () async {
                     final Uri phoneUri = Uri(
                       scheme: 'tel',
-                      path: ussdCode, // شماره تلفن
+                      path: ussdCode,
                     );
 
                     try {
                       await launchUrl(
                         phoneUri,
-                        mode: LaunchMode.externalApplication, // خیلی مهم
+                        mode: LaunchMode.externalApplication,
                       );
                     } catch (e) {
                       debugPrint('خطا در باز کردن شماره‌گیر: $e');
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
+                        const SnackBar(
                           backgroundColor: kPrimaryColor,
                           content: Text("خطا در بازکردن شماره گیر"),
                         ),
@@ -719,31 +708,252 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
           children: [
             _appBar(context),
             Expanded(child: _content()),
-            // در انتهای لیست ویجت‌های Column در body
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.only(top:0.0,bottom: 14,right: 14,left: 14),
-              child: ElevatedButton.icon(
-                onPressed: _processAndSaveTransaction,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: kPrimaryColor,
-                  minimumSize: const Size.fromHeight(50),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                ),
-                icon: const Icon(Icons.save, color: Colors.white),
-                label: Text(
+          ],
+        ),
+      ),
+      // استفاده از پنل عملیات بازطراحی شده
+      bottomNavigationBar: _buildFixedFooter(),
+    );
+  }
+
+  // === پنل عملیات پایینی بازطراحی شده ===
+  Widget _buildBottomActionPanel() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          top: BorderSide(color: Colors.grey.shade300, width: 1),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // بخش پاسخ شبکه (فقط وقتی پاسخ وجود دارد)
+          if (_ussdResponse.isNotEmpty) _buildNetworkResponseSection(),
+
+          // دکمه ثبت تراکنش
+          ElevatedButton(
+            onPressed: _processAndSaveTransaction,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: kPrimaryColor,
+              foregroundColor: Colors.white,
+              minimumSize: const Size(double.infinity, 48),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              elevation: 0,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.save, size: 20),
+                const SizedBox(width: 8),
+                Text(
                   l10n.transactionSaveAndSubmit,
-                  style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          // دکمه‌های اجرای USSD در یک ردیف فشرده
+          Row(
+            children: [
+              Expanded(
+                child: _buildSimButton(
+                  simNumber: 1,
+                  slot: 0,
+                  color: Colors.green,
+                  icon: Icons.sim_card,
                 ),
               ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildSimButton(
+                  simNumber: 2,
+                  slot: 1,
+                  color: Colors.blue,
+                  icon: Icons.sim_card_outlined,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNetworkResponseSection() {
+    return GestureDetector(
+      onTap: _showFullNetworkResponse,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: Colors.blue.shade50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.blue.shade100),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.info_outline, color: Colors.blue, size: 18),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Text(
+                        'پاسخ شبکه:',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.blueGrey,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _ussdResponse,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Colors.blueGrey,
+                    ),
+                    maxLines: _isResponseExpanded ? null : 2,
+                    overflow: _isResponseExpanded
+                        ? TextOverflow.visible
+                        : TextOverflow.ellipsis,
+                  ),
+                  if (_ussdResponse.length > 100)
+                    TextButton(
+                      onPressed: () {
+                        setState(() {
+                          _isResponseExpanded = !_isResponseExpanded;
+                        });
+                      },
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: Size.zero,
+                      ),
+                      child: Text(
+                        _isResponseExpanded ? 'نمایش کمتر' : 'نمایش بیشتر',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.blue,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.close, size: 18),
+              onPressed: () => setState(() => _ussdResponse = ""),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
             ),
           ],
         ),
       ),
-      //bottomNavigationBar: _bottomButtons(),
     );
   }
 
+  void _showFullNetworkResponse() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.network_check, color: Colors.blue),
+            SizedBox(width: 8),
+            Text('پاسخ کامل شبکه'),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: SelectableText(_ussdResponse),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('بستن'),
+          ),
+          IconButton(
+            icon: const Icon(Icons.copy),
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: _ussdResponse));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('پاسخ کپی شد')),
+              );
+              Navigator.pop(context);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSimButton({
+    required int simNumber,
+    required int slot,
+    required Color color,
+    required IconData icon,
+  }) {
+    return ElevatedButton(
+      onPressed: _isUssdLoading ? null : () => _executeUssdOnly(slot),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: color.withOpacity(0.9),
+        foregroundColor: Colors.white,
+        minimumSize: const Size(0, 42),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+        elevation: 0,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+      ),
+      child: _isUssdLoading
+          ? const SizedBox(
+        width: 20,
+        height: 20,
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          color: Colors.white,
+        ),
+      )
+          : Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 18),
+          const SizedBox(width: 6),
+          Text(
+            "SIM $simNumber",
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // === بقیه ویجت‌های UI (بدون تغییر) ===
   Widget _appBar(BuildContext context) {
     return Container(
       height: 64,
@@ -777,7 +987,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
 
   Widget _content() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -796,6 +1006,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
           _communicationSection(),
           const SizedBox(height: 20),
           _buildUSSDCodePreview(),
+          _buildUssdRedesignSection()
         ],
       ),
     );
@@ -863,7 +1074,6 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
             _selectedBulkPhone = null;
             _filteredProviders.clear();
             wholesalePhoneCtrl.clear();
-            // ریست کردن متغیرهای USSD
             _selectedNormalProviderCode = null;
             _selectedBulkProviderCode = null;
             if (keyName == 'normal') {
@@ -876,7 +1086,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
           margin: const EdgeInsets.symmetric(horizontal: 4),
           decoration: BoxDecoration(
             color: selected
-                ? primary.withValues(alpha: 0.08)
+                ? primary.withOpacity(0.08)
                 : const Color(0xFFF3F4F6),
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
@@ -904,8 +1114,6 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
     );
   }
 
-  // --- Operator Section ---
-
   Widget _operatorSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -918,13 +1126,6 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
   }
 
   Widget _buildOperatorList() {
-    // اگر مشتری عمده است
-    print('Customer Type: $customerType'); // برای دیباگ
-    print(
-      'Filtered Providers Count: ${_filteredProviders.length}',
-    ); // برای دیباگ
-
-    // اگر مشتری عمده است
     if (customerType == 'bulk') {
       if (_filteredProviders.isEmpty) {
         return Center(
@@ -950,7 +1151,6 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
           final provider = _filteredProviders[index];
           final name = provider['name']?.toString() ?? '';
           final type = provider['type']?.toString() ?? '';
-          print('Provider $index: $name'); //
           return _operatorItem(
             name,
             type,
@@ -961,7 +1161,6 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
       );
     }
 
-    // برای مشتری عادی
     final providersAsync = ref.watch(providersListProvider);
 
     return providersAsync.when(
@@ -974,7 +1173,6 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
           itemCount: providers.length,
           itemBuilder: (context, index) {
             final p = providers[index];
-
             return _operatorItem(
               p['name']?.toString() ?? '',
               p['type']?.toString() ?? '',
@@ -997,10 +1195,8 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
     return GestureDetector(
       onTap: () {
         if (customerType == 'bulk') {
-          // برای مشتری عمده
           if (_filteredProviders.isEmpty) return;
 
-          // پیدا کردن provider کامل از لیست فیلتر شده
           final provider = _filteredProviders.firstWhere(
                 (p) => p['name']?.toString() == title,
             orElse: () => {},
@@ -1010,7 +1206,6 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
             _selectProviderForWholesale(provider);
           }
         } else {
-          // برای مشتری عادی
           if (isCompanySelectionLocked) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -1024,7 +1219,6 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
           }
           setState(() {
             selectedOperator = title;
-            // ذخیره کد شرکت برای مشتری عادی
             if (provider != null) {
               _selectedNormalProviderCode =
                   provider['ordinary_code']?.toString() ?? '';
@@ -1095,7 +1289,6 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
       ),
     );
   }
-  // --- Communication Section ---
 
   Widget _communicationSection() {
     return Column(
@@ -1154,8 +1347,6 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
     );
   }
 
-  // --- Phone Input Section برای مشتری عادی ---
-
   Widget _phoneInputSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1166,7 +1357,6 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
         ),
         const SizedBox(height: 6),
 
-        // اگر شماره‌های مشتری ذخیره شده‌اند، لیست را نمایش بده
         if (_normalCustomerPhones.isNotEmpty)
           _buildPhoneSelectionList()
         else
@@ -1207,7 +1397,6 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
           ),
         ),
         const SizedBox(height: 8),
-        // امکان وارد کردن شماره جدید
         _buildPhoneInputField(isAdditional: true),
       ],
     );
@@ -1240,12 +1429,10 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
     );
   }
 
-  // --- بخش مشتری عمده ---
   Widget _bulkCustomerSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // اگر شرکت "دیگر" انتخاب شده، فقط فیلد شماره تماس نمایش داده شود
         if (_isOtherProviderSelected) ...[
           const Text(
             'شماره تماس',
@@ -1253,11 +1440,9 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
           ),
           const SizedBox(height: 6),
 
-          // اگر شماره‌های مشتری ذخیره شده‌اند، لیست را نمایش بده
           if (_bulkCustomerPhones.isNotEmpty) _buildBulkPhoneInputField(),
         ],
 
-        // فیلد کد شرکت فقط وقتی نمایش داده شود که شرکت "دیگر" انتخاب نشده باشد
         if (!_isOtherProviderSelected) ...[
           const Text('کد شرکت', style: TextStyle(fontWeight: FontWeight.bold)),
           const SizedBox(height: 6),
@@ -1328,7 +1513,6 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
           ),
         ),
         const SizedBox(height: 8),
-        // امکان وارد کردن شماره جدید
         _buildBulkPhoneInputField(isAdditional: true),
       ],
     );
@@ -1399,44 +1583,6 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
           const SizedBox(height: 16),
           _amountInput('مقدار پرداخت شده', paidCtrl, null),
         ],
-      ),
-    );
-  }
-
-  // Widget _bottomButtons() {
-  //   return Container(
-  //     padding: const EdgeInsets.all(16),
-  //     decoration: const BoxDecoration(
-  //       color: surfaceLight,
-  //       border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
-  //     ),
-  //     child: Row(
-  //       children: [
-  //         Expanded(child: _simButton('SIM 1', true)),
-  //         const SizedBox(width: 12),
-  //         Expanded(child: _simButton('SIM 2', false)),
-  //       ],
-  //     ),
-  //   );
-  // }
-
-  Widget _simButton(String label, bool primaryBtn) {
-    return SizedBox(
-      height: 56,
-      child: ElevatedButton.icon(
-        onPressed: () {
-          // TODO: Implement Transaction Save
-        },
-        icon: const Icon(Icons.sim_card),
-        label: Text(label),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: primaryBtn ? primary : surfaceLight,
-          foregroundColor: primaryBtn ? Colors.white : primary,
-          side: primaryBtn ? null : const BorderSide(color: primary, width: 2),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-        ),
       ),
     );
   }
@@ -1513,7 +1659,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
             onChanged: onChanged,
             focusNode: focusNode,
             decoration: InputDecoration(
-              prefixIcon: Icon(Icons.search, color: kPrimaryColor),
+              prefixIcon: const Icon(Icons.search, color: kPrimaryColor),
               hintStyle: const TextStyle(color: Colors.grey),
               border: InputBorder.none,
               contentPadding: const EdgeInsets.symmetric(
@@ -1526,6 +1672,163 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
           ),
         ),
       ],
+    );
+  }
+  // --- بخش جدید بازطراحی شده بر اساس دیزاین شما ---
+
+  Widget _buildUssdRedesignSection() {
+    final ussdCode = _buildUSSDCode();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+
+        const SizedBox(height: 14),
+
+        // ۲. دکمه‌های انتخاب سیم‌کارت (Grid Layout)
+        Row(
+          children: [
+            Expanded(child: _simButtonDesign("SIM 1", 0)),
+            const SizedBox(width: 12),
+            Expanded(child: _simButtonDesign("SIM 2", 1)),
+          ],
+        ),
+
+        const SizedBox(height: 24),
+
+        // ۳. بخش پاسخ سیستم (فقط در صورت وجود پاسخ نمایش داده می‌شود)
+        if (_ussdResponse.isNotEmpty || _isUssdLoading)
+          _buildSystemResponseSection(),
+      ],
+    );
+  }
+
+  // ویجت دکمه سیم‌کارت طبق دیزاین
+  Widget _simButtonDesign(String label, int slot) {
+    return InkWell(
+      onTap: _isUssdLoading ? null : () => _executeUssdOnly(slot), // فقط اجرای USSD
+      child: Container(
+        height: 56,
+        decoration: BoxDecoration(
+          color: kPrimaryColor, // خاکستری ملایم (gray-100)
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE5E7EB)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.sim_card_outlined, size: 22, color: Colors.white),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                  color: Colors.white
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ویجت پاسخ سیستم طبق دیزاین
+  Widget _buildSystemResponseSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionHeader('پاسخ سیستم (USSD)'),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: _isUssdLoading ? Colors.blue[50] : const Color(0xFFF0FDF4),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: _isUssdLoading ? Colors.blue[100]! : const Color(0xFFDCFCE7),
+            ),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // نمایش لودینگ چرخان هنگام درخواست و تیک سبز بعد از دریافت پاسخ
+              _isUssdLoading
+                  ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.blue)
+              )
+                  : const Icon(Icons.quickreply_outlined, color: Colors.green, size: 24),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _isUssdLoading ? "در حال دریافت پاسخ از شبکه..." : "پاسخ دریافت شده:",
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: _isUssdLoading ? Colors.blue[800] : const Color(0xFF166534),
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    // نمایش دقیق متن USSD که از اپراتور آمده است
+                    Text(
+                      _ussdResponse,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Colors.black87,
+                        height: 1.5,
+                        fontFamily: 'monospace', // برای خوانایی بهتر کدهای عددی در پیام
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+  // ۴. دکمه فوتر برای ثبت تراکنش (جدا شده از اجرای USSD)
+  Widget _buildFixedFooter() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: const Color(0xFFF3F4F6)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -4),
+          )
+        ],
+      ),
+      child: ElevatedButton(
+        onPressed: _processAndSaveTransaction, // فقط ذخیره در دیتابیس
+        style: ElevatedButton.styleFrom(
+          backgroundColor: kPrimaryColor,
+          minimumSize: const Size(double.infinity, 56),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          elevation: 4,
+          shadowColor: kPrimaryColor.withOpacity(0.4),
+        ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.save_outlined, color: Colors.white),
+            SizedBox(width: 12),
+            Text(
+              "ثبت تراکنش",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

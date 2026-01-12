@@ -1,366 +1,259 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart';
 import 'package:top_up_shops/src/presentation/screens/dashboard/send_credit/send_credit_screen.dart';
+import '../../../domain/entity/transaction.dart';
+import '../../../providers/transaction_provider.dart';
+import '../transactions/transaction_screen.dart';
 
 
-
-class DashboardPage extends StatelessWidget {
-  const DashboardPage({super.key});
-
-  // Colors (from HTML)
-  static const Color primary = Color(0xFFEA2A33);
-  static const Color bgLight = Color(0xFFF8F6F6);
-  static const Color surfaceLight = Colors.white;
-  static const Color textMain = Color(0xFF1B0E0E);
-  static const Color textSecondary = Color(0xFF6B7280);
+class DashboardScreen extends ConsumerWidget {
+  const DashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: bgLight,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _topBar(context),
-            Expanded(child: _content(context)),
-          ],
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    const brandRed = Color(0xFFEA2A33);
+    final bgColor = isDark ? const Color(0xFF1A0D0D) : const Color(0xFFF8F6F6);
 
-  // ---------------- Top Bar ----------------
+    // اشتراک در داده‌ها
+    final todaySales = ref.watch(todaySalesProvider);
+    final todayProfit = ref.watch(todayProfitProvider);
+    final todayCount = ref.watch(todayCountProvider);
+    final growth = ref.watch(salesGrowthProvider);
+    final recentTxns = ref.watch(recentTransactionsProvider);
 
-  Widget _topBar(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: const BoxDecoration(
-        color: bgLight,
-        border: Border(
-          bottom: BorderSide(color: Color(0xFFE5E7EB)),
-        ),
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.arrow_forward, color: textMain),
-          ),
-          const Expanded(
-            child: Text(
-              'مدیریت کارت‌ها',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: textMain,
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        backgroundColor: bgColor,
+        appBar: _buildAppBar(isDark, brandRed),
+        body: SafeArea(
+          child: RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(transactionsProvider);
+              ref.invalidate(todaySalesProvider);
+              ref.invalidate(todayProfitProvider);
+            },
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                children: [
+                  const SizedBox(height: 20),
+                  // ردیف کارت‌های کوچک
+                  Row(
+                    children: [
+                      _buildMiniCard("تعداد امروز", "${todayCount.value ?? 0}", "عدد", isDark, brandRed),
+                      const SizedBox(width: 10),
+                      _buildMiniCard1("سود امروز", "${todayProfit.value ?? 0}", "افغانی", isDark, brandRed, highlight: true),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  // کارت بزرگ فروش کل
+                  _buildMainSalesCard(todaySales.value ?? 0, growth.value ?? 0, isDark, brandRed),
+                  const SizedBox(height: 25),
+                  // دکمه عملیاتی اصلی
+                  _buildBigActionButton(brandRed,context),
+                  const SizedBox(height: 30),
+                  // هدر تراکنش‌های اخیر
+                  _buildSectionHeader("تراکنش‌های اخیر", brandRed,context),
+                  const SizedBox(height: 15),
+                  // لیست تراکنش‌ها
+                  recentTxns.when(
+                    data: (txns) => Column(
+                      children: txns.map((t) => _buildRecentItem(t, isDark, brandRed)).toList(),
+                    ),
+                    loading: () => const Center(child: CircularProgressIndicator()),
+                    error: (_, __) => const Text("خطا در بارگذاری"),
+                  ),
+                  const SizedBox(height: 100),
+                ],
               ),
             ),
           ),
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF3F4F6),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(Icons.filter_list, color: textMain),
-          ),
-        ],
-      ),
+        ),
+         ),
     );
   }
 
-  // ---------------- Main Content ----------------
-
-  Widget _content(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  PreferredSizeWidget _buildAppBar(bool isDark, Color red) {
+    return AppBar(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      title: Row(
         children: [
-          _sectionTitle('موجودی فعلی'),
-          const SizedBox(height: 12),
-          _inventoryCards(),
-          const SizedBox(height: 28),
-          _sectionTitle('اقدامات سریع'),
-          const SizedBox(height: 12),
-          _quickActions(context),
-          const SizedBox(height: 28),
-          _sectionTitle('تراکنش‌های اخیر'),
-          const SizedBox(height: 12),
-          _transactions(),
+          CircleAvatar(radius: 20, backgroundColor: red.withOpacity(0.1), child: Icon(Icons.person, color: red)),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text("مدیریت فروشگاه", style: TextStyle(fontSize: 10, color: Colors.grey)),
+              Text("احمد ولی", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black)),
+            ],
+          )
         ],
       ),
-    );
-  }
-
-  Widget _sectionTitle(String title) {
-    return Text(
-      title,
-      style: const TextStyle(
-        fontSize: 18,
-        fontWeight: FontWeight.bold,
-        color: textMain,
-      ),
-    );
-  }
-
-  // ---------------- Inventory ----------------
-
-  Widget _inventoryCards() {
-    return SizedBox(
-      height: 160,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        children: const [
-          _InventoryCard(
-            title: 'روشن',
-            count: '۱۴۵',
-            color: Color(0xFFC1272D),
-            trend: '+۱۲',
-          ),
-          _InventoryCard(
-            title: 'اتصالات',
-            count: '۸',
-            color: Color(0xFF8CB920),
-            trend: 'کمبود',
-            warning: true,
-          ),
-          _InventoryCard(
-            title: 'ام‌تی‌ان',
-            count: '۸۹',
-            color: Color(0xFFFFCC00),
-            trend: '-۵',
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ---------------- Quick Actions ----------------
-
-  Widget _quickActions(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _actionCard(
-            title: 'فروش کارت',
-            subtitle: 'ثبت فروش تکی',
-            icon: Icons.point_of_sale,
-            color: primary, onPressed:(){
-              Navigator.push(context,MaterialPageRoute(builder: (context)=>DigitalTopupSalePage()));
-          },
-          ),
+      actions: [
+        IconButton(onPressed: () {}, icon: const Icon(Icons.sync, color: Colors.grey)),
+        Stack(
+          children: [
+            IconButton(onPressed: () {}, icon: const Icon(Icons.notifications_none, color: Colors.grey)),
+            Positioned(right: 12, top: 12, child: Container(width: 8, height: 8, decoration: BoxDecoration(color: red, shape: BoxShape.circle))),
+          ],
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _actionCard(
-            title: 'خرید عمده',
-            subtitle: 'افزودن موجودی',
-            icon: Icons.inventory_2,
-            color: const Color(0xFF1F2937), onPressed: (){},
-          ),
-        ),
+        const SizedBox(width: 10),
       ],
     );
   }
 
-  Widget _actionCard({
-    required final Function onPressed,
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required Color color,
-  }) {
-    return GestureDetector(
-      onTap:(){
-        onPressed();
-      },
+  Widget _buildMiniCard(String title, String val, String unit, bool isDark, Color red, {bool highlight = false}) {
+    return Expanded(
       child: Container(
-        height: 140,
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(15),
         decoration: BoxDecoration(
-          color: color,
+          color: isDark ? const Color(0xFF2A1D1D) : Colors.white,
           borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: highlight ? red.withOpacity(0.3) : Colors.transparent),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, color: Colors.white),
+            Text(title, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+            const SizedBox(height: 5),
+            Row(
+              children: [
+                Text(val, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: highlight ? red : (isDark ? Colors.white : Colors.black))),
+               SizedBox(width: 7,), Text(unit, style: const TextStyle(fontSize: 14, color: Colors.grey)),
+              ],
             ),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+            ],
+        ),
+      ),
+    );
+  }
+Widget _buildMiniCard1(String title, String val, String unit, bool isDark, Color red, {bool highlight = false}) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(15),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF2A1D1D) : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: highlight ? red.withOpacity(0.3) : Colors.transparent),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+            const SizedBox(height: 5),
+            Row(
+              children: [
+                Text(val, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: highlight ? Colors.green : (isDark ? Colors.white : Colors.black))),
+               SizedBox(width: 7,), Text(unit, style: const TextStyle(fontSize: 14, color: Colors.green)),
+              ],
             ),
-            Text(
-              subtitle,
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.8),
-                fontSize: 12,
-              ),
-            ),
-          ],
+            ],
         ),
       ),
     );
   }
 
-  // ---------------- Transactions ----------------
-
-  Widget _transactions() {
-    return Column(
-      children: const [
-        _TransactionItem(
-          title: 'فروش کارت ۵۰ افغانی',
-          brand: 'روشن',
-          time: '۱۰:۳۰',
-          amount: '+۵۰ ؋',
-          success: true,
-        ),
-        _TransactionItem(
-          title: 'خرید عمده (۱۰۰ عدد)',
-          brand: 'ام‌تی‌ان',
-          time: '۰۹:۱۵',
-          amount: '-۴۵۰۰ ؋',
-          pending: true,
-        ),
-        _TransactionItem(
-          title: 'فروش ناموفق',
-          brand: 'اتصالات',
-          time: 'دیروز',
-          amount: '۱۰۰ ؋',
-          failed: true,
-        ),
-      ],
-    );
-  }
-
-}
-
-// ================= Components =================
-
-class _InventoryCard extends StatelessWidget {
-  final String title;
-  final String count;
-  final Color color;
-  final String trend;
-  final bool warning;
-
-  const _InventoryCard({
-    required this.title,
-    required this.count,
-    required this.color,
-    required this.trend,
-    this.warning = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildMainSalesCard(int total, double growth, bool isDark, Color red) {
     return Container(
-      width: 160,
-      margin: const EdgeInsets.only(right: 12),
-      padding: const EdgeInsets.all(16),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 30),
       decoration: BoxDecoration(
-        color: DashboardPage.surfaceLight,
-        borderRadius: BorderRadius.circular(20),
-        border: Border(
-          right: BorderSide(color: color, width: 4),
-        ),
+        color: isDark ? const Color(0xFF2A1D1D) : Colors.white,
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: [BoxShadow(color: red.withOpacity(0.05), blurRadius: 20, offset: const Offset(0, 10))],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title,
-              style: const TextStyle(
-                  color: DashboardPage.textSecondary,
-                  fontWeight: FontWeight.bold)),
-          const Spacer(),
-          Text(count,
-              style: const TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: DashboardPage.textMain)),
-          const SizedBox(height: 4),
-          Text(trend,
-              style: TextStyle(
-                color: warning ? DashboardPage.primary : Colors.green,
-                fontWeight: FontWeight.bold,
-              )),
+          const Text("کل فروش امروز", style: TextStyle(color: Colors.grey, fontSize: 14)),
+          const SizedBox(height: 10),
+          Text("$total افغانی", style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 15),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(color: Colors.green.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+            child: Text("${growth.toStringAsFixed(1)}% افزایش نسبت به دیروز", style: const TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.bold)),
+          )
         ],
       ),
     );
   }
-}
 
-class _TransactionItem extends StatelessWidget {
-  final String title, brand, time, amount;
-  final bool success, pending, failed;
+  Widget _buildBigActionButton(Color red,BuildContext context) {
+    return GestureDetector(
+      onTap: (){
+        Navigator.push(context, MaterialPageRoute(builder: (context)=> DigitalTopupSalePage()));
+      },
+      child: Container(
+        width: double.infinity,
+        height: 65,
+        decoration: BoxDecoration(
+          color: red,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [BoxShadow(color: red.withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 8))],
+        ),
+        child: const Center(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.send_to_mobile, color: Colors.white, size: 28),
+              SizedBox(width: 12),
+              Text("ارسال کریدیت", style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
-  const _TransactionItem({
-    required this.title,
-    required this.brand,
-    required this.time,
-    required this.amount,
-    this.success = false,
-    this.pending = false,
-    this.failed = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    Color iconColor = success
-        ? Colors.green
-        : pending
-        ? Colors.orange
-        : DashboardPage.primary;
-
+  Widget _buildRecentItem(TransactionModel t, bool isDark, Color red) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+      padding: const  EdgeInsets.all(15),
       decoration: BoxDecoration(
-        color: DashboardPage.surfaceLight,
-        borderRadius: BorderRadius.circular(16),
+        color: isDark ? const Color(0xFF2A1D1D) : Colors.white,
+        borderRadius: BorderRadius.circular(18),
       ),
       child: Row(
         children: [
-          CircleAvatar(
-            backgroundColor: iconColor.withOpacity(0.15),
-            child: Icon(Icons.receipt, color: iconColor),
-          ),
-          const SizedBox(width: 12),
+          Container(width: 45, height: 45, decoration: BoxDecoration(color: red.withOpacity(0.1), shape: BoxShape.circle), child: Icon(Icons.bolt, color: red)),
+          const SizedBox(width: 15),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: DashboardPage.textMain)),
-                Text('$brand • $time',
-                    style: const TextStyle(
-                        fontSize: 12,
-                        color: DashboardPage.textSecondary)),
+                Text(t.operator, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                Text(t.phoneNumber, style: const TextStyle(fontSize: 11, color: Colors.grey)),
               ],
             ),
           ),
-          Text(amount,
-              style: TextStyle(
-                  fontWeight: FontWeight.bold, color: iconColor)),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text("${t.receivedAmount}؋", style: const TextStyle(fontWeight: FontWeight.bold)),
+              const Text("موفق", style: TextStyle(fontSize: 9, color: Colors.green, fontWeight: FontWeight.bold)),
+            ],
+          )
         ],
       ),
     );
   }
-}
+
+  Widget _buildSectionHeader(String title, Color red, BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+        GestureDetector(
+            onTap: (){
+              Navigator.push(context, MaterialPageRoute(builder: (context)=>TransactionHistoryPage()));
+            },
+            child: Text("مشاهده همه", style: TextStyle(color: red, fontSize: 12, fontWeight: FontWeight.bold))),
+      ],
+    );
+  }
+  
+  }

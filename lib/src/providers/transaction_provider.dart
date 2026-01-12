@@ -105,3 +105,12 @@ final customerReportTransactionsProvider = Provider<AsyncValue<List<TransactionM
     }).toList();
   });
 });
+final todayTotalSalesProvider = FutureProvider<int>((ref) => ref.read(transactionRepositoryProvider).todayTotalSales());
+final todaySentAmountProvider = FutureProvider<int>((ref) => ref.read(transactionRepositoryProvider).todaySentAmount());
+final salesGrowthProvider = FutureProvider<double>((ref) => ref.read(transactionRepositoryProvider).getSalesGrowthPercentage());
+
+final todaySalesProvider = FutureProvider<int>((ref) => ref.watch(transactionRepositoryProvider).todayTotalSales());
+final recentTransactionsProvider = FutureProvider<List<TransactionModel>>((ref) async {
+  final all = await ref.watch(transactionsProvider.future);
+  return all.take(5).toList(); // فقط ۵ تراکنش آخر
+});

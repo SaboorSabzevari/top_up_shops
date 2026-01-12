@@ -51,6 +51,9 @@ dependencies:
   flutter_contacts:
   permission_handler:
   url_launcher:
+  pdf:
+  printing:
+  excel:
 
 
 dev_dependencies:

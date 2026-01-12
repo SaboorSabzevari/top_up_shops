@@ -23,11 +23,52 @@ class AddCustomerPage extends ConsumerStatefulWidget {
 
 class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
   CustomerType _customerType = CustomerType.normal; // تغییر پیش‌فرض به عادی
-
+  final _formKey = GlobalKey<FormState>();
   final TextEditingController fullNameCtrl = TextEditingController();
   final TextEditingController addressCtrl = TextEditingController();
   final TextEditingController wholesaleMainPhone = TextEditingController();
+  // متد اعتبارسنجی را به این صورت تغییر دهید
+  String? _phoneValidator(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'شماره تماس الزامی است';
+    }
 
+    // اگر کاربر دستی تایپ کرد و +93 زد، اینجا صرفا خطا می‌دهیم
+    // (یا می‌توانیم در onSaved اصلاح کنیم، اما خطا دادن برای آگاهی کاربر بهتر است)
+
+    // ۱. بررسی طول شماره (دقیقا ۱۰ رقم)
+    if (value.length != 10) {
+      return 'شماره باید ۱۰ رقم باشد';
+    }
+
+    // ۲. بررسی شروع شدن با 07
+    if (!value.startsWith('07')) {
+      return 'شماره باید با 07 شروع شود';
+    }
+
+    // ۳. بررسی عددی بودن
+    if (!RegExp(r'^[0-9]+$').hasMatch(value)) {
+      return 'فقط عدد وارد کنید';
+    }
+
+    return null;
+  } // این متد را به داخل کلاس _AddCustomerPageState اضافه کنید
+  String _formatPhoneNumber(String phone) {
+    // ۱. حذف تمام فاصله‌ها، پرانتزها و خط تیره‌ها
+    String cleanPhone = phone.replaceAll(RegExp(r'[\s\-\(\)]'), '');
+
+    // ۲. تبدیل +93 یا 0093 به 0
+    if (cleanPhone.startsWith('+93')) {
+      cleanPhone = '0${cleanPhone.substring(3)}';
+    } else if (cleanPhone.startsWith('0093')) {
+      cleanPhone = '0${cleanPhone.substring(4)}';
+    } else if (cleanPhone.startsWith('93') && cleanPhone.length > 10) {
+      // اگر کاربر اشتباها 93 زد ولی + نذاشت
+      cleanPhone = '0${cleanPhone.substring(2)}';
+    }
+
+    return cleanPhone;
+  }
   String? _profilePath;
   String? _tazkiraPath;
 
@@ -158,52 +199,34 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
     super.dispose();
   }
 
-  Future<void> _pickContact() async {
-    if (await Permission.contacts.request().isGranted) {
+  // متد _pickContact موجود را با این نسخه جایگزین کنید
+  Future<void> _pickContact(int index) async {
+    if (await FlutterContacts.requestPermission()) {
       final contact = await FlutterContacts.openExternalPick();
+      if (contact != null && contact.phones.isNotEmpty) {
+        String rawNumber = contact.phones.first.number;
 
-      if (contact != null) {
-        final fullContact = await FlutterContacts.getContact(contact.id);
+        // >>> اینجا تغییر اصلی اتفاق می‌افتد <<<
+        String formattedNumber = _formatPhoneNumber(rawNumber);
 
-        if (fullContact != null) {
-          setState(() {
-            fullNameCtrl.text = fullContact.displayName;
-
-            if (fullContact.phones.isNotEmpty) {
-              if (_customerType == CustomerType.normal) {
-                // برای مشتری عادی: پاک کردن فیلدهای قبلی و اضافه کردن شماره‌های جدید
-                for (var ctrl in normalPhones) {
-                  ctrl.dispose();
-                }
-                normalPhones.clear();
-
-                for (var phone in fullContact.phones) {
-                  String cleanPhone = phone.number.replaceAll(RegExp(r'[^\d+]'), '');
-                  if (cleanPhone.startsWith('+93')) cleanPhone = cleanPhone.substring(3);
-                  normalPhones.add(TextEditingController(text: cleanPhone));
-                }
-
-                // اگر هیچ شماره‌ای اضافه نشد، یک فیلد خالی اضافه کن
-                if (normalPhones.isEmpty) {
-                  normalPhones.add(TextEditingController());
-                }
-              } else {
-                // برای دکان‌دار: فقط اولین شماره را در فیلد اصلی بگذار
-                String cleanPhone = fullContact.phones.first.number.replaceAll(RegExp(r'[^\d+]'), '');
-                if (cleanPhone.startsWith('+93')) cleanPhone = cleanPhone.substring(3);
-                wholesaleMainPhone.text = cleanPhone;
-              }
-            }
-          });
+        setState(() {
+          if (_customerType == CustomerType.normal) {
+            // برای مشتری عادی (لیست شماره‌ها)
+            normalPhones[index].text = formattedNumber;
+          } else {
+            // برای مغازه‌دار (تک شماره)
+            wholesaleMainPhone.text = formattedNumber;
+          }
+        });
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('مخاطب انتخاب شده شماره تماس ندارد'))
+          );
         }
       }
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('اجازه دسترسی به مخاطبین داده نشد'))
-      );
     }
   }
-
   Future<void> _pickImage(bool isProfile, ImageSource source) async {
     final picker = ImagePicker();
     final image = await picker.pickImage(source: source);
@@ -258,22 +281,52 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
   }
 
   void _saveData() async {
-    if (fullNameCtrl.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('نام کامل الزامی است')));
+    // ۱. اعتبارسنجی فرم (ظاهری)
+    if (!_formKey.currentState!.validate()) {
       return;
     }
 
+    // ۲. تعیین نوع مشتری برای دیتابیس
     final typeStr = _customerType == CustomerType.normal ? 'ORDINARY' : 'WHOLESALE';
 
-    List<String> phones = [];
+    // ۳. جمع‌آوری و استانداردسازی شماره تماس‌ها
+    List<String> validPhones = [];
+
     if (_customerType == CustomerType.normal) {
-      phones = normalPhones.map((e) => e.text).where((t) => t.isNotEmpty).toList();
+      // برای مشتری عادی: تمام فیلدها را چک و فرمت می‌کنیم
+      validPhones = normalPhones
+          .map((e) => _formatPhoneNumber(e.text)) // حذف +93 و فاصله‌ها
+          .where((phone) => phone.length == 10 && phone.startsWith('07')) // فیلتر کردن شماره‌های معتبر
+          .toList();
     } else {
+      // برای مغازه‌دار: تک شماره را چک می‌کنیم
       if (wholesaleMainPhone.text.isNotEmpty) {
-        phones.add(wholesaleMainPhone.text);
+        String cleanPhone = _formatPhoneNumber(wholesaleMainPhone.text);
+        if (cleanPhone.length == 10 && cleanPhone.startsWith('07')) {
+          validPhones.add(cleanPhone);
+        }
       }
     }
 
+    // ۴. بررسی الزامات خاص مغازه‌دار (کد دیلری یا شماره تماس)
+    if (_customerType == CustomerType.shopkeeper) {
+      // بررسی اینکه آیا حداقل یک کد دیلری وارد شده است؟
+      bool hasDealerCode = dealers.any((d) => d.companyType != null && d.codeCtrl.text.isNotEmpty);
+      // بررسی اینکه آیا لیست شماره‌های معتبر پر است؟
+      bool hasValidPhone = validPhones.isNotEmpty;
+
+      if (!hasDealerCode && !hasValidPhone) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('برای دکان‌دار، درج شماره تماس صحیح یا حداقل یک کد دیلری الزامی است'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+    }
+
+    // ۵. جمع‌آوری کدهای دیلری (بدون تغییر)
     List<Map<String, String>> wholesaleCodes = dealers
         .where((d) => d.companyType != null && d.codeCtrl.text.isNotEmpty)
         .map((e) => {
@@ -282,6 +335,7 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
     })
         .toList();
 
+    // ۶. ساخت آبجکت مشتری
     final customer = Customer(
       name: fullNameCtrl.text,
       customerCode: widget.customerData?['customer_code'] ??
@@ -292,42 +346,55 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
       tazkiraImage: _tazkiraPath,
     );
 
+    // ۷. ذخیره در دیتابیس
     try {
       if (widget.customerData != null) {
+        // حالت ویرایش
         final int customerId = widget.customerData!['id'];
-        await DatabaseHelper.instance.updateCustomer(customerId, customer, phones, wholesaleCodes);
+        await DatabaseHelper.instance.updateCustomer(customerId, customer, validPhones, wholesaleCodes);
       } else {
-        await DatabaseHelper.instance.addCustomer(customer, phones, wholesaleCodes);
+        // حالت افزودن جدید
+        await DatabaseHelper.instance.addCustomer(customer, validPhones, wholesaleCodes);
       }
 
-      ref.refresh(customerSearchResults);
-      Navigator.pop(context);
+      // بروزرسانی لیست مشتریان در صفحه قبل
+      if (mounted) {
+        // اگر از Riverpod استفاده می‌کنید invalidate بهتر از refresh است
+        // ref.invalidate(customerSearchResultsProvider);
+        // یا همان کد خودتان:
+        ref.refresh(customerSearchResults);
+
+        Navigator.pop(context);
+      }
     } catch (e) {
-      print('❌ ERROR IN SAVE: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطا در ذخیره‌سازی: $e'), backgroundColor: Colors.red),
+        );
+      }
     }
   }
-
   @override
   Widget build(BuildContext context) {
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: const Color(0xffF8F6F6),
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_forward_ios, color: Colors.black),
-            onPressed: () => Navigator.pop(context),
-          ),
-          title: Text(
-            widget.customerData == null ? 'افزودن مشتری جدید' : 'ویرایش اطلاعات مشتری',
-            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
-          ),
-          centerTitle: true,
+    return Scaffold(
+      backgroundColor: const Color(0xffF8F6F6),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: () => Navigator.pop(context),
         ),
-        bottomNavigationBar: _buildSaveButton(),
-        body: SingleChildScrollView(
+        title: Text(
+          widget.customerData == null ? 'افزودن مشتری جدید' : 'ویرایش اطلاعات مشتری',
+          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
+        ),
+        centerTitle: true,
+      ),
+      bottomNavigationBar: _buildSaveButton(),
+      body: Form(
+          key: _formKey,
+        child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -393,7 +460,7 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
             radius: 46,
             backgroundColor: Colors.grey.shade200,
             backgroundImage: _profilePath != null ? FileImage(File(_profilePath!)) : null,
-            child: _profilePath == null ? const Icon(Icons.add_a_photo, size: 32, color: Colors.grey) : null,
+            child: _profilePath == null ? const Icon(Icons.add_a_photo, size: 32, color: kPrimaryColor,) : null,
           ),
           const SizedBox(height: 8),
           const Text('آواتار (برای آپلود کلیک کنید)', style: TextStyle(color: Colors.grey)),
@@ -408,15 +475,21 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
       children: [
         const Text('نام کامل', style: TextStyle(fontWeight: FontWeight.w500, color: Colors.black54)),
         const SizedBox(height: 6),
-        TextField(
+        TextFormField(cursorColor: kPrimaryColor,
           controller: fullNameCtrl,
+    validator: (value) {
+    if (value == null || value.isEmpty) return 'نام کامل الزامی است';
+    return null;
+    },
           decoration: InputDecoration(
             prefixIcon: const Icon(Icons.person),
             suffixIcon: IconButton(
               icon: const Icon(Icons.contact_phone, color: Color(0xffEA2A33)),
-              onPressed: _pickContact,
-              tooltip: 'انتخاب از مخاطبین گوشی',
-            ),
+              onPressed: ()async{_pickContact;
+    },
+    tooltip: 'انتخاب از مخاطبین گوشی',
+    ),
+
             hintText: 'نام کامل را وارد کنید',
             filled: true,
             fillColor: Colors.white,
@@ -457,7 +530,7 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
   Widget _buildWholesaleSection() {
     return Column(
       children: [
-        _input(controller: wholesaleMainPhone, label: 'شماره تماس اصلی', icon: Icons.call, isPhone: true, hint: '7XXXXXXXX'),
+        _input(controller: wholesaleMainPhone, label: 'شماره تماس اصلی', icon: Icons.call, isPhone: true, hint: '07XXXXXXXX'),
         const SizedBox(height: 16),
         _sectionHeader('لیست کدهای دیلری', onAdd: () => setState(() => dealers.add(_DealerItem()))),
         ...List.generate(dealers.length, (i) => Padding(
@@ -526,7 +599,9 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-        TextButton.icon(onPressed: onAdd, icon: const Icon(Icons.add, size: 18), label: const Text('افزودن')),
+        TextButton.icon(onPressed: onAdd, icon: const Icon(Icons.add, color: kPrimaryColor, size: 18), label: const Text('افزودن',style: TextStyle(
+          color: kPrimaryColor
+        ),)),
       ],
     );
   }
@@ -538,8 +613,15 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
         Text(label, style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.black54)),
         const SizedBox(height: 6),
 
-        TextField(
+        TextFormField(cursorColor: kPrimaryColor,
           controller: controller,
+          validator: (value) {
+            if (value != null && value.isNotEmpty) {
+              if (!value.startsWith('07')) return 'شروع با 07';
+              if (value.length != 10) return '10 رقم باشد';
+            }
+            return null;
+          },
           enabled: enabled,
           keyboardType: isPhone ? TextInputType.phone : TextInputType.text,
           maxLines: maxLines,
@@ -556,13 +638,14 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
   }
 
   Widget _phoneInput(TextEditingController controller) {
-    return TextField(
+    return TextFormField(
+      validator: _phoneValidator,
+      cursorColor: kPrimaryColor,
       controller: controller,
       keyboardType: TextInputType.phone,
       decoration: InputDecoration(
         prefixIcon: const Icon(Icons.call),
-        suffixText: '+93',
-        hintText: '7XXXXXXXX',
+        hintText: '07XXXXXXXX',
         filled: true,
         fillColor: Colors.white,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
@@ -596,7 +679,8 @@ class _DealerItem {
   Widget buildCompany(WidgetRef ref, VoidCallback onUpdate) {
     final providersAsync = ref.watch(providersListProvider);
     return providersAsync.when(
-      data: (list) => DropdownButtonFormField<String>(
+      data: (list) => DropdownButtonFormField<String>(dropdownColor: Colors.white,
+
         value: companyType,
         items: list.map((p) => DropdownMenuItem(
             value: p['name'].toString(),
@@ -619,11 +703,11 @@ class _DealerItem {
   }
 
   Widget buildCode() {
-    return TextField(
+    return TextField(cursorColor: kPrimaryColor,
       controller: codeCtrl,
-      textAlign: TextAlign.center,
+
       decoration: InputDecoration(
-          hintText: 'کد دیلری',
+          hintText: 'کد شرکت',
           filled: true,
           fillColor: Colors.white,
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none)

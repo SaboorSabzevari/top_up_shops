@@ -1,17 +1,26 @@
 import 'dart:io';
 
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart' as intl;
 import '../../../data/local/app_database.dart';
 import '../../../domain/entity/transaction.dart';
 import '../../../providers/transaction_provider.dart';
+
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart' as intl;
+import 'package:path_provider/path_provider.dart';
+// استفاده از hide برای جلوگیری از تداخل نام Border
+import 'package:excel/excel.dart' as xl;
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 
 class CustomerReportScreen extends ConsumerStatefulWidget {
   const CustomerReportScreen({super.key});
 
   @override
-  ConsumerState<CustomerReportScreen> createState() => _CustomerReportScreenState();
+  ConsumerState<CustomerReportScreen> createState() =>
+      _CustomerReportScreenState();
 }
 
 class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
@@ -26,6 +35,175 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
   static const Color backgroundDarkColor = Color(0xFF121212);
   static const Color surfaceDarkColor = Color(0xFF1E1E1E);
   static const Color surfaceLightColor = Color(0xFFFFFFFF);
+
+  // ۱. تولید PDF با فونت فارسی و ساختار جدولی
+  // --- خروجی PDF ---
+  // --- اصلاح شده: خروجی PDF با مدیریت خطا ---
+  Future<void> _generatePdfReport(List<TransactionModel> transactions, String customerName) async {
+    try {
+      final pdf = pw.Document();
+      final arabicFont = await PdfGoogleFonts.notoSansArabicRegular();
+
+      pdf.addPage(
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4,
+          textDirection: pw.TextDirection.rtl,
+          build: (pw.Context context) => [
+            pw.Header(level: 0, child: pw.Text("گزارش مشتری: $customerName", style: pw.TextStyle(font: arabicFont))),
+            pw.TableHelper.fromTextArray(
+              border: pw.TableBorder.all(color: PdfColors.grey300),
+              headerStyle: pw.TextStyle(font: arabicFont, color: PdfColors.white),
+              headerDecoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFFEA2A33)),
+              headers: ['تاریخ', 'اپراتور', 'مبلغ'],
+              data: transactions.map((t) => [t.createdAt, t.operator, t.sentAmount.toString()]).toList(),
+            ),
+          ],
+        ),
+      );
+
+      // باز کردن صفحه چاپ
+      await Printing.layoutPdf(onLayout: (PdfPageFormat format) async => pdf.save());
+
+      // پیام موفقیت (اختیاری چون صفحه چاپ خودش گویای همه چیز است)
+      _showSnackBar("آماده‌سازی PDF موفقیت‌آمیز بود", Colors.green);
+
+    } catch (e) {
+      _showSnackBar("خطا در تولید PDF: $e", Colors.red);
+    }
+  }
+
+  // --- اصلاح شده: خروجی EXCEL با مدیریت خطا ---
+  Future<void> _generateExcelReport(List<TransactionModel> transactions, String customerName) async {
+    try {
+      var excel = xl.Excel.createExcel();
+      xl.Sheet sheetObject = excel['Report'];
+
+      sheetObject.appendRow([xl.TextCellValue('تاریخ'), xl.TextCellValue('اپراتور'), xl.TextCellValue('مبلغ')]);
+
+      for (var t in transactions) {
+        sheetObject.appendRow([
+          xl.TextCellValue(t.createdAt),
+          xl.TextCellValue(t.operator),
+          xl.IntCellValue(t.sentAmount),
+        ]);
+      }
+
+      final directory = await getTemporaryDirectory();
+      final filePath = "${directory.path}/Report_$customerName.xlsx";
+      final file = File(filePath);
+      await file.writeAsBytes(excel.save()!);
+
+      // نمایش پیام موفقیت
+      _showSnackBar("فایل اکسل با موفقیت در پوشه موقت تولید شد", Colors.green);
+
+    } catch (e) {
+      // نمایش پیام خطا
+      _showSnackBar("تولید فایل اکسل ناموفق بود: $e", Colors.red);
+    }
+  }
+
+  // متد کمکی برای نمایش اسنک‌بار
+  void _showSnackBar(String message, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message, style: const TextStyle(fontFamily: 'Noto Sans Arabic')),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+  // Future<void> _generatePdfReport(
+  //   List<dynamic> transactions,
+  //   String customerName,
+  // ) async {
+  //   final pdf = pw.Document();
+  //   final arabicFont = await PdfGoogleFonts.notoSansArabicRegular();
+  //
+  //   pdf.addPage(
+  //     pw.MultiPage(
+  //       pageFormat: PdfPageFormat.a4,
+  //       textDirection: pw.TextDirection.rtl,
+  //       build: (pw.Context context) => [
+  //         pw.Header(
+  //           level: 0,
+  //           child: pw.Text(
+  //             "گزارش مشتری: $customerName",
+  //             style: pw.TextStyle(font: arabicFont, fontSize: 18),
+  //           ),
+  //         ),
+  //         pw.TableHelper.fromTextArray(
+  //           border: pw.TableBorder.all(color: PdfColors.grey300),
+  //           headerStyle: pw.TextStyle(font: arabicFont, color: PdfColors.white),
+  //           headerDecoration: const pw.BoxDecoration(
+  //             color: PdfColor.fromInt(0xFFEA2A33),
+  //           ),
+  //           headers: ['تاریخ', 'اپراتور', 'مبلغ', 'باقی‌مانده'],
+  //           data: transactions
+  //               .map(
+  //                 (t) => [
+  //                   t['date']?.toString() ?? '',
+  //                   t['operator_name']?.toString() ?? '',
+  //                   t['amount']?.toString() ?? '0',
+  //                   t['remaining_amount']?.toString() ?? '0',
+  //                 ],
+  //               )
+  //               .toList(),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  //   await Printing.layoutPdf(
+  //     onLayout: (PdfPageFormat format) async => pdf.save(),
+  //   );
+  // }
+  //
+  // // --- خروجی EXCEL ---
+  // Future<void> _generateExcelReport(
+  //   List<dynamic> transactions,
+  //   String customerName,
+  // ) async {
+  //   try {
+  //     // استفاده از xl برای فراخوانی کلاس‌های اکسل
+  //     var excel = xl.Excel.createExcel();
+  //     xl.Sheet sheetObject = excel['Report'];
+  //
+  //     sheetObject.appendRow([
+  //       xl.TextCellValue('تاریخ'),
+  //       xl.TextCellValue('اپراتور'),
+  //       xl.TextCellValue('مبلغ کل'),
+  //       xl.TextCellValue('باقی‌مانده'),
+  //     ]);
+  //
+  //     for (var t in transactions) {
+  //       sheetObject.appendRow([
+  //         xl.TextCellValue(t['date']?.toString() ?? ''),
+  //         xl.TextCellValue(t['operator_name']?.toString() ?? ''),
+  //         xl.DoubleCellValue(
+  //           double.tryParse(t['amount']?.toString() ?? '0') ?? 0.0,
+  //         ),
+  //         xl.DoubleCellValue(
+  //           double.tryParse(t['remaining_amount']?.toString() ?? '0') ?? 0.0,
+  //         ),
+  //       ]);
+  //     }
+  //
+  //     final directory = await getTemporaryDirectory();
+  //     final filePath = "${directory.path}/Report_$customerName.xlsx";
+  //     final file = File(filePath);
+  //     await file.writeAsBytes(excel.save()!);
+  //
+  //     if (mounted) {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         const SnackBar(
+  //           backgroundColor: Colors.green,
+  //           content: Text("فایل اکسل با موفقیت تولید شد"),
+  //         ),
+  //       );
+  //     }
+  //   } catch (e) {
+  //     debugPrint("Excel Error: $e");
+  //   }
+  // }
 
   void _onSearchChanged(String query) async {
     if (query.isEmpty) {
@@ -75,29 +253,69 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
     );
   }
 
-  // AppBar - Exact match to HTML header
   PreferredSizeWidget _buildAppBar(bool isDark) {
     return AppBar(
       backgroundColor: (isDark ? backgroundDarkColor : backgroundLightColor)
           .withOpacity(0.8),
       elevation: 0,
 
-      title: Text("گزارش تراکنش‌های مشتری",
-          style: TextStyle(
-              color: isDark ? Colors.white : Colors.black,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'Noto Sans Arabic')),
+      title: Text(
+        "گزارش تراکنش‌های مشتری",
+        style: TextStyle(
+          color: isDark ? Colors.white : Colors.black,
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+          fontFamily: 'Noto Sans Arabic',
+        ),
+      ),
       centerTitle: true,
       actions: [
-        IconButton(
-          icon: const Icon(Icons.ios_share, color: primaryColor, size: 24),
-          onPressed: () {},
-          style: IconButton.styleFrom(
-            backgroundColor: Colors.transparent,
-            shape: const CircleBorder(),
+        if (_selectedCustomer != null)
+          Consumer(
+            builder: (context, ref, child) {
+              // ۱. اصلاح نام پرووایدر مطابق فایل شما
+              // ۲. مقداردهی به selectedCustomerNameProvider برای فعال شدن فیلتر
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                ref.read(selectedCustomerNameProvider.notifier).state =
+                    _selectedCustomer!['name'];
+              });
+
+              final transactionsAsync = ref.watch(
+                customerReportTransactionsProvider,
+              );
+
+              return transactionsAsync.when(
+                data: (list) {
+                  if (list.isEmpty) return const SizedBox.shrink();
+                  return PopupMenuButton<String>(
+                    icon: const Icon(Icons.ios_share, color: primaryColor),
+                    onSelected: (value) {
+                      if (value == 'pdf') {
+                        _generatePdfReport(list, _selectedCustomer!['name']);
+                      } else {
+                        _generateExcelReport(list, _selectedCustomer!['name']);
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'pdf',
+                        child: Text("خروجی PDF"),
+                      ),
+                      const PopupMenuItem(
+                        value: 'excel',
+                        child: Text("خروجی Excel"),
+                      ),
+                    ],
+                  );
+                },
+                loading: () => const Center(
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                error: (e, st) =>
+                    const Icon(Icons.error_outline, color: Colors.orange),
+              );
+            },
           ),
-        ),
       ],
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(56),
@@ -116,9 +334,11 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
         color: isDark ? surfaceDarkColor : surfaceLightColor,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-            color: isDark ? const Color(0xFF374151) : const Color(0xFFE5E7EB)),
+          color: isDark ? const Color(0xFF374151) : const Color(0xFFE5E7EB),
+        ),
       ),
-      child: TextField(autofocus: true,
+      child: TextField(
+        autofocus: true,
         controller: _searchController,
         onChanged: _onSearchChanged,
         style: const TextStyle(fontSize: 14, fontFamily: 'Noto Sans Arabic'),
@@ -155,10 +375,14 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
         itemBuilder: (context, index) {
           final customer = _searchResults[index];
           return ListTile(
-            title: Text(customer['name'],
-                style: const TextStyle(fontFamily: 'Noto Sans Arabic')),
-            subtitle: Text(customer['customer_code'] ?? '',
-                style: const TextStyle(fontFamily: 'Manrope')),
+            title: Text(
+              customer['name'],
+              style: const TextStyle(fontFamily: 'Noto Sans Arabic'),
+            ),
+            subtitle: Text(
+              customer['customer_code'] ?? '',
+              style: const TextStyle(fontFamily: 'Manrope'),
+            ),
             onTap: () {
               setState(() {
                 _selectedCustomer = customer;
@@ -167,7 +391,8 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
               });
 
               // ۱. تنظیم پروایدر نام برای فیلتر شدن جدول (حیاتی)
-              ref.read(selectedCustomerNameProvider.notifier).state = customer['name'];
+              ref.read(selectedCustomerNameProvider.notifier).state =
+                  customer['name'];
 
               // ۲. بستن کیبورد برای باز شدن فضای جدول
               FocusScope.of(context).unfocus();
@@ -229,15 +454,15 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                         : null,
                     child: _selectedCustomer!['profile_image'] == null
                         ? Text(
-                      _selectedCustomer!['name'].isNotEmpty
-                          ? _selectedCustomer!['name'][0].toUpperCase()
-                          : '?',
-                      style: TextStyle(
-                        color: isDark ? Colors.white : Colors.black,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    )
+                            _selectedCustomer!['name'].isNotEmpty
+                                ? _selectedCustomer!['name'][0].toUpperCase()
+                                : '?',
+                            style: TextStyle(
+                              color: isDark ? Colors.white : Colors.black,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          )
                         : null,
                   ),
                   const SizedBox(width: 16),
@@ -296,7 +521,11 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
   // Date Picker - Exact match to HTML
   // حذف متد _buildDatePicker فعلی و جایگزینی با این کد:
 
-  Widget _buildDatePicker(BuildContext context, bool isDark, DateTimeRange? range) {
+  Widget _buildDatePicker(
+    BuildContext context,
+    bool isDark,
+    DateTimeRange? range,
+  ) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
@@ -331,8 +560,12 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
               color: range != null ? primaryColor : Colors.grey,
             ),
             style: IconButton.styleFrom(
-              backgroundColor: isDark ? Colors.white.withOpacity(0.05) : Colors.grey.shade100,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              backgroundColor: isDark
+                  ? Colors.white.withOpacity(0.05)
+                  : Colors.grey.shade100,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
           ),
 
@@ -342,17 +575,28 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
           if (range != null) ...[
             Expanded(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
-                  color: isDark ? surfaceDarkColor.withOpacity(0.5) : Colors.grey[50],
+                  color: isDark
+                      ? surfaceDarkColor.withOpacity(0.5)
+                      : Colors.grey[50],
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: isDark ? const Color(0xFF374151) : const Color(0xFFE5E7EB),
+                    color: isDark
+                        ? const Color(0xFF374151)
+                        : const Color(0xFFE5E7EB),
                   ),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.history_toggle_off, size: 14, color: Colors.grey),
+                    const Icon(
+                      Icons.history_toggle_off,
+                      size: 14,
+                      color: Colors.grey,
+                    ),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
@@ -365,9 +609,14 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                       ),
                     ),
                     GestureDetector(
-                      onTap: () => ref.read(reportDateRangeProvider.notifier).state = null,
+                      onTap: () =>
+                          ref.read(reportDateRangeProvider.notifier).state =
+                              null,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         child: const Text(
                           "لغو",
                           style: TextStyle(
@@ -397,12 +646,19 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                   }
                 },
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
+                  ),
                   decoration: BoxDecoration(
-                    color: isDark ? surfaceDarkColor.withOpacity(0.5) : Colors.grey[50],
+                    color: isDark
+                        ? surfaceDarkColor.withOpacity(0.5)
+                        : Colors.grey[50],
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: isDark ? const Color(0xFF374151) : const Color(0xFFE5E7EB),
+                      color: isDark
+                          ? const Color(0xFF374151)
+                          : const Color(0xFFE5E7EB),
                     ),
                   ),
                   child: const Row(
@@ -429,21 +685,28 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
   }
 
   // Transactions Table - Exact match to HTML with independent scroll
-  Widget _buildTransactionsTable(bool isDark,
-      AsyncValue<List<TransactionModel>> transactionsAsync) {
+  Widget _buildTransactionsTable(
+    bool isDark,
+    AsyncValue<List<TransactionModel>> transactionsAsync,
+  ) {
     return transactionsAsync.when(
       loading: () =>
-      const Center(child: CircularProgressIndicator(color: primaryColor)),
-      error: (e, stack) =>
-          Center(child: Text("خطا در بارگذاری: $e",
-              style: const TextStyle(fontFamily: 'Noto Sans Arabic'))),
+          const Center(child: CircularProgressIndicator(color: primaryColor)),
+      error: (e, stack) => Center(
+        child: Text(
+          "خطا در بارگذاری: $e",
+          style: const TextStyle(fontFamily: 'Noto Sans Arabic'),
+        ),
+      ),
       data: (list) {
         if (list.isEmpty) {
           return _buildEmptyState(isDark);
         }
 
         final totalAmount = list.fold<int>(
-            0, (sum, item) => sum + item.sentAmount);
+          0,
+          (sum, item) => sum + item.sentAmount,
+        );
 
         return Container(
           clipBehavior: Clip.antiAlias,
@@ -451,8 +714,8 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
             color: isDark ? surfaceDarkColor : surfaceLightColor,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-                color: isDark ? const Color(0xFF374151) : const Color(
-                    0xFFF3F4F6)),
+              color: isDark ? const Color(0xFF374151) : const Color(0xFFF3F4F6),
+            ),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.05),
@@ -466,13 +729,20 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
               // Table header
               Container(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 12),
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1F2937) : const Color(
-                      0xFFF9FAFB),
-                  border: Border(bottom: BorderSide(
-                      color: isDark ? const Color(0xFF374151) : const Color(
-                          0xFFE5E7EB))),
+                  color: isDark
+                      ? const Color(0xFF1F2937)
+                      : const Color(0xFFF9FAFB),
+                  border: Border(
+                    bottom: BorderSide(
+                      color: isDark
+                          ? const Color(0xFF374151)
+                          : const Color(0xFFE5E7EB),
+                    ),
+                  ),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -480,28 +750,42 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                     const Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text("همه تراکنش‌ها",
-                            style: TextStyle(fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                fontFamily: 'Noto Sans Arabic')),
-                        Text("نمایش کل سوابق دیتابیس",
-                            style: TextStyle(fontSize: 9,
-                                color: Colors.grey,
-                                fontFamily: 'Noto Sans Arabic')),
+                        Text(
+                          "همه تراکنش‌ها",
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            fontFamily: 'Noto Sans Arabic',
+                          ),
+                        ),
+                        Text(
+                          "نمایش کل سوابق دیتابیس",
+                          style: TextStyle(
+                            fontSize: 9,
+                            color: Colors.grey,
+                            fontFamily: 'Noto Sans Arabic',
+                          ),
+                        ),
                       ],
                     ),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: primaryColor.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(100),
                       ),
-                      child: Text("${list.length} مورد",
-                          style: TextStyle(fontSize: 10,
-                              color: primaryColor,
-                              fontWeight: FontWeight.bold,
-                              fontFamily: 'Noto Sans Arabic')),
+                      child: Text(
+                        "${list.length} مورد",
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: primaryColor,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'Noto Sans Arabic',
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -542,41 +826,48 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                       children: [
                         Row(
                           children: [
-                            const Icon(Icons.account_balance_wallet,
-                                color: primaryColor, size: 20),
+                            const Icon(
+                              Icons.account_balance_wallet,
+                              color: primaryColor,
+                              size: 20,
+                            ),
                             const SizedBox(width: 8),
-                            Text("مجموع تراکنش‌ها",
-                                style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    color: isDark
-                                        ? const Color(0xFFD1D5DB)
-                                        : const Color(0xFF374151),
-                                    fontFamily: 'Noto Sans Arabic')),
+                            Text(
+                              "مجموع تراکنش‌ها",
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: isDark
+                                    ? const Color(0xFFD1D5DB)
+                                    : const Color(0xFF374151),
+                                fontFamily: 'Noto Sans Arabic',
+                              ),
+                            ),
                           ],
                         ),
                         Text.rich(
                           TextSpan(
                             children: [
                               TextSpan(
-                                text: intl.NumberFormat('#,###').format(
-                                    totalAmount),
+                                text: intl.NumberFormat(
+                                  '#,###',
+                                ).format(totalAmount),
                                 style: const TextStyle(
-                                    color: primaryColor,
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 24,
-                                    fontFamily: 'Manrope'),
+                                  color: primaryColor,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 24,
+                                  fontFamily: 'Manrope',
+                                ),
                               ),
-                              const WidgetSpan(
-                                child: SizedBox(width: 4),
-                              ),
+                              const WidgetSpan(child: SizedBox(width: 4)),
                               TextSpan(
                                 text: 'AFN',
                                 style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: primaryColor,
-                                    fontFamily: 'Manrope'),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: primaryColor,
+                                  fontFamily: 'Manrope',
+                                ),
                               ),
                             ],
                           ),
@@ -588,11 +879,13 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                     const Text(
                       "این مبلغ نمایانگر مجموع کل تراکنش‌های ثبت شده برای این کاربر در تمام دوران است.",
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 10,
-                          color: Colors.grey,
-                          fontStyle: FontStyle.italic,
-                          height: 1.5,
-                          fontFamily: 'Noto Sans Arabic'),
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.grey,
+                        fontStyle: FontStyle.italic,
+                        height: 1.5,
+                        fontFamily: 'Noto Sans Arabic',
+                      ),
                     ),
                   ],
                 ),
@@ -631,17 +924,22 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
             children: [
               TableCell(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 14,
+                    horizontal: 16,
+                  ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text('شماره موبایل',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.grey,
-                            fontFamily: 'Noto Sans Arabic',
-                          )),
+                      const Text(
+                        'شماره موبایل',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey,
+                          fontFamily: 'Noto Sans Arabic',
+                        ),
+                      ),
                       const SizedBox(width: 4),
                       Icon(Icons.swap_vert, size: 14, color: primaryColor),
                     ],
@@ -650,17 +948,22 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
               ),
               TableCell(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 14,
+                    horizontal: 16,
+                  ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text('مقدار کریدیت',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.grey,
-                            fontFamily: 'Noto Sans Arabic',
-                          )),
+                      const Text(
+                        'مقدار کریدیت',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey,
+                          fontFamily: 'Noto Sans Arabic',
+                        ),
+                      ),
                       const SizedBox(width: 4),
                       Icon(Icons.unfold_more, size: 14, color: primaryColor),
                     ],
@@ -669,14 +972,19 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
               ),
               TableCell(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-                  child: const Text('تاریخ',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey,
-                        fontFamily: 'Noto Sans Arabic',
-                      )),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 14,
+                    horizontal: 16,
+                  ),
+                  child: const Text(
+                    'تاریخ',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey,
+                      fontFamily: 'Noto Sans Arabic',
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -689,19 +997,22 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
             // Zebra Stripes effect
             final bool isEvenRow = index % 2 == 0;
             final Color rowColor = isEvenRow
-                ? (isDark ? Colors.white.withOpacity(0.02) : const Color(0xFFF9FAFB))
+                ? (isDark
+                      ? Colors.white.withOpacity(0.02)
+                      : const Color(0xFFF9FAFB))
                 : Colors.transparent;
 
             return TableRow(
-              decoration: BoxDecoration(
-                color: rowColor,
-              ),
+              decoration: BoxDecoration(color: rowColor),
               children: [
                 TableCell(
                   child: InkWell(
                     onTap: () {},
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 14,
+                        horizontal: 16,
+                      ),
                       child: Text(
                         transaction.phoneNumber,
                         style: const TextStyle(
@@ -717,12 +1028,17 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                   child: InkWell(
                     onTap: () {},
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 14,
+                        horizontal: 16,
+                      ),
                       child: Text.rich(
                         TextSpan(
                           children: [
                             TextSpan(
-                              text: intl.NumberFormat('#,###').format(transaction.sentAmount),
+                              text: intl.NumberFormat(
+                                '#,###',
+                              ).format(transaction.sentAmount),
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontFamily: 'Manrope',
@@ -746,7 +1062,10 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                   child: InkWell(
                     onTap: () {},
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 14,
+                        horizontal: 16,
+                      ),
                       child: Text(
                         transaction.createdAt.split('T')[0],
                         style: const TextStyle(
@@ -775,13 +1094,17 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
         color: isDark ? surfaceDarkColor : surfaceLightColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-            color: isDark ? const Color(0xFF374151) : const Color(0xFFF3F4F6)),
+          color: isDark ? const Color(0xFF374151) : const Color(0xFFF3F4F6),
+        ),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.auto_graph_rounded, size: 48,
-              color: Colors.grey.withOpacity(0.3)),
+          Icon(
+            Icons.auto_graph_rounded,
+            size: 48,
+            color: Colors.grey.withOpacity(0.3),
+          ),
           const SizedBox(height: 16),
           Text(
             "برای دیدن گزارش ها, نام مشتری مورد نظر را وارد کنید!",
@@ -796,9 +1119,11 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
           const Text(
             "در این بازه زمانی هیچ فعالیتی ثبت نشده است",
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 11,
-                color: Colors.grey,
-                fontFamily: 'Noto Sans Arabic'),
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.grey,
+              fontFamily: 'Noto Sans Arabic',
+            ),
           ),
         ],
       ),
