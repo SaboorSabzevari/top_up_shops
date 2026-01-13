@@ -1,12 +1,21 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:top_up_shops/src/presentation/screens/dashboard/send_credit/send_credit_screen.dart';
 import '../../../domain/entity/transaction.dart';
 import '../../../providers/transaction_provider.dart';
 import '../transactions/transaction_screen.dart';
 
-
+final profileInfoProvider = FutureProvider<Map<String, String>>((ref) async {
+  final prefs = await SharedPreferences.getInstance();
+  return {
+    'name': prefs.getString('store_name') ?? 'فروشگاه من', // نام پیش‌فرض
+    'image': prefs.getString('store_image_path') ?? '',
+  };
+});
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
@@ -23,15 +32,19 @@ class DashboardScreen extends ConsumerWidget {
     final growth = ref.watch(salesGrowthProvider);
     final recentTxns = ref.watch(recentTransactionsProvider);
 
+    final profileAsync = ref.watch(profileInfoProvider);
+
     return Scaffold(
       backgroundColor: bgColor,
-      appBar: _buildAppBar(isDark, brandRed),
+      appBar: _buildAppBar(isDark, brandRed,profileAsync),
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () async {
             ref.invalidate(transactionsProvider);
             ref.invalidate(todaySalesProvider);
             ref.invalidate(todayProfitProvider);
+
+            ref.refresh(profileInfoProvider);
           },
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -73,36 +86,67 @@ class DashboardScreen extends ConsumerWidget {
        );
   }
 
-  PreferredSizeWidget _buildAppBar(bool isDark, Color red) {
+  PreferredSizeWidget _buildAppBar(bool isDark, Color red, AsyncValue<Map<String, String>> profileAsync) {
     return AppBar(
       backgroundColor: Colors.transparent,
-      elevation: 1,
+      elevation: 0, // تغییر به 0 برای زیبایی بیشتر
       title: Row(
         children: [
-          CircleAvatar(radius: 20, backgroundColor: red.withOpacity(0.1), child: Icon(Icons.person, color: red)),
+          // بخش آواتار (عکس)
+          profileAsync.when(
+            data: (data) {
+              final imagePath = data['image'];
+              final hasImage = imagePath != null && imagePath.isNotEmpty;
+              return CircleAvatar(
+                radius: 20,
+                backgroundColor: red.withOpacity(0.1),
+                // اگر عکس فایل وجود داشت، نشان بده
+                backgroundImage: hasImage ? FileImage(File(imagePath)) : null,
+                // اگر عکس نبود، آیکون پیش‌فرض نشان بده
+                child: hasImage ? null : Icon(Icons.store, color: red),
+              );
+            },
+            loading: () => CircleAvatar(radius: 20, backgroundColor: Colors.grey.shade200),
+            error: (_, __) => CircleAvatar(radius: 20, backgroundColor: red.withOpacity(0.1), child: Icon(Icons.person, color: red)),
+          ),
+
           const SizedBox(width: 12),
+
+          // بخش متن (نام فروشگاه)
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text("مدیریت فروشگاه", style: TextStyle(fontSize: 10, color: Colors.grey)),
-              Text("احمد ولی", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black)),
+
+              profileAsync.when(
+                data: (data) => Text(
+                  data['name']!,
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : Colors.black
+                  ),
+                ),
+                loading: () => Container(width: 80, height: 16, color: Colors.grey.shade200),
+                error: (_, __) => Text("کاربر", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black)),
+              ),
             ],
           )
         ],
       ),
       actions: [
-        IconButton(onPressed: () {}, icon: const Icon(Icons.sync, color: Colors.grey)),
-        Stack(
-          children: [
-            IconButton(onPressed: () {}, icon: const Icon(Icons.notifications_none, color: Colors.grey)),
-            Positioned(right: 12, top: 12, child: Container(width: 8, height: 8, decoration: BoxDecoration(color: red, shape: BoxShape.circle))),
-          ],
+        IconButton(
+            onPressed: () {
+              // رفرش دستی با دکمه Sync
+              // اینجا چون به ref دسترسی نداریم (مگر اینکه پاس بدیم)، فعلا خالی می‌ماند
+              // یا می‌توان یک VoidCallback برای رفرش پاس داد.
+            },
+            icon: const Icon(Icons.notifications_none, color: Colors.grey)
         ),
         const SizedBox(width: 10),
       ],
     );
   }
-
   Widget _buildMiniCard(String title, String val, String unit, bool isDark, Color red, {bool highlight = false}) {
     return Expanded(
       child: Container(

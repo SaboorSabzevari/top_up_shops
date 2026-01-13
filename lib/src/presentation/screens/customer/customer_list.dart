@@ -41,7 +41,7 @@ class CustomerListPage extends ConsumerWidget {
                     // اعمال فیلتر دکان‌دار/عادی روی لیست دریافتی
                     final filteredList = customers.where((c) {
                       if (activeFilter == 'همه') return true;
-                      if (activeFilter == 'دکان‌دار')
+                      if (activeFilter == 'عمده')
                         return c['type'] == 'WHOLESALE';
                       if (activeFilter == 'عادی')
                         return c['type'] == 'ORDINARY';
@@ -84,7 +84,7 @@ class CustomerListPage extends ConsumerWidget {
   }
 
   Widget _filterChips(WidgetRef ref) {
-    final filters = ['همه', 'دکان‌دار', 'عادی'];
+    final filters = ['همه', 'عمده', 'عادی'];
     final activeFilter = ref.watch(customerFilterProvider);
 
     return Container(
@@ -145,7 +145,7 @@ class CustomerListPage extends ConsumerWidget {
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
           subtitle: Text(
-            "کد: ${customer['customer_code']} | ${customer['type'] == 'WHOLESALE' ? 'دکان‌دار' : 'عادی'}",
+            "کد: ${customer['customer_code']} | ${customer['type'] == 'WHOLESALE' ? 'عمده' : 'عادی'}",
           ),
           trailing: const Icon(Icons.chevron_right),
           onTap: () async {
@@ -153,7 +153,7 @@ class CustomerListPage extends ConsumerWidget {
             final fullData = await DatabaseHelper.instance
                 .getCustomerFullDetails(customer['id']);
 
-            // ۲. رفتن به صفحه با دیتای موجود
+            // ۲. رفت ن به صفحه با دیتای موجود
             Navigator.push(
               context,
               MaterialPageRoute(

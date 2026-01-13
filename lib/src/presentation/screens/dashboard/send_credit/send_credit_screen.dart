@@ -263,6 +263,11 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
       });
 
       if (mounted) {
+        await ref.refresh(transactionsProvider.future);
+
+        // ۲. آمارهای بالای صفحه را هم تازه کن
+        ref.invalidate(todayProfitProvider);
+        ref.invalidate(todayCountProvider);
         _showSuccessDialog(receivedAmount, profit, finalCode);
         ref.invalidate(transactionsProvider);
         ref.invalidate(todayProfitProvider);

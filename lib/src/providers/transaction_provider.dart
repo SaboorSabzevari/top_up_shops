@@ -152,43 +152,43 @@ final reportDateRangeProvider = StateProvider<DateTimeRange?>((ref) => null);
 final selectedCustomerIdProvider = StateProvider<int?>((ref) => null);
 
 // --- پروایدر فیلتر شده برای صفحه "تاریخچه تراکنش‌ها" ---
-final filteredTransactionsProvider = Provider<AsyncValue<List<TransactionModel>>>((ref) {
-  final transactionsAsync = ref.watch(transactionsProvider);
-  final query = ref.watch(transactionSearchQueryProvider).trim().toLowerCase();
-  final customerType = ref.watch(filterCustomerTypeProvider);
-  final operator = ref.watch(filterOperatorProvider);
-  final dateRange = ref.watch(filterDateProvider);
-
-  return transactionsAsync.whenData((list) {
-    return list.where((t) {
-      // اصلاح بخش جستجو:
-      // این شرط باعث می‌شود حتی اگر نام مشتری تغییر کرده باشد،
-      // جستجو روی نام قدیمی که در تراکنش ثبت شده بود هم جواب دهد.
-      final matchesQuery = query.isEmpty ||
-          t.customerName.toLowerCase().contains(query) ||
-          t.phoneNumber.contains(query) ||
-          t.companyCode.toLowerCase().contains(query);
-
-      final matchesType = customerType == null || t.customerType == customerType;
-      final matchesOperator = operator == null || t.operator == operator;
-
-      bool matchesDate = true;
-      if (dateRange != null) {
-        try {
-          final tDate = DateTime.parse(t.createdAt);
-          final start = DateTime(dateRange.start.year, dateRange.start.month, dateRange.start.day);
-          final end = DateTime(dateRange.end.year, dateRange.end.month, dateRange.end.day, 23, 59, 59);
-          matchesDate = tDate.isAfter(start.subtract(const Duration(seconds: 1))) &&
-              tDate.isBefore(end.add(const Duration(seconds: 1)));
-        } catch (e) {
-          matchesDate = false;
-        }
-      }
-
-      return matchesQuery && matchesType && matchesOperator && matchesDate;
-    }).toList();
-  });
-});
+// final filteredTransactionsProvider = Provider<AsyncValue<List<TransactionModel>>>((ref) {
+//   final transactionsAsync = ref.watch(transactionsProvider);
+//   final query = ref.watch(transactionSearchQueryProvider).trim().toLowerCase();
+//   final customerType = ref.watch(filterCustomerTypeProvider);
+//   final operator = ref.watch(filterOperatorProvider);
+//   final dateRange = ref.watch(filterDateProvider);
+//
+//   return transactionsAsync.whenData((list) {
+//     return list.where((t) {
+//       // اصلاح بخش جستجو:
+//       // این شرط باعث می‌شود حتی اگر نام مشتری تغییر کرده باشد،
+//       // جستجو روی نام قدیمی که در تراکنش ثبت شده بود هم جواب دهد.
+//       final matchesQuery = query.isEmpty ||
+//           t.customerName.toLowerCase().contains(query) ||
+//           t.phoneNumber.contains(query) ||
+//           t.companyCode.toLowerCase().contains(query);
+//
+//       final matchesType = customerType == null || t.customerType == customerType;
+//       final matchesOperator = operator == null || t.operator == operator;
+//
+//       bool matchesDate = true;
+//       if (dateRange != null) {
+//         try {
+//           final tDate = DateTime.parse(t.createdAt);
+//           final start = DateTime(dateRange.start.year, dateRange.start.month, dateRange.start.day);
+//           final end = DateTime(dateRange.end.year, dateRange.end.month, dateRange.end.day, 23, 59, 59);
+//           matchesDate = tDate.isAfter(start.subtract(const Duration(seconds: 1))) &&
+//               tDate.isBefore(end.add(const Duration(seconds: 1)));
+//         } catch (e) {
+//           matchesDate = false;
+//         }
+//       }
+//
+//       return matchesQuery && matchesType && matchesOperator && matchesDate;
+//     }).toList();
+//   });
+// });
 // --- ۳. اصلاح شده: پروایدر فیلتر شده برای صفحه "آنالیز مشتری" ---
 final customerReportTransactionsProvider = Provider<AsyncValue<List<TransactionModel>>>((ref) {
   final transactionsAsync = ref.watch(transactionsProvider);
@@ -232,4 +232,39 @@ final salesGrowthProvider = FutureProvider<double>((ref) => ref.read(transaction
 final recentTransactionsProvider = FutureProvider<List<TransactionModel>>((ref) async {
   final all = await ref.watch(transactionsProvider.future);
   return all.take(5).toList();
+});
+// ۱. این پروایدر را به این شکل تغییر دهید تا همیشه به آخرین نسخه دیتای تراکنش‌ها گوش دهد
+final filteredTransactionsProvider = Provider<AsyncValue<List<TransactionModel>>>((ref) {
+  // استفاده از watch به جای read بسیار حیاتی است
+  final transactionsAsync = ref.watch(transactionsProvider);
+  final query = ref.watch(transactionSearchQueryProvider).trim().toLowerCase();
+  final customerType = ref.watch(filterCustomerTypeProvider);
+  final operator = ref.watch(filterOperatorProvider);
+  final dateRange = ref.watch(filterDateProvider);
+
+  return transactionsAsync.whenData((list) {
+    return list.where((t) {
+      // فیلتر جستجو بر اساس نام، شماره یا کد شرکت
+      final matchesQuery = query.isEmpty ||
+          t.customerName.toLowerCase().contains(query) ||
+          t.phoneNumber.contains(query) ||
+          t.companyCode.toLowerCase().contains(query);
+
+      final matchesType = customerType == null || t.customerType == customerType;
+      final matchesOperator = operator == null || t.operator == operator;
+
+      bool matchesDate = true;
+      if (dateRange != null) {
+        try {
+          final tDate = DateTime.parse(t.createdAt);
+          final start = DateTime(dateRange.start.year, dateRange.start.month, dateRange.start.day);
+          final end = DateTime(dateRange.end.year, dateRange.end.month, dateRange.end.day, 23, 59, 59);
+          matchesDate = tDate.isAfter(start.subtract(const Duration(seconds: 1))) &&
+              tDate.isBefore(end.add(const Duration(seconds: 1)));
+        } catch (e) { matchesDate = false; }
+      }
+
+      return matchesQuery && matchesType && matchesOperator && matchesDate;
+    }).toList();
+  });
 });

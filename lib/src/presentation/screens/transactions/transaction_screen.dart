@@ -29,50 +29,73 @@ class TransactionHistoryPage extends ConsumerWidget {
           ),
           centerTitle:  true,
         ),
-        body: Column(
-          children: [
-            _buildSummaryCards(todayProfitAsync, todayCountAsync),
-            _buildSearchBar(ref, isDark),
-            _buildFilterChips(context,ref, isDark),
-            if (ref.watch(filterDateProvider) != null)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Row(
-                  children: [
-                    const Icon(Icons.history_toggle_off, size: 14, color: Colors.grey),
-                    const SizedBox(width: 4),
-                    Text(
-                      "گزارش از ${intl.DateFormat('yyyy/MM/dd').format(ref.watch(filterDateProvider)!.start)} تا ${intl.DateFormat('yyyy/MM/dd').format(ref.watch(filterDateProvider)!.end)}",
-                      style: const TextStyle(fontSize: 10, color: Colors.grey, fontFamily: 'Manrope'),
-                    ),
-                    const Spacer(),
-                    GestureDetector(
-                      onTap: () => ref.read(filterDateProvider.notifier).state = null,
-                      child: const Text("لغو فیلتر", style: TextStyle(fontSize: 10, color: Color(0xFFEA2A33))),
-                    )
-                  ],
+        body: RefreshIndicator(
+          onRefresh: () async {
+            // ۱. ریفرش کردن لیست تراکنش‌ها
+            ref.invalidate(transactionsProvider);
+            // ۲. ریفرش کردن آمارهای بالای صفحه
+            ref.invalidate(todayProfitProvider);
+            ref.invalidate(todayCountProvider);
+
+            // منتظر می‌مانیم تا دیتا لود شود (اختیاری اما برای تجربه کاربری بهتر)
+            await ref.read(transactionsProvider.future);
+          },
+          child: Column(
+            children: [
+              _buildSummaryCards(todayProfitAsync, todayCountAsync),
+              _buildSearchBar(ref, isDark),
+              _buildFilterChips(context, ref, isDark),
+              if (ref.watch(filterDateProvider) != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.history_toggle_off, size: 14, color: Colors.grey),
+                      const SizedBox(width: 4),
+                      Text(
+                        "گزارش از ${intl.DateFormat('yyyy/MM/dd').format(ref.watch(filterDateProvider)!.start)} تا ${intl.DateFormat('yyyy/MM/dd').format(ref.watch(filterDateProvider)!.end)}",
+                        style: const TextStyle(fontSize: 10, color: Colors.grey, fontFamily: 'Manrope'),
+                      ),
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: () => ref.read(filterDateProvider.notifier).state = null,
+                        child: const Text("لغو فیلتر", style: TextStyle(fontSize: 10, color: Color(0xFFEA2A33))),
+                      )
+                    ],
+                  ),
+                ),
+              Expanded(
+                child: transactionsAsync.when(
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (err, stack) => Center(child: Text("خطا در بارگذاری: $err")),
+                  data: (transactions) {
+                    if (transactions.isEmpty) {
+                      // نکته مهم: برای اینکه RefreshIndicator کار کند،
+                      // حتی در حالت خالی هم باید یک لیست اسکرول‌شونده برگردانید
+                      return ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        children: const [
+                          SizedBox(height: 100),
+                          Center(child: Text("تراکنشی یافت نشد")),
+                        ],
+                      );
+                    }
+                    return ListView.builder(
+                      // این پارامتر باعث می‌شود حتی اگر لیست کوتاه باشد، قابلیت کشیدن به پایین کار کند
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.only(bottom: 100),
+                      key: ValueKey(transactions.length + (transactions.isNotEmpty ? transactions.first.id : 0)),
+                      itemCount: transactions.length,
+                      itemBuilder: (context, index) {
+                        final t = transactions[index];
+                        return _buildTransactionCardFromModel(context, t);
+                      },
+                    );
+                  },
                 ),
               ),
-            Expanded(
-              child: transactionsAsync.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (err, stack) => Center(child: Text("خطا در بارگذاری: $err")),
-                data: (transactions) {
-                  if (transactions.isEmpty) {
-                    return const Center(child: Text("تراکنشی یافت نشد"));
-                  }
-                  return ListView.builder(
-                    padding: const EdgeInsets.only(bottom: 100),
-                    itemCount: transactions.length,
-                    itemBuilder: (context, index) {
-                      final t = transactions[index];
-                      return _buildTransactionCardFromModel(context, t);
-                    },
-                  );
-                },
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

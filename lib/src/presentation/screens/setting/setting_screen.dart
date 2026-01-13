@@ -1,13 +1,24 @@
-
+import 'dart:io'; // برای نمایش عکس از فایل
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:top_up_shops/src/presentation/screens/setting/unit_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // اضافه کردن پکیج
 import '../../../../l10n/app_localizations.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/local_provider.dart';
 import '../../theme/colors.dart';
 import '../auth/login_screen.dart';
+import 'edit_profile_screen.dart' hide kPrimaryColor;
+import 'package:top_up_shops/src/presentation/screens/setting/unit_screen.dart';
 
+// 1. تعریف یک Provider برای خواندن اطلاعات پروفایل
+final profileInfoProvider = FutureProvider.autoDispose<Map<String, String>>((ref) async {
+  final prefs = await SharedPreferences.getInstance();
+  return {
+    'name': prefs.getString('store_name') ?? 'فروشگاه من',
+    'phone': prefs.getString('store_phone') ?? '---',
+    'image': prefs.getString('store_image_path') ?? '',
+  };
+});
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -16,29 +27,34 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final locale = ref.watch(localeProvider).locale;
     final l10n = AppLocalizations.of(context)!;
+
+    // 2. گوش دادن به اطلاعات پروفایل
+    final profileAsync = ref.watch(profileInfoProvider);
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8F6F6),
       appBar: AppBar(
         backgroundColor: const Color(0xFFF8F6F6),
         elevation: 0,
         centerTitle: true,
-        title:  Text(
+        title: Text(
           l10n.settings,
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+          style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
         ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.only(bottom: 24),
         child: Column(
           children: [
-            _profileHeader(),
+            // پاس دادن اطلاعات پروفایل به هدر
+            _profileHeader(context, ref, profileAsync),
             const SizedBox(height: 16),
 
             /// ================= General =================
             _groupTitle(l10n.generalSetting),
             _card(
               children: [
-                _languageTile(ref, locale,l10n.languag),
+                _languageTile(ref, locale, l10n.languag),
                 _switchTile(
                   icon: Icons.notifications,
                   iconBg: Colors.orange.shade50,
@@ -52,25 +68,17 @@ class SettingsScreen extends ConsumerWidget {
 
             const SizedBox(height: 20),
 
-            /// ================= Security =================
+            /// ================= Set Unit =================
             _groupTitle(l10n.setUnitPrice),
             _card(
               children: [
-                // _switchTile(
-                //   icon: Icons.lock,
-                //   iconBg: Colors.green.shade50,
-                //   iconColor: Colors.green,
-                //   title: '',
-                //   value: false,
-                //   onChanged: (_) {},
-                // ),
                 _navigationTile(
                   icon: Icons.pin,
                   iconBg: Colors.green.shade50,
                   iconColor: Colors.green,
                   title: l10n.setUnit,
                   onTap: () {
-                    Navigator.push(context, MaterialPageRoute(builder: (context)=>UnitScreen()));
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => const UnitScreen()));
                   },
                 ),
               ],
@@ -96,7 +104,8 @@ class SettingsScreen extends ConsumerWidget {
                   iconColor: Colors.purple,
                   title: 'شرایط و مقررات',
                   onTap: () {},
-                ), _navigationTile(
+                ),
+                _navigationTile(
                   icon: Icons.info,
                   iconBg: Colors.purple.shade50,
                   iconColor: Colors.purple,
@@ -117,10 +126,12 @@ class SettingsScreen extends ConsumerWidget {
                   onPressed: () async {
                     await ref.read(authProvider.notifier).logout();
 
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(builder: (_) => const LoginPage()),
-                          (route) => false,
-                    );
+                    if (context.mounted) {
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(builder: (_) => const LoginPage()),
+                            (route) => false,
+                      );
+                    }
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: kPrimaryColor,
@@ -132,13 +143,13 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children:  [
+                    children: [
                       Text(
-                       l10n.logout,
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        l10n.logout,
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
-                      SizedBox(width: 8),
-                      Icon(Icons.logout),
+                      const SizedBox(width: 8),
+                      const Icon(Icons.logout),
                     ],
                   ),
                 ),
@@ -155,7 +166,103 @@ class SettingsScreen extends ConsumerWidget {
 
   // ================= Widgets =================
 
-  Widget _languageTile(WidgetRef ref, Locale locale,String title) {
+  // 3. اصلاح ویجت هدر پروفایل برای نمایش اطلاعات واقعی
+  Widget _profileHeader(BuildContext context, WidgetRef ref, AsyncValue<Map<String, String>> profileAsync) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+        child: Row(
+          children: [
+            Stack(
+              children: [
+                // نمایش عکس پروفایل
+                profileAsync.when(
+                  data: (data) {
+                    final imagePath = data['image'];
+                    return CircleAvatar(
+                      radius: 40,
+                      backgroundColor: Colors.grey.shade200,
+                      backgroundImage: (imagePath != null && imagePath.isNotEmpty)
+                          ? FileImage(File(imagePath)) as ImageProvider
+                          : null, // اگر عکس نبود نال برمی‌گرداند
+                      child: (imagePath == null || imagePath.isEmpty)
+                          ? const Icon(Icons.store, size: 40, color: Colors.grey)
+                          : null,
+                    );
+                  },
+                  loading: () => const CircleAvatar(radius: 40, child: CircularProgressIndicator()),
+                  error: (_, __) => const CircleAvatar(radius: 40, child: Icon(Icons.error)),
+                ),
+
+                const Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: CircleAvatar(
+                    radius: 14,
+                    backgroundColor: Color(0xFFEA2A33),
+                    child: Icon(Icons.edit, size: 14, color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // نمایش نام فروشگاه
+                  profileAsync.when(
+                    data: (data) => Text(
+                      data['name']!,
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    loading: () => Container(width: 100, height: 20, color: Colors.grey.shade200),
+                    error: (_, __) => const Text('خطا'),
+                  ),
+
+                  const SizedBox(height: 4),
+
+                  // نمایش شماره تماس
+                  profileAsync.when(
+                    data: (data) => Text(
+                      data['phone']!,
+                      style: const TextStyle(color: Colors.grey),
+                    ),
+                    loading: () => Container(width: 80, height: 15, color: Colors.grey.shade200),
+                    error: (_, __) => const SizedBox(),
+                  ),
+
+                  const SizedBox(height: 8),
+
+                  GestureDetector(
+                    onTap: () async {
+                      // 4. رفتن به صفحه ویرایش و رفرش کردن اطلاعات هنگام بازگشت
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const EditProfilePage()),
+                      );
+                      // این خط باعث می‌شود وقتی کاربر برگشت، اطلاعات دوباره خوانده شود
+                      ref.refresh(profileInfoProvider);
+                    },
+                    child: const Text(
+                      'ویرایش پروفایل',
+                      style: TextStyle(color: Color(0xFFEA2A33), fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _languageTile(WidgetRef ref, Locale locale, String title) {
     return ListTile(
       leading: CircleAvatar(
         backgroundColor: Colors.blue.shade50,
@@ -174,47 +281,6 @@ class SettingsScreen extends ConsumerWidget {
               ref.read(localeProvider.notifier).changeLanguage(value);
             }
           },
-        ),
-      ),
-    );
-  }
-
-  Widget _profileHeader() {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
-        child: Row(
-          children: [
-            Stack(
-              children: [
-                const CircleAvatar(radius: 40, backgroundImage: NetworkImage('https://i.pravatar.cc/150')),
-                Positioned(
-                  bottom: 0,
-                  right: 0,
-                  child: CircleAvatar(
-                    radius: 14,
-                    backgroundColor: Color(0xFFEA2A33),
-                    child: Icon(Icons.edit, size: 14, color: Colors.white),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(width: 16),
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('فروشگاه کابل', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  SizedBox(height: 4),
-                  Text('۰۷۹۹۰۰۰۰۰۰', style: TextStyle(color: Colors.grey)),
-                  SizedBox(height: 8),
-                  Text('ویرایش پروفایل', style: TextStyle(color: Color(0xFFEA2A33), fontWeight: FontWeight.bold)),
-                ],
-              ),
-            ),
-          ],
         ),
       ),
     );

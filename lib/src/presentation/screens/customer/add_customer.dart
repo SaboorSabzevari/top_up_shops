@@ -336,7 +336,7 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
       if (!hasDealerCode && !hasValidPhone) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('برای دکان‌دار، درج شماره تماس صحیح یا حداقل یک کد دیلری الزامی است'),
+            content: Text('برای مشتری عمده، درج شماره تماس صحیح یا حداقل یک کد دیلری الزامی است'),
             backgroundColor: Colors.orange,
           ),
         );
@@ -445,7 +445,7 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
         children: [
           _typeButton('مشتری عادی', _customerType == CustomerType.normal,
                   () => _changeCustomerType(CustomerType.normal)),
-          _typeButton('دکان‌دار', _customerType == CustomerType.shopkeeper,
+          _typeButton('عمده', _customerType == CustomerType.shopkeeper,
                   () => _changeCustomerType(CustomerType.shopkeeper), primary: true),
         ],
       ),
@@ -721,7 +721,9 @@ class _DealerItem {
   }
 
   Widget buildCode() {
-    return TextField(cursorColor: kPrimaryColor,
+    return TextField(
+      keyboardType: TextInputType.phone,
+      cursorColor: kPrimaryColor,
       controller: codeCtrl,
 
       decoration: InputDecoration(
