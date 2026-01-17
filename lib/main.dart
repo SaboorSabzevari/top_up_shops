@@ -27,10 +27,8 @@ class MyApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // وضعیت راه‌اندازی
-    final startupState = ref.watch(startupProvider);
 
-    // اگر هنوز در حال راه‌اندازی است
+    final startupState = ref.watch(startupProvider);
     if (startupState.isLoading) {
       return MaterialApp(
         debugShowCheckedModeBanner: false,
@@ -49,34 +47,31 @@ class MyApp extends ConsumerWidget {
       );
     }
 
-    // زبان فعلی
     final localeState = ref.watch(localeProvider);
     final currentLocale = localeState.locale;
 
-    // وضعیت لاگین
+
     final authState = ref.watch(authProvider);
 
-    // صفحه اصلی بر اساس وضعیت لاگین
     final home = authState.isLoggedIn ? HomeScreen() : const LoginPage();
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
 
-      // تنظیم locale
+
       locale: currentLocale,
 
-      // زبان‌های پشتیبانی شده
+
       supportedLocales: const [
         Locale('fa', 'IR'),
         Locale('ps', 'AF'),
       ],
 
-      // delegateها
+
       localizationsDelegates: [
         AppLocalizations.delegate,
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
-        // اگر زبان پشتو است، از Cupertino انگلیسی استفاده کن
         if (currentLocale.languageCode == 'ps')
           DefaultCupertinoLocalizations.delegate
         else
@@ -84,8 +79,7 @@ class MyApp extends ConsumerWidget {
       ],
 
       builder: (context, child) {
-        // تعیین جهت نوشتار
-        final isRTL = currentLocale.languageCode == 'fa' ||
+       final isRTL = currentLocale.languageCode == 'fa' ||
             currentLocale.languageCode == 'ps';
 
         return Directionality(

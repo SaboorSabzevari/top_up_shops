@@ -2,7 +2,6 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../../domain/entity/customer.dart';
 import '../../domain/entity/providers.dart';
-import '../../domain/entity/transaction.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
@@ -14,10 +13,8 @@ class DatabaseHelper {
     _database = await _initDB('topup_system.db');
     return _database!;
   }
-  // محاسبه مجموع باقیات یک مشتری خاص
   Future<double> getCustomerTotalBalance(int customerId) async {
     final db = await instance.database;
-    // جمع تمام ستون‌های باقی‌مانده (remaining_amount) برای این مشتری
     var result = await db.rawQuery(
         'SELECT SUM(remaining_amount) as total FROM transactions WHERE customer_id = ?',
         [customerId]
@@ -25,26 +22,18 @@ class DatabaseHelper {
     return (result.first['total'] as num?)?.toDouble() ?? 0.0;
   }
 
-  // متد پیشرفته ثبت تراکنش با محاسبه آنی
-  // Future<int> insertFullTransaction(TransactionEntity txn) async {
-  //   final db = await instance.database;
-  //   return await db.insert('transactions', txn.toMap());
-  // }
-  // پیشنهادی برای اضافه کردن به app_database.dart
   Future<List<Map<String, dynamic>>> getDailyTransactions(String date) async {
     final db = await instance.database;
     return await db.query('transactions', where: 'transaction_date = ?', whereArgs: [date]);
   }
-// متد جستجوی سریع (AJAX) بر اساس نام یا کد مشتری
   Future<List<Map<String, dynamic>>> ajaxSearch(String query) async {
     final db = await instance.database;
 
-    // جستجو در جدول مشتریان برای پیدا کردن نام یا کد مشابه
     return await db.query(
       'customers',
       where: 'name LIKE ? OR customer_code LIKE ?',
       whereArgs: ['%$query%', '%$query%'],
-      limit: 10, // محدود کردن تعداد نتایج برای سرعت بیشتر در AJAX
+      limit: 10,
     );
   }
   Future<Database> _initDB(String filePath) async {
@@ -53,11 +42,8 @@ class DatabaseHelper {
   }
 
   Future _createDB(Database db, int version) async {
-    // جدول مشتری
     await db.execute('CREATE TABLE customers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, customer_code TEXT, type TEXT, profile_image TEXT, address TEXT, tazkira_image TEXT)');
-    // جدول شماره تماس‌ها (عادی)
     await db.execute('CREATE TABLE customer_phones (id INTEGER PRIMARY KEY AUTOINCREMENT, customer_id INTEGER, phone_number TEXT)');
-    // جدول کدهای شرکت (عمده)
     await db.execute('CREATE TABLE customer_wholesale_codes (id INTEGER PRIMARY KEY AUTOINCREMENT, customer_id INTEGER, company_name TEXT, company_code TEXT)');
     await db.execute('''
   CREATE TABLE units (
@@ -67,8 +53,7 @@ class DatabaseHelper {
     name TEXT
   )
 ''');
-    // جدول شرکت‌های تامین کننده
-    await db.execute('CREATE TABLE providers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, type TEXT, ordinary_code TEXT, wholesale_code TEXT)'); // جدول تراکنش‌ها
+     await db.execute('CREATE TABLE providers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, type TEXT, ordinary_code TEXT, wholesale_code TEXT)'); // جدول تراکنش‌ها
     await db.execute('''CREATE TABLE transactions (
   id INTEGER PRIMARY KEY AUTOINCREMENT, 
   customer_id INTEGER, 
@@ -90,7 +75,7 @@ class DatabaseHelper {
       {
         'name': 'ستارگان متحد',
         'type': 'ستارگان متحد',
-        'ordinary_code': '543*2', // کدی که خودت تعیین می‌کنی
+        'ordinary_code': '543*2',
         'wholesale_code': '543*6'
       },
       {
@@ -124,15 +109,12 @@ class DatabaseHelper {
     }
   }
 
-  // --- CRUD CUSTOMERS ---
   Future<int> addCustomer(Customer c, List<String>? phones, List<Map<String, String>>? wholesaleCodes) async {
     final db = await instance.database;
     return await db.transaction((txn) async {
-      // ۱. درج مشتری
       final id = await txn.insert('customers', c.toMap());
 
-      // ۲. درج شماره‌ها (حذف شرط نوع مشتری برای ذخیره شماره دکان‌دار)
-      if (phones != null && phones.isNotEmpty) {
+       if (phones != null && phones.isNotEmpty) {
         for (var p in phones) {
           await txn.insert('customer_phones', {
             'customer_id': id,
@@ -140,9 +122,7 @@ class DatabaseHelper {
           });
         }
       }
-
-      // ۳. درج کدهای دیلری (اصلاح نام ستون به company_code)
-      if (wholesaleCodes != null && wholesaleCodes.isNotEmpty) {
+       if (wholesaleCodes != null && wholesaleCodes.isNotEmpty) {
         for (var item in wholesaleCodes) {
           await txn.insert('customer_wholesale_codes', {
             'customer_id': id,
@@ -158,15 +138,13 @@ class DatabaseHelper {
   Future<void> updateCustomer(int id, Customer customer, List<String>? phones, List<Map<String, String>>? wholesaleCodes) async {
     final db = await instance.database;
     await db.transaction((txn) async {
-      // ۱. آپدیت اطلاعات پایه (دقت کنید که در toMap نباید ID فرستاده شود)
-      await txn.update(
+       await txn.update(
         'customers',
         customer.toMap(),
         where: 'id = ?',
         whereArgs: [id],
       );
 
-      // ۲. مدیریت شماره تماس‌ها (حذف قدیمی و درج جدید)
       await txn.delete('customer_phones', where: 'customer_id = ?', whereArgs: [id]);
       if (phones != null && phones.isNotEmpty) {
         for (var phone in phones) {
@@ -177,7 +155,6 @@ class DatabaseHelper {
         }
       }
 
-      // ۳. مدیریت کدهای دیلری (حذف قدیمی و درج جدید با نام ستون صحیح)
       await txn.delete('customer_wholesale_codes', where: 'customer_id = ?', whereArgs: [id]);
       if (wholesaleCodes != null && wholesaleCodes.isNotEmpty) {
         for (var item in wholesaleCodes) {
@@ -204,7 +181,7 @@ class DatabaseHelper {
     return result;
   }
 
-  // --- CRUD PROVIDERS ---
+  //CRUD for providers
   Future<int> addProvider(ProviderCompany p) async {
     final db = await instance.database;
     return await db.insert('providers', p.toMap());
@@ -215,14 +192,13 @@ class DatabaseHelper {
     final res = await db.query('providers');
     return res.map((e) => ProviderCompany(id: e['id'] as int, name: e['name'] as String, type: e['type'] as String, ordinaryCode: e['ordinary_code'] as String, wholesaleCode: e['wholesale_code'] as String)).toList();
   }
-
-  // --- TRANSACTIONS ---
+//CRUD for TRANSACTION
   Future<int> addTransaction(Map<String, dynamic> data) async {
     final db = await instance.database;
     return await db.insert('transactions', data);
   }
 
-
+// CRUD FOR UNIT SECTION
   Future<Map<String, dynamic>> getSingleUnit() async {
     final db = await instance.database;
     final List<Map<String, dynamic>> maps = await db.query('units', where: 'id = ?', whereArgs: [1]);
@@ -230,8 +206,7 @@ class DatabaseHelper {
     if (maps.isNotEmpty) {
       return maps.first;
     } else {
-      // ایجاد ردیف پیش‌فرض در صورت عدم وجود
-      await db.insert('units', {
+       await db.insert('units', {
         'id': 1,
         'buy_price': 0.95,
         'sell_price': 0.96,
@@ -241,7 +216,6 @@ class DatabaseHelper {
     }
   }
 
-  // بروزرسانی تنظیمات واحد واحد
   Future<int> updateSingleUnit(double buy, double sell) async {
     final db = await instance.database;
     return await db.update(
@@ -255,7 +229,6 @@ class DatabaseHelper {
     );
   }
 
-// ۲. افزودن واحد جدید
   Future<int> addUnit(double buy, double sell) async {
     final db = await instance.database;
     return await db.insert('units', {
@@ -265,7 +238,6 @@ class DatabaseHelper {
     });
   }
 
-// ۳. بروزرسانی واحد
   Future<int> updateUnit(int id, double buy, double sell) async {
     final db = await instance.database;
     return await db.update(
@@ -276,14 +248,11 @@ class DatabaseHelper {
     );
   }
 
-// ۴. حذف واحد
   Future<int> deleteUnit(int id) async {
     final db = await instance.database;
     return await db.delete('units', where: 'id = ?', whereArgs: [id]);
   }
-// در بخش متدهای DatabaseHelper اضافه کنید
-// این متد را به انتهای کلاس DatabaseHelper اضافه کنید
-// متد ذخیره تراکنش با تمام جزئیات مالی
+// method for save transaction
   Future<int> saveDetailedTransaction(Map<String, dynamic> data) async {
     final db = await instance.database;
     return await db.insert('transactions', {

@@ -9,7 +9,6 @@ class TransactionRepository {
   Future<List<TransactionModel>> getTransactions() async {
     final database = await _db.database;
 
-    // استفاده از JOIN برای گرفتن آخرین نام مشتری از جدول اصلی
     final result = await database.rawQuery('''
     SELECT t.*, c.name as current_customer_name 
     FROM transactions t
@@ -18,7 +17,6 @@ class TransactionRepository {
   ''');
 
     return result.map((map) {
-      // اگر نام در جدول مشتریان عوض شده باشد، از آن استفاده می‌کنیم، در غیر این صورت نام ذخیره شده در تراکنش
       final updatedMap = Map<String, dynamic>.from(map);
       if (map['current_customer_name'] != null) {
         updatedMap['customer_name'] = map['current_customer_name'];
@@ -26,9 +24,6 @@ class TransactionRepository {
       return TransactionModel.fromMap(updatedMap);
     }).toList();
   }
-  /// سود امروز
-  // در فایل transaction_repository.dart متد را به این شکل اصلاح کنید:
-
   Future<int> todayProfit() async {
     final database = await _db.database;
     final result = await database.rawQuery('''

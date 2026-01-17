@@ -243,7 +243,9 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
       double buyRate = unitSettings['buy_price'] ?? 0.0;
       double sellRate = unitSettings['sell_price'] ?? 0.0;
 
-      double costPrice = sentAmount * buyRate;
+      int discount=discountCtrl.text.trim() as int;
+
+      double costPrice = sentAmount * buyRate - discount;
       double receivedAmount = sentAmount * sellRate;
       double profit = receivedAmount - costPrice;
       String finalCode = _buildUSSDCode();
@@ -265,7 +267,6 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
       if (mounted) {
         await ref.refresh(transactionsProvider.future);
 
-        // ۲. آمارهای بالای صفحه را هم تازه کن
         ref.invalidate(todayProfitProvider);
         ref.invalidate(todayCountProvider);
         _showSuccessDialog(receivedAmount, profit, finalCode);
