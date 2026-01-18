@@ -41,28 +41,57 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
   // ۱. تولید PDF با فونت فارسی و ساختار جدولی
   // --- خروجی PDF ---
   // --- اصلاح شده: خروجی PDF با مدیریت خطا ---
-  Future<void> _generatePdfReport(List<TransactionModel> transactions, String customerName) async {
+  Future<void> _generatePdfReport(
+    List<TransactionModel> transactions,
+    String customerName,
+  ) async {
     try {
       final pdf = pw.Document();
-      final fontData = await rootBundle.load("assets/fonts/Vazirmatn-Regular.ttf");
+      final fontData = await rootBundle.load(
+        "assets/fonts/Vazirmatn-Regular.ttf",
+      );
       final ttfFont = pw.Font.ttf(fontData);
 
       // محاسبه مجموع مبلغ
-      int totalAmount = transactions.fold(0, (sum, item) => sum + item.sentAmount);
+      int totalAmount = transactions.fold(
+        0,
+        (sum, item) => sum + item.sentAmount,
+      );
 
       pdf.addPage(
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
           textDirection: pw.TextDirection.rtl,
           build: (pw.Context context) => [
-            pw.Center(child: pw.Text("گزارش تراکنش‌های $customerName", style: pw.TextStyle(font: ttfFont, fontSize: 18, color: PdfColors.red900))),
+            pw.Center(
+              child: pw.Text(
+                "گزارش تراکنش‌های $customerName",
+                style: pw.TextStyle(
+                  font: ttfFont,
+                  fontSize: 18,
+                  color: PdfColors.red900,
+                ),
+              ),
+            ),
             pw.SizedBox(height: 15),
             pw.TableHelper.fromTextArray(
               border: pw.TableBorder.all(color: PdfColors.grey300),
-              headerStyle: pw.TextStyle(font: ttfFont, color: PdfColors.white, fontSize: 10),
-              headerDecoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFFEA2A33)),
+              headerStyle: pw.TextStyle(
+                font: ttfFont,
+                color: PdfColors.white,
+                fontSize: 10,
+              ),
+              headerDecoration: const pw.BoxDecoration(
+                color: PdfColor.fromInt(0xFFEA2A33),
+              ),
               cellStyle: pw.TextStyle(font: ttfFont, fontSize: 9),
-              headers: ['تاریخ', 'مبلغ (AFN)', 'شماره/کد شرکت', 'اپراتور', 'ردیف'],
+              headers: [
+                'تاریخ',
+                'مبلغ (AFN)',
+                'شماره/کد شرکت',
+                'اپراتور',
+                'ردیف',
+              ],
               data: [
                 ...transactions.asMap().entries.map((entry) {
                   int index = entry.key;
@@ -70,28 +99,34 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                   String formattedDate = "";
                   try {
                     DateTime dt = DateTime.parse(t.createdAt);
-                    formattedDate = "${dt.year}/${dt.month.toString().padLeft(2, '0')}/${dt.day.toString().padLeft(2, '0')} - ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
+                    formattedDate =
+                        "${dt.year}/${dt.month.toString().padLeft(2, '0')}/${dt.day.toString().padLeft(2, '0')} - ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
                   } catch (e) {
-                    formattedDate = t.createdAt; // اگر فرمت اشتباه بود خودش را نشان بده
+                    formattedDate =
+                        t.createdAt; // اگر فرمت اشتباه بود خودش را نشان بده
                   }
-                  final contact = (t.companyCode.isNotEmpty && t.companyCode != '—') ? "کد: ${t.companyCode}" : t.phoneNumber;
+                  final contact =
+                      (t.companyCode.isNotEmpty && t.companyCode != '—')
+                      ? "کد: ${t.companyCode}"
+                      : t.phoneNumber;
                   return [
                     formattedDate,
 
-                    t.sentAmount.toString(), contact, t.operator, index + 1];
+                    t.sentAmount.toString(),
+                    contact,
+                    t.operator,
+                    index + 1,
+                  ];
                 }),
                 // ردیف مجموع در انتهای جدول
-                [
-                  '',
-                  totalAmount.toString(),
-                  'مجموع کل',
-                  '',
-                  ''
-                ],
+                ['', totalAmount.toString(), 'مجموع کل', '', ''],
               ],
             ),
             pw.SizedBox(height: 10),
-            pw.Text("تعداد کل تراکنش‌ها: ${transactions.length}", style: pw.TextStyle(font: ttfFont, fontSize: 10)),
+            pw.Text(
+              "تعداد کل تراکنش‌ها: ${transactions.length}",
+              style: pw.TextStyle(font: ttfFont, fontSize: 10),
+            ),
           ],
         ),
       );
@@ -101,13 +136,19 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
       final file = File("${directory.path}/Report_$customerName.pdf");
       await file.writeAsBytes(await pdf.save());
 
-      await Printing.layoutPdf(onLayout: (PdfPageFormat format) async => pdf.save());
+      await Printing.layoutPdf(
+        onLayout: (PdfPageFormat format) async => pdf.save(),
+      );
       _showSnackBar("PDF در پوشه Downloads ذخیره شد", Colors.green);
     } catch (e) {
       _showSnackBar("خطا در PDF: $e", Colors.red);
     }
   }
-  Future<void> _generateExcelReport(List<TransactionModel> transactions, String customerName) async {
+
+  Future<void> _generateExcelReport(
+    List<TransactionModel> transactions,
+    String customerName,
+  ) async {
     try {
       var excel = xl.Excel.createExcel();
       xl.Sheet sheetObject = excel['Report'];
@@ -126,7 +167,9 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
       for (int i = 0; i < transactions.length; i++) {
         final t = transactions[i];
         totalAmount += t.sentAmount;
-        final contact = (t.companyCode.isNotEmpty && t.companyCode != '—') ? "کد: ${t.companyCode}" : t.phoneNumber;
+        final contact = (t.companyCode.isNotEmpty && t.companyCode != '—')
+            ? "کد: ${t.companyCode}"
+            : t.phoneNumber;
 
         sheetObject.appendRow([
           xl.IntCellValue(i + 1),
@@ -148,7 +191,8 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
 
       // ذخیره در مسیر دانلودها
       final directory = Directory('/storage/emulated/0/Download');
-      final String fileName = "Report_${customerName}_${DateTime.now().millisecondsSinceEpoch}.xlsx";
+      final String fileName =
+          "Report_${customerName}_${DateTime.now().millisecondsSinceEpoch}.xlsx";
       final File file = File("${directory.path}/$fileName");
 
       await file.writeAsBytes(excel.save()!);
@@ -157,15 +201,20 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
       _showSnackBar("خطا در ذخیره اکسل: $e", Colors.red);
     }
   } // متد کمکی برای نمایش اسنک‌بار
+
   void _showSnackBar(String message, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message, style: const TextStyle(fontFamily: 'Noto Sans Arabic')),
+        content: Text(
+          message,
+          style: const TextStyle(fontFamily: 'Noto Sans Arabic'),
+        ),
         backgroundColor: color,
         behavior: SnackBarBehavior.floating,
       ),
     );
   }
+
   void _onSearchChanged(String query) async {
     if (query.isEmpty) {
       setState(() => _searchResults = []);
@@ -197,7 +246,12 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                 child: Column(
                   children: [
                     if (_selectedCustomer != null) ...[
-                      _buildCustomerHeader(isDark),
+                      reportTransactions.when(
+                        data: (transactions) =>
+                            _buildCustomerHeader(isDark, transactions),
+                        loading: () => _buildCustomerHeader(isDark, []),
+                        error: (e, st) => _buildCustomerHeader(isDark, []),
+                      ),
                       const SizedBox(height: 8),
                       _buildDatePicker(context, isDark, dateRange),
                       const SizedBox(height: 8),
@@ -234,12 +288,9 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
         if (_selectedCustomer != null)
           Consumer(
             builder: (context, ref, child) {
-              // این بخش را حذف یا کامنت کنید چون دیگر نیازی به ست کردن نام در پروایدر نیست
-              // WidgetsBinding.instance.addPostFrameCallback((_) {
-              //   ref.read(selectedCustomerIdProvider.notifier).state = _selectedCustomer!['id'];
-              // });
-
-              final transactionsAsync = ref.watch(customerReportTransactionsProvider);
+              final transactionsAsync = ref.watch(
+                customerReportTransactionsProvider,
+              );
 
               return transactionsAsync.when(
                 data: (list) {
@@ -349,7 +400,9 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
 
               // اصلاح ریشه‌ای: به جای نام، آیدی را در پروایدر ست می‌کنیم
               // توجه: فیلد id باید در خروجی ajaxSearch وجود داشته باشد
-              ref.read(selectedCustomerIdProvider.notifier).state = customer['id'];    customer['name'];
+              ref.read(selectedCustomerIdProvider.notifier).state =
+                  customer['id'];
+              customer['name'];
 
               // ۲. بستن کیبورد برای باز شدن فضای جدول
               FocusScope.of(context).unfocus();
@@ -361,7 +414,30 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
   }
 
   // Customer Header - Exact match to HTML with circle background
-  Widget _buildCustomerHeader(bool isDark) {
+  // در تابع _buildCustomerHeader، بعد از کد موجود، اطلاعات مالی اضافه کنید:
+
+  Widget _buildCustomerHeader(
+    bool isDark,
+    List<TransactionModel> transactions,
+  ) {
+    // محاسبه مجموع‌ها
+    double totalInvoiceAmount = transactions.fold(
+      0,
+      (sum, item) => sum + item.totalPrice,
+    );
+    double totalPaidAmount = transactions.fold(
+      0,
+      (sum, item) => sum + item.paidAmount,
+    );
+    double totalRemaining = totalInvoiceAmount - totalPaidAmount;
+
+    String statusText = totalRemaining > 0
+        ? "بدهکار"
+        : (totalRemaining < 0 ? "طلبکار" : "تسویه شده");
+    Color statusColor = totalRemaining > 0
+        ? Colors.red
+        : (totalRemaining < 0 ? Colors.green : Colors.grey);
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -380,7 +456,7 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
       ),
       child: Stack(
         children: [
-          // Circle background from HTML
+          // Circle background از قبل موجود
           Positioned(
             top: -30,
             left: -30,
@@ -395,39 +471,67 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
               ),
             ),
           ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Column(
             children: [
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // جایگزین کردن Container با CircleAvatar
-                  CircleAvatar(
-                    radius: 28,
-                    backgroundColor: isDark
-                        ? Colors.white.withOpacity(0.1)
-                        : const Color(0xFFE5E7EB),
-                    backgroundImage: _selectedCustomer!['profile_image'] != null
-                        ? FileImage(File(_selectedCustomer!['profile_image']))
-                        : null,
-                    child: _selectedCustomer!['profile_image'] == null
-                        ? Text(
-                            _selectedCustomer!['name'].isNotEmpty
-                                ? _selectedCustomer!['name'][0].toUpperCase()
-                                : '?',
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 28,
+                        backgroundColor: isDark
+                            ? Colors.white.withOpacity(0.1)
+                            : const Color(0xFFE5E7EB),
+                        backgroundImage:
+                            _selectedCustomer!['profile_image'] != null
+                            ? FileImage(
+                                File(_selectedCustomer!['profile_image']),
+                              )
+                            : null,
+                        child: _selectedCustomer!['profile_image'] == null
+                            ? Text(
+                                _selectedCustomer!['name'].isNotEmpty
+                                    ? _selectedCustomer!['name'][0]
+                                          .toUpperCase()
+                                    : '?',
+                                style: TextStyle(
+                                  color: isDark ? Colors.white : Colors.black,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              )
+                            : null,
+                      ),
+                      const SizedBox(width: 16),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "نام مشتری",
                             style: TextStyle(
-                              color: isDark ? Colors.white : Colors.black,
+                              fontSize: 12,
+                              color: Colors.grey,
+                              fontFamily: 'Noto Sans Arabic',
+                            ),
+                          ),
+                          Text(
+                            _selectedCustomer!['name'],
+                            style: const TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
+                              fontFamily: 'Noto Sans Arabic',
                             ),
-                          )
-                        : null,
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 16),
                   Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       const Text(
-                        "نام مشتری",
+                        "کد مشتری",
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.grey,
@@ -435,9 +539,63 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                         ),
                       ),
                       Text(
-                        _selectedCustomer!['name'],
+                        "#${_selectedCustomer!['customer_code'] ?? '---'}",
                         style: const TextStyle(
-                          fontSize: 20,
+                          color: primaryColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          fontFamily: 'Manrope',
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+
+              // بخش جدید: اطلاعات مالی
+              const SizedBox(height: 16),
+              Divider(color: Colors.grey.withOpacity(0.3)),
+              const SizedBox(height: 12),
+
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        "مجموع فاکتورها",
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                          fontFamily: 'Noto Sans Arabic',
+                        ),
+                      ),
+                      Text(
+                        "${intl.NumberFormat('#,###').format(totalInvoiceAmount)} AFN",
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'Noto Sans Arabic',
+                        ),
+                      ),
+                    ],
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const Text(
+                        "مجموع دریافتی‌ها",
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                          fontFamily: 'Noto Sans Arabic',
+                        ),
+                      ),
+                      Text(
+                        "${intl.NumberFormat('#,###').format(totalPaidAmount)} AFN",
+                        style: const TextStyle(
+                          fontSize: 16,
                           fontWeight: FontWeight.bold,
                           fontFamily: 'Noto Sans Arabic',
                         ),
@@ -446,27 +604,53 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                   ),
                 ],
               ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  const Text(
-                    "کد مشتری",
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey,
-                      fontFamily: 'Noto Sans Arabic',
+
+              const SizedBox(height: 12),
+
+              // وضعیت بدهکاری/طلبکاری
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: statusColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: statusColor.withOpacity(0.3)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "وضعیت حساب",
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey,
+                            fontFamily: 'Noto Sans Arabic',
+                          ),
+                        ),
+                        Text(
+                          statusText,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: statusColor,
+                            fontFamily: 'Noto Sans Arabic',
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  Text(
-                    "#${_selectedCustomer!['customer_code'] ?? '---'}",
-                    style: const TextStyle(
-                      color: primaryColor,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      fontFamily: 'Manrope',
+                    Text(
+                      "${totalRemaining.abs().toStringAsFixed(0)} AFN",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: statusColor,
+                        fontFamily: 'Manrope',
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ],
           ),
@@ -474,7 +658,6 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
       ),
     );
   }
-
   // Date Picker - Exact match to HTML
   // حذف متد _buildDatePicker فعلی و جایگزینی با این کد:
 
@@ -868,9 +1051,10 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
           ),
         ),
         columnWidths: const {
-          0: FlexColumnWidth(1.5),
-          1: FlexColumnWidth(1.2),
-          2: FlexColumnWidth(1),
+          0: FlexColumnWidth(1.1),
+          1: FlexColumnWidth(1.1),
+          2: FlexColumnWidth(1.1),
+          3: FlexColumnWidth(1),
         },
         children: [
           // Header row
@@ -883,7 +1067,7 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     vertical: 14,
-                    horizontal: 16,
+                    horizontal: 6,
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -907,13 +1091,38 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     vertical: 14,
-                    horizontal: 16,
+                    horizontal: 6,
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const Text(
-                        'مقدار کریدیت',
+                        'مبلغ فاکتور', // تغییر از 'مقدار کریدیت'
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey,
+                          fontFamily: 'Noto Sans Arabic',
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(Icons.unfold_more, size: 14, color: primaryColor),
+                    ],
+                  ),
+                ),
+              ),
+              TableCell(
+                // ستون جدید برای مبلغ دریافتی
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 14,
+                    horizontal: 6,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'مبلغ دریافتی',
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
@@ -931,7 +1140,7 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     vertical: 14,
-                    horizontal: 16,
+                    horizontal: 6,
                   ),
                   child: const Text(
                     'تاریخ',
@@ -959,6 +1168,7 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                       : const Color(0xFFF9FAFB))
                 : Colors.transparent;
 
+            // در قسمت داده‌های جدول - ردیف‌های تراکنش
             return TableRow(
               decoration: BoxDecoration(color: rowColor),
               children: [
@@ -968,7 +1178,7 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         vertical: 14,
-                        horizontal: 16,
+                        horizontal: 6,
                       ),
                       child: Text(
                         transaction.phoneNumber,
@@ -982,6 +1192,7 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                   ),
                 ),
                 TableCell(
+                  // سلول مبلغ فاکتور
                   child: InkWell(
                     onTap: () {},
                     child: Container(
@@ -995,7 +1206,42 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                             TextSpan(
                               text: intl.NumberFormat(
                                 '#,###',
-                              ).format(transaction.sentAmount),
+                              ).format(transaction.totalPrice),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontFamily: 'Manrope',
+                              ),
+                            ),
+                            const TextSpan(
+                              text: ' AFN',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.normal,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                TableCell(
+                  // سلول مبلغ دریافتی
+                  child: InkWell(
+                    onTap: () {},
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 14,
+                        horizontal: 16,
+                      ),
+                      child: Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: intl.NumberFormat(
+                                '#,###',
+                              ).format(transaction.paidAmount),
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontFamily: 'Manrope',
@@ -1021,7 +1267,7 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         vertical: 14,
-                        horizontal: 16,
+                        horizontal: 2,
                       ),
                       child: Text(
                         transaction.createdAt.split('T')[0],

@@ -10,6 +10,9 @@ class TransactionModel {
   final int receivedAmount;
   final int profit;
   final String createdAt;
+  final double totalPrice; // مبلغ نهایی فاکتور
+  final double paidAmount;  // مبلغ پرداختی توسط مشتری
+  final double remainingAmount; // باقی‌مانده
 
   TransactionModel({
     required this.id,
@@ -22,7 +25,7 @@ class TransactionModel {
     required this.receivedAmount,
     required this.profit,
     required this.createdAt,
-    this.customerId,
+    this.customerId, required this.totalPrice, required this.paidAmount, required this.remainingAmount,
   });
 
   factory TransactionModel.fromMap(Map<String, dynamic> map) {
@@ -38,6 +41,8 @@ class TransactionModel {
       receivedAmount: (map['received_amount'] as num? ?? 0).toInt(),
       profit: (map['profit'] as num? ?? 0).toInt(),
       createdAt: (map['created_at'] ?? '') as String,
-    );
+      totalPrice: (map['total_price'] as num? ?? 0).toDouble(),
+      paidAmount: (map['paid_amount'] as num? ?? 0).toDouble(),
+      remainingAmount: (map['remaining_amount'] as num? ?? 0).toDouble(),);
   }
 }

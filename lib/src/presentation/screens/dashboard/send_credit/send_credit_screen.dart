@@ -30,7 +30,29 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
   String _ussdResponse = "";
   bool _isUssdLoading = false;
   bool _isResponseExpanded = false;
+  double unitBuyPrice = 0.0;
+  double unitSellPrice = 0.0; // ضریب فروش از دیتابیس
+  double calculatedTotalPayable = 0.0; // مبلغ نهایی (با تخفیف)
+  double remainingBalance = 0.0; // مانده حساب این تراکنش
+  void _performCalculations() {
+    // 1. گرفتن مقادیر از کنترلرها
+    double credit = double.tryParse(creditCtrl.text) ?? 0.0;
+    double discount = double.tryParse(discountCtrl.text) ?? 0.0;
+    double paid = double.tryParse(paidCtrl.text) ?? 0.0;
 
+    setState(() {
+      // سناریو: 10000 * 0.97 = 9700
+      double rawPrice = credit * unitSellPrice;
+
+      // اعمال تخفیف: 9700 - 100 = 9600 (این مبلغی است که باید بدهد)
+      calculatedTotalPayable = rawPrice - discount;
+
+      // محاسبه مانده: 9600 - 5000 = 4600 (بدهکار)
+      // اگر مثبت باشد: مشتری بدهکار است
+      // اگر منفی باشد: مشتری اضافه پرداخت کرده (طلبکار)
+      remainingBalance = calculatedTotalPayable - paid;
+    });
+  }
   // کنترلرها
   final TextEditingController amountCtrl = TextEditingController();
   final TextEditingController customerNameCtrl = TextEditingController();
@@ -83,7 +105,26 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
         _removeOverlay();
       }
     });
-  }
+
+
+      _loadUnitRates(); // بارگذاری نرخ‌ها
+
+      // اضافه کردن لیسنر برای محاسبه آنی با تغییر هر فیلد
+      creditCtrl.addListener(_performCalculations);
+      discountCtrl.addListener(_performCalculations);
+      paidCtrl.addListener(_performCalculations);
+    }
+
+// 3. این متد را برای گرفتن نرخ از دیتابیس اضافه کنید
+    Future<void> _loadUnitRates() async {
+      final unit = await DatabaseHelper.instance.getSingleUnit();
+      if (mounted) {
+        setState(() {
+          unitBuyPrice = unit['buy_price'] ?? 0.0;
+          unitSellPrice = unit['sell_price'] ?? 0.0;
+        });
+      }
+    }
 
   @override
   void dispose() {
@@ -199,98 +240,96 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
       ),
     );
   }
-
-  // --- متدهای ذخیره تراکنش ---
   Future<void> _processAndSaveTransaction() async {
     String finalPhone = (customerType == 'normal') ? phoneCtrl.text : wholesalePhoneCtrl.text;
 
     try {
+      // ۱. اعتبارسنجی ورودی‌ها
       String amountText = creditCtrl.text.trim();
-
       if (amountText.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('لطفاً مبلغ را وارد کنید'),
-            backgroundColor: Colors.orange,
-          ),
-        );
+        _showSnackBar('لطفاً مقدار کریدیت را وارد کنید', Colors.orange);
         return;
       }
 
       double? sentAmount = double.tryParse(amountText);
-
-      if (sentAmount == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('مبلغ وارد شده معتبر نیست (فقط عدد وارد کنید)'),
-            backgroundColor: Colors.red,
-          ),
-        );
+      if (sentAmount == null || sentAmount <= 0) {
+        _showSnackBar('مقدار کریدیت وارد شده معتبر نیست', Colors.red);
         return;
       }
 
       if (selectedCustomerId == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('لطفاً مشتری را انتخاب کنید'),
-            backgroundColor: Colors.orange,
-          ),
-        );
+        _showSnackBar('لطفاً مشتری را انتخاب کنید', Colors.orange);
         return;
       }
 
-      final unitSettings = await DatabaseHelper.instance.getSingleUnit();
-      double buyRate = unitSettings['buy_price'] ?? 0.0;
-      double sellRate = unitSettings['sell_price'] ?? 0.0;
+      // ۲. دریافت مقادیر ورودی مالی
+      double discount = double.tryParse(discountCtrl.text) ?? 0.0;
+      double paidCash = double.tryParse(paidCtrl.text) ?? 0.0; // پولی که مشتری نقد داد (مثلاً ۵۰۰۰)
 
-      int discount=discountCtrl.text.trim() as int;
+      // ۳. محاسبات بر اساس منطق شما (مثال احمد)
+      // قیمت تمام شده برای شما: 10000 * 0.95 = 9500
+      double costPrice = sentAmount * unitBuyPrice;
 
-      double costPrice = sentAmount * buyRate - discount;
-      double receivedAmount = sentAmount * sellRate;
-      double profit = receivedAmount - costPrice;
-      String finalCode = _buildUSSDCode();
+      // مبلغ اولیه فروش (بدون تخفیف): 10000 * 0.97 = 9700
+      double initialSalePrice = sentAmount * unitSellPrice;
 
+      // مبلغ نهایی فاکتور (با کسر تخفیف): 9700 - 100 = 9600
+      // این همان مبلغی است که مشتری "باید" پرداخت کند
+      double totalPrice = initialSalePrice - discount;
+
+      // سود خالص: 9600 - 9500 = 100
+      double netProfit = totalPrice - costPrice;
+
+      // ۴. ذخیره در دیتابیس
       await DatabaseHelper.instance.saveDetailedTransaction({
         'customer_id': selectedCustomerId,
         'customer_name': customerNameCtrl.text,
         'customer_type': customerType,
         'operator_name': selectedOperator,
         'company_code': companyCodeCtrl.text,
-        'sent_amount': sentAmount,
-        'received_amount': receivedAmount,
-        'cost_price': costPrice,
-        'profit': profit,
-        'ussd_command': finalCode,
         'phone_number': finalPhone,
+        'sent_amount': sentAmount,      // مقدار کریدیت (10000)
+        'discount': discount,           // تخفیف (100)
+        'total_price': totalPrice,      // مبلغ نهایی فاکتور (9600)
+        'paid_amount': paidCash,        // مبلغ دریافتی نقد (5000)
+        'cost_price': costPrice,        // قیمت خرید برای شما (9500)
+        'profit': netProfit,            // سود خالص (100)
+        'ussd_command': _buildUSSDCode(),
       });
 
+      // ۵. بروزرسانی UI و پاکسازی
       if (mounted) {
-        await ref.refresh(transactionsProvider.future);
+        // رفرش کردن تمام پرووایدرهای مرتبط با داشبورد و گزارشات
+        _invalidateAllProviders();
 
-        ref.invalidate(todayProfitProvider);
-        ref.invalidate(todayCountProvider);
-        _showSuccessDialog(receivedAmount, profit, finalCode);
-        ref.invalidate(transactionsProvider);
-        ref.invalidate(todayProfitProvider);
-        ref.invalidate(todayCountProvider);
-        ref.invalidate(todaySalesProvider);      // مجموع فروش کل
-        ref.invalidate(salesGrowthProvider);     // درصد افزایش نسبت به دیروز
-        ref.invalidate(recentTransactionsProvider); // لیست تراکنش‌های اخیر داشبورد
+        _showSuccessDialog(totalPrice, netProfit, _buildUSSDCode());
 
-        // پاکسازی فیلدها
+        // پاکسازی فیلدها برای تراکنش بعدی
         creditCtrl.clear();
-        amountCtrl.clear();
+        discountCtrl.clear();
+        paidCtrl.clear();
+        phoneCtrl.clear();
+        wholesalePhoneCtrl.clear();
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('خطای غیرمنتظره: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showSnackBar('خطای غیرمنتظره: $e', Colors.red);
     }
   }
 
+
+  void _showSnackBar(String message, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: color),
+    );
+  }
+  void _invalidateAllProviders() {
+    ref.invalidate(transactionsProvider);
+    ref.invalidate(todayProfitProvider);
+    ref.invalidate(todayCountProvider);
+    ref.invalidate(todaySalesProvider);
+    ref.invalidate(salesGrowthProvider);
+    ref.invalidate(recentTransactionsProvider);
+  }
   void _showSuccessDialog(double received, double profit, String code) {
     showDialog(
       context: context,
@@ -321,7 +360,6 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
     );
   }
 
-  // --- جستجو و انتخاب مشتری ---
   void _onSearchChanged(String query) {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
 
@@ -1552,42 +1590,152 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
   }
 
   Widget _paymentSection() {
+    // ۱. استخراج مقادیر از کنترلرها
+    double creditAmount = double.tryParse(creditCtrl.text) ?? 0.0;
+    double discount = double.tryParse(discountCtrl.text) ?? 0.0;
+
+    // ۲. محاسبه مبلغ نهایی فاکتور (آنچه مشتری باید پرداخت کند)
+    // مثال شما: (10000 * 0.97) - 100 = 9600
+    double totalInvoice = (creditAmount * unitSellPrice) - discount;
+
+    // ۳. محاسبه قیمت تمام شده برای شما
+    // مثال شما: 10000 * 0.95 = 9500
+    double costForMe = creditAmount * unitBuyPrice;
+
+    // ۴. محاسبه سود خالص
+    // مثال شما: 9600 - 9500 = 100
+    double netProfit = totalInvoice - costForMe;
+
+    // تعیین وضعیت رنگ و متن مانده حساب (بدهکاری/طلبکاری)
+    String statusText;
+    Color statusColor;
+    Color ColorForProfit;
+    if (remainingBalance > 0) {
+      statusText = "باقیمانده (بدهکار)";
+      statusColor = Colors.red;
+    } else if (remainingBalance < 0) {
+      statusText = "اضافه پرداخت (طلبکار)";
+      statusColor = Colors.green;
+    } else {
+      statusText = "تسویه کامل";
+      statusColor = Colors.grey;
+    }
+    if (netProfit >= 0) {
+      ColorForProfit = Colors.green;
+    } else {
+      ColorForProfit = Colors.red;
+    }
+
     return _cardWrapper(
       Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Expanded(child: _amountInput('مقدار کریدیت', creditCtrl, null)),
-              const SizedBox(width: 12),
-              Expanded(child: _amountInput(' تخفیف %', discountCtrl, "AFN")),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: const [
-                  Icon(Icons.calculate, color: Colors.grey),
-                  SizedBox(width: 6),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12.0),
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color:ColorForProfit.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.green.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.account_balance_wallet_outlined, size: 18, color:ColorForProfit),
+                  const SizedBox(width: 8),
                   Text(
-                    'مجموع (قابل پرداخت)',
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                    "سود خالص شما: ${netProfit.toStringAsFixed(0)} AFN",
+                    style:  TextStyle(fontSize: 14, color: ColorForProfit, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
-              Text(
-                '$total AFN',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: primary,
-                ),
+            ),
+          ),
+          Row(
+            children: [
+              Expanded(
+                  flex: 3,
+                  child: _amountInput('مقدار کریدیت', creditCtrl, null)
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                  flex: 2,
+                  child: _amountInput('تخفیف (AFN)', discountCtrl, "AFN")
               ),
             ],
           ),
+
           const SizedBox(height: 16),
-          _amountInput('مقدار پرداخت شده', paidCtrl, null),
+
+          // نمایش مجموع قابل پرداخت (محاسبه شده با ضریب)
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+            decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(8)
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.calculate, color: Colors.grey, size: 20),
+                    SizedBox(width: 6),
+                    Text(
+                      'مبلغ نهایی فاکتور:',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                  ],
+                ),
+                Text(
+                  '${calculatedTotalPayable.toStringAsFixed(0)} AFN',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: primary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // ورودی مقدار پرداخت شده توسط مشتری
+          _amountInput('مقدار دریافتی (نقد)', paidCtrl, "AFN"),
+
+          const SizedBox(height: 12),
+
+          // باکس وضعیت مانده حساب (بدهکاری/طلبکاری)
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: statusColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: statusColor.withOpacity(0.3)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  statusText,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: statusColor,
+                  ),
+                ),
+                Text(
+                  '${remainingBalance.abs().toStringAsFixed(0)} AFN',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: statusColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );

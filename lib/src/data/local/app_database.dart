@@ -13,14 +13,14 @@ class DatabaseHelper {
     _database = await _initDB('topup_system.db');
     return _database!;
   }
-  Future<double> getCustomerTotalBalance(int customerId) async {
-    final db = await instance.database;
-    var result = await db.rawQuery(
-        'SELECT SUM(remaining_amount) as total FROM transactions WHERE customer_id = ?',
-        [customerId]
-    );
-    return (result.first['total'] as num?)?.toDouble() ?? 0.0;
-  }
+  // Future<double> getCustomerTotalBalance(int customerId) async {
+  //   final db = await instance.database;
+  //   var result = await db.rawQuery(
+  //       'SELECT SUM(remaining_amount) as total FROM transactions WHERE customer_id = ?',
+  //       [customerId]
+  //   );
+  //   return (result.first['total'] as num?)?.toDouble() ?? 0.0;
+  // }
 
   Future<List<Map<String, dynamic>>> getDailyTransactions(String date) async {
     final db = await instance.database;
@@ -55,19 +55,26 @@ class DatabaseHelper {
 ''');
      await db.execute('CREATE TABLE providers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, type TEXT, ordinary_code TEXT, wholesale_code TEXT)'); // جدول تراکنش‌ها
     await db.execute('''CREATE TABLE transactions (
-  id INTEGER PRIMARY KEY AUTOINCREMENT, 
-  customer_id INTEGER, 
-  customer_name TEXT, 
-  customer_type TEXT,
-  operator_name TEXT, 
-  phone_number TEXT, 
-  company_code TEXT,
-  sent_amount REAL, 
-  received_amount REAL, 
-  cost_price REAL, 
-  profit REAL, 
-  ussd_command TEXT, 
-  created_at TEXT)''');
+     id INTEGER PRIMARY KEY AUTOINCREMENT, 
+     customer_id INTEGER, 
+     customer_name TEXT, 
+     customer_type TEXT,
+     operator_name TEXT, 
+     phone_number TEXT, 
+     company_code TEXT,
+     sent_amount REAL, 
+    
+     discount REAL DEFAULT 0,        
+     total_price REAL,               
+     paid_amount REAL DEFAULT 0,
+     remaining_amount REAL DEFAULT 0,
+     
+     received_amount REAL, 
+     cost_price REAL, 
+     profit REAL, 
+     ussd_command TEXT, 
+     created_at TEXT
+  )''');
     await _seedProviders(db);
   }
   Future<void> _seedProviders(Database db) async {
@@ -253,8 +260,15 @@ class DatabaseHelper {
     return await db.delete('units', where: 'id = ?', whereArgs: [id]);
   }
 // method for save transaction
+  // در فایل app_database.dart، این متد را جایگزین قبلی کنید:
   Future<int> saveDetailedTransaction(Map<String, dynamic> data) async {
     final db = await instance.database;
+
+    // اطمینان از اینکه مقادیر عددی هستند
+    double total = (data['total_price'] ?? 0.0).toDouble();
+    double paid = (data['paid_amount'] ?? 0.0).toDouble();
+    double remaining = total - paid;
+
     return await db.insert('transactions', {
       'customer_id': data['customer_id'],
       'customer_name': data['customer_name'],
@@ -263,10 +277,25 @@ class DatabaseHelper {
       'phone_number': data['phone_number'],
       'company_code': data['company_code'],
       'sent_amount': data['sent_amount'],
-      'received_amount': data['received_amount'],
+      'remaining_amount': remaining, // حالا این ستون در جدول وجود دارد
+
+      'discount': data['discount'] ?? 0.0,
+      'total_price': total,
+      'paid_amount': paid,
+
+      'received_amount': data['received_amount'] ?? total,
       'cost_price': data['cost_price'],
       'profit': data['profit'],
       'ussd_command': data['ussd_command'],
       'created_at': DateTime.now().toIso8601String(),
     });
-  }}
+  }
+  Future<double> getCustomerTotalBalance(int customerId) async {
+    final db = await instance.database;
+    var result = await db.rawQuery(
+        'SELECT SUM(total_price) - SUM(paid_amount) as balance FROM transactions WHERE customer_id = ?',
+        [customerId]
+    );
+    return (result.first['balance'] as num?)?.toDouble() ?? 0.0;
+  }
+}
