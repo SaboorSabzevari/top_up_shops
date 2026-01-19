@@ -1,0 +1,52 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{db}/documents {
+    function isSignedIn() { return request.auth != null; }
+    function emp(shopId) { return get(/databases/$(db)/documents/shops/$(shopId)/employees/$(request.auth.uid)); }
+    function isMember(shopId) { return isSignedIn() && emp(shopId).data.status == 'active'; }
+    function isOwner(shopId) { return isMember(shopId) && emp(shopId).data.roleId == 'owner'; }
+    function hasPerm(shopId, perm) {
+      return perm in get(/databases/$(db)/documents/shops/$(shopId)/roles/$(emp(shopId).data.roleId)).data.permissions;
+    }
+    function subActive(shopId) {
+      let s = get(/databases/$(db)/documents/shops/$(shopId)).data;
+      return s.subscription_status == 'active' && s.subscription_expiry_ms > request.time.toMillis();
+    }
+
+    match /shops/{shopId} {
+      allow read: if isMember(shopId);
+      allow update: if isOwner(shopId);
+
+      match /employees/{empId} {
+        allow read: if isMember(shopId) && (empId == request.auth.uid || isOwner(shopId));
+        allow write: if isOwner(shopId);
+      }
+
+      match /roles/{roleId} {
+        allow read: if isMember(shopId);
+        allow write: if isOwner(shopId);
+      }
+
+      match /transactions/{txId} {
+        allow read: if isMember(shopId);
+        allow create: if isMember(shopId) && subActive(shopId) &&
+          hasPerm(shopId, 'tx.create') &&
+          request.resource.data.created_by_employee_id == request.auth.uid &&
+          request.resource.data.shop_id == shopId;
+        allow update, delete: if false;
+      }
+
+      match /{coll}/{docId} {
+        allow read: if isMember(shopId);
+        allow write: if isMember(shopId) && subActive(shopId) && hasPerm(shopId, coll + '.write');
+      }
+    }
+
+    match /users/{uid} {
+      allow read: if isSignedIn() && uid == request.auth.uid;
+      allow create, update: if isSignedIn() &&
+        request.resource.data.shopId != null &&
+        isOwner(request.resource.data.shopId);
+    }
+  }
+}

@@ -1,22 +1,31 @@
 import 'dart:io'; // برای نمایش عکس از فایل
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // اضافه کردن پکیج
 import '../../../../l10n/app_localizations.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/local_provider.dart';
+import '../../../providers/session_provider.dart';
+import '../../../data/repository/shop_repository.dart';
 import '../../theme/colors.dart';
 import '../auth/login_screen.dart';
 import 'edit_profile_screen.dart' hide kPrimaryColor;
 import 'package:top_up_shops/src/presentation/screens/setting/unit_screen.dart';
+import 'shop_profile_screen.dart';
+import 'employees_screen.dart';
+import 'roles_screen.dart';
+import '../inventory/paper_card_inventory_screen.dart';
+import '../suppliers/suppliers_screen.dart';
+import '../suppliers/assets_screen.dart';
+import '../salaries/salaries_screen.dart';
+import 'sync_status_screen.dart';
 
 // 1. تعریف یک Provider برای خواندن اطلاعات پروفایل
 final profileInfoProvider = FutureProvider.autoDispose<Map<String, String>>((ref) async {
-  final prefs = await SharedPreferences.getInstance();
+  final shop = await ShopRepository().getCurrentShop();
   return {
-    'name': prefs.getString('store_name') ?? 'فروشگاه من',
-    'phone': prefs.getString('store_phone') ?? '---',
-    'image': prefs.getString('store_image_path') ?? '',
+    'name': shop?['name']?.toString() ?? 'فروشگاه من',
+    'phone': shop?['phone']?.toString() ?? '---',
+    'image': shop?['logo_path']?.toString() ?? '',
   };
 });
 
@@ -27,6 +36,8 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final locale = ref.watch(localeProvider).locale;
     final l10n = AppLocalizations.of(context)!;
+    final session = ref.watch(sessionProvider).session;
+    final isOwner = session.roleId == 'owner';
 
     // 2. گوش دادن به اطلاعات پروفایل
     final profileAsync = ref.watch(profileInfoProvider);
@@ -68,6 +79,43 @@ class SettingsScreen extends ConsumerWidget {
 
             const SizedBox(height: 20),
 
+            /// ================= Shop & Team =================
+            if (isOwner) ...[
+              _groupTitle('فروشگاه و کارمندان'),
+              _card(
+                children: [
+                  _navigationTile(
+                    icon: Icons.store,
+                    iconBg: Colors.blue.shade50,
+                    iconColor: Colors.blue,
+                    title: 'پروفایل فروشگاه',
+                    onTap: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => const ShopProfileScreen()));
+                    },
+                  ),
+                  _navigationTile(
+                    icon: Icons.group,
+                    iconBg: Colors.teal.shade50,
+                    iconColor: Colors.teal,
+                    title: 'کارمندان',
+                    onTap: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => const EmployeesScreen()));
+                    },
+                  ),
+                  _navigationTile(
+                    icon: Icons.security,
+                    iconBg: Colors.orange.shade50,
+                    iconColor: Colors.orange,
+                    title: 'نقش‌ها و دسترسی‌ها',
+                    onTap: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => const RolesScreen()));
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+            ],
+
             /// ================= Set Unit =================
             _groupTitle(l10n.setUnitPrice),
             _card(
@@ -79,6 +127,69 @@ class SettingsScreen extends ConsumerWidget {
                   title: l10n.setUnit,
                   onTap: () {
                     Navigator.push(context, MaterialPageRoute(builder: (context) => const UnitScreen()));
+                  },
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 20),
+
+            /// ================= Inventory & Suppliers =================
+            _groupTitle('موجودی و تامین‌کنندگان'),
+            _card(
+              children: [
+                _navigationTile(
+                  icon: Icons.inventory,
+                  iconBg: Colors.green.shade50,
+                  iconColor: Colors.green,
+                  title: 'کارت‌های کاغذی',
+                  onTap: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => const PaperCardInventoryScreen()));
+                  },
+                ),
+                _navigationTile(
+                  icon: Icons.local_shipping,
+                  iconBg: Colors.purple.shade50,
+                  iconColor: Colors.purple,
+                  title: 'تامین‌کنندگان',
+                  onTap: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => const SuppliersScreen()));
+                  },
+                ),
+                _navigationTile(
+                  icon: Icons.inventory_2,
+                  iconBg: Colors.teal.shade50,
+                  iconColor: Colors.teal,
+                  title: 'دارایی‌ها',
+                  onTap: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => const AssetsScreen()));
+                  },
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 20),
+
+            /// ================= Salaries & Sync =================
+            _groupTitle('حقوق و همگام‌سازی'),
+            _card(
+              children: [
+                _navigationTile(
+                  icon: Icons.payments,
+                  iconBg: Colors.indigo.shade50,
+                  iconColor: Colors.indigo,
+                  title: 'حقوق',
+                  onTap: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => const SalariesScreen()));
+                  },
+                ),
+                _navigationTile(
+                  icon: Icons.sync,
+                  iconBg: Colors.blueGrey.shade50,
+                  iconColor: Colors.blueGrey,
+                  title: 'وضعیت همگام‌سازی',
+                  onTap: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => const SyncStatusScreen()));
                   },
                 ),
               ],

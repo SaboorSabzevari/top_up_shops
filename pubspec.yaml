@@ -42,6 +42,9 @@ dependencies:
   uuid:
   firebase_core:
   firebase_auth:
+  cloud_firestore:
+  firebase_storage:
+  connectivity_plus:
   flutter_riverpod:
   sqflite:
   path:

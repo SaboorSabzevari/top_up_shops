@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import '../data/local/app_database.dart';
+import '../services/session_service.dart';
 
 
 final customerSearchQuery = StateProvider<String>((ref) => "");
@@ -14,7 +15,8 @@ final customerSearchResults = FutureProvider<List<Map<String, dynamic>>>((ref) a
   if (query.isEmpty) {
     // اگر جستجو خالی بود، همه مخاطبان را از دیتابیس بگیر
     final db = await DatabaseHelper.instance.database;
-    return await db.query('customers');
+    final shopId = SessionService.instance.currentShopId;
+    return await db.query('customers', where: 'shop_id = ? AND (is_deleted IS NULL OR is_deleted = 0)', whereArgs: [shopId]);
   }
 
   // در غیر این صورت فیلتر کن

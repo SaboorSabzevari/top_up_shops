@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/legacy.dart';
 
 import '../services/prefrence_services.dart';
 import 'auth_provider.dart';
+import 'session_provider.dart';
+import '../data/local/app_database.dart';
 
 class StartupState {
   final bool isLoading;
@@ -40,6 +42,7 @@ class StartupNotifier extends StateNotifier<StartupState> {
     try {
       // ۱. منتظر می‌شویم تا SharedPreferences بارگذاری شود
       await ref.read(preferencesServiceProvider.future);
+      await DatabaseHelper.instance.database;
 
       // ۲. بارگذاری زبان ذخیره شده
       // (خودکار در localeProvider انجام می‌شود)
@@ -50,6 +53,8 @@ class StartupNotifier extends StateNotifier<StartupState> {
         // اگر کاربر قبلاً لاگین کرده، auto-login
         await ref.read(authProvider.notifier).autoLogin();
       }
+
+      await ref.read(sessionProvider.notifier).initialize();
 
       // تکمیل مقداردهی اولیه
       state = state.copyWith(

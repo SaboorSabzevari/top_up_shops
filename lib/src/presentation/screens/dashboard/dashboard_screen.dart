@@ -2,18 +2,19 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path/path.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../../../data/repository/shop_repository.dart';
 import 'package:top_up_shops/src/presentation/screens/dashboard/send_credit/send_credit_screen.dart';
 import '../../../domain/entity/transaction.dart';
+import '../../../providers/sync_provider.dart';
 import '../../../providers/transaction_provider.dart';
+import '../../../providers/session_provider.dart';
 import '../transactions/transaction_screen.dart';
 
 final profileInfoProvider = FutureProvider<Map<String, String>>((ref) async {
-  final prefs = await SharedPreferences.getInstance();
+  final shop = await ShopRepository().getCurrentShop();
   return {
-    'name': prefs.getString('store_name') ?? 'فروشگاه من', // نام پیش‌فرض
-    'image': prefs.getString('store_image_path') ?? '',
+    'name': shop?['name']?.toString() ?? 'فروشگاه من',
+    'image': shop?['logo_path']?.toString() ?? '',
   };
 });
 class DashboardScreen extends ConsumerWidget {
@@ -31,12 +32,16 @@ class DashboardScreen extends ConsumerWidget {
     final todayCount = ref.watch(todayCountProvider);
     final growth = ref.watch(salesGrowthProvider);
     final recentTxns = ref.watch(recentTransactionsProvider);
+    final syncState = ref.watch(syncProvider);
+    final session = ref.watch(sessionProvider).session;
 
     final profileAsync = ref.watch(profileInfoProvider);
 
     return Scaffold(
       backgroundColor: bgColor,
-      appBar: _buildAppBar(isDark, brandRed,profileAsync),
+      appBar: _buildAppBar(isDark, brandRed, profileAsync, syncState, () async {
+        await ref.read(syncProvider.notifier).syncNow();
+      }),
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () async {
@@ -51,6 +56,21 @@ class DashboardScreen extends ConsumerWidget {
             child: Column(
               children: [
                 const SizedBox(height: 20),
+                if (!session.subscriptionActive)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.orange.shade200),
+                    ),
+                    child: const Text(
+                      'اشتراک منقضی است؛ فقط مشاهده مجاز است.',
+                      style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                if (!session.subscriptionActive) const SizedBox(height: 12),
                 // ردیف کارت‌های کوچک
                 Row(
                   children: [
@@ -64,7 +84,7 @@ class DashboardScreen extends ConsumerWidget {
                 _buildMainSalesCard(todaySales.value ?? 0, growth.value ?? 0, isDark, brandRed),
                 const SizedBox(height: 25),
                 // دکمه عملیاتی اصلی
-                _buildBigActionButton(brandRed,context),
+                _buildBigActionButton(brandRed, context, session.subscriptionActive),
                 const SizedBox(height: 30),
                 // هدر تراکنش‌های اخیر
                 _buildSectionHeader("تراکنش‌های اخیر", brandRed,context),
@@ -86,7 +106,13 @@ class DashboardScreen extends ConsumerWidget {
        );
   }
 
-  PreferredSizeWidget _buildAppBar(bool isDark, Color red, AsyncValue<Map<String, String>> profileAsync) {
+  PreferredSizeWidget _buildAppBar(
+    bool isDark,
+    Color red,
+    AsyncValue<Map<String, String>> profileAsync,
+    SyncState syncState,
+    VoidCallback onSync,
+  ) {
     return AppBar(
       backgroundColor: Colors.transparent,
       elevation: 0, // تغییر به 0 برای زیبایی بیشتر
@@ -135,13 +161,27 @@ class DashboardScreen extends ConsumerWidget {
         ],
       ),
       actions: [
-        IconButton(
-            onPressed: () {
-              // رفرش دستی با دکمه Sync
-              // اینجا چون به ref دسترسی نداریم (مگر اینکه پاس بدیم)، فعلا خالی می‌ماند
-              // یا می‌توان یک VoidCallback برای رفرش پاس داد.
-            },
-            icon: const Icon(Icons.notifications_none, color: Colors.grey)
+        Stack(
+          alignment: Alignment.center,
+          children: [
+            IconButton(
+              onPressed: onSync,
+              icon: Icon(syncState.isSyncing ? Icons.sync : Icons.sync_outlined, color: Colors.grey),
+            ),
+            if (syncState.pendingOps > 0)
+              Positioned(
+                top: 10,
+                right: 10,
+                child: CircleAvatar(
+                  radius: 8,
+                  backgroundColor: red,
+                  child: Text(
+                    syncState.pendingOps > 9 ? '9+' : syncState.pendingOps.toString(),
+                    style: const TextStyle(color: Colors.white, fontSize: 10),
+                  ),
+                ),
+              ),
+          ],
         ),
         const SizedBox(width: 10),
       ],
@@ -223,18 +263,26 @@ Widget _buildMiniCard1(String title, String val, String unit, bool isDark, Color
     );
   }
 
-  Widget _buildBigActionButton(Color red,BuildContext context) {
+  Widget _buildBigActionButton(Color red, BuildContext context, bool canWrite) {
     return GestureDetector(
-      onTap: (){
-        Navigator.push(context, MaterialPageRoute(builder: (context)=> DigitalTopupSalePage()));
-      },
+      onTap: canWrite
+          ? () {
+              Navigator.push(context, MaterialPageRoute(builder: (context) => DigitalTopupSalePage()));
+            }
+          : null,
       child: Container(
         width: double.infinity,
         height: 65,
         decoration: BoxDecoration(
-          color: red,
+          color: canWrite ? red : Colors.grey,
           borderRadius: BorderRadius.circular(20),
-          boxShadow: [BoxShadow(color: red.withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 8))],
+          boxShadow: [
+            BoxShadow(
+              color: (canWrite ? red : Colors.grey).withOpacity(0.3),
+              blurRadius: 15,
+              offset: const Offset(0, 8),
+            )
+          ],
         ),
         child: const Center(
           child: Row(

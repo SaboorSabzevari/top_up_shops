@@ -16,6 +16,7 @@ import 'package:excel/excel.dart' as xl;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'extended_reports_screen.dart';
 
 class CustomerReportScreen extends ConsumerStatefulWidget {
   const CustomerReportScreen({super.key});
@@ -285,6 +286,15 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
       ),
       centerTitle: true,
       actions: [
+        IconButton(
+          icon: const Icon(Icons.analytics, color: primaryColor),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ExtendedReportsScreen()),
+            );
+          },
+        ),
         if (_selectedCustomer != null)
           Consumer(
             builder: (context, ref, child) {

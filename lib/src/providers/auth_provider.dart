@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import '../services/prefrence_services.dart';
+import 'session_provider.dart';
 
 class AuthState {
   final User? user;
@@ -93,6 +94,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
         rememberMe: rememberMe,
       );
 
+      await ref.read(sessionProvider.notifier).refreshFromRemote();
+
       // آپدیت state
       state = state.copyWith(
         savedEmail: rememberMe ? email.trim() : null,
@@ -137,6 +140,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     // حذف اطلاعات لاگین از SharedPreferences
     final prefs = await ref.read(preferencesServiceProvider.future);
     await prefs.clearLoginData();
+    await ref.read(sessionProvider.notifier).clear();
 
     state = AuthState(
       user: null,

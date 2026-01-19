@@ -1,1 +1,27 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"top-up-shops-4bd5b","appId":"1:332637885308:android:9741b46b9b38363ac30af9","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"top-up-shops-4bd5b","configurations":{"android":"1:332637885308:android:9741b46b9b38363ac30af9","ios":"1:332637885308:ios:5bbd5fb337ea45d6c30af9","web":"1:332637885308:web:222f7a9041065616c30af9","windows":"1:332637885308:web:bb98e1693c68129bc30af9"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "top-up-shops-4bd5b",
+          "appId": "1:332637885308:android:9741b46b9b38363ac30af9",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "top-up-shops-4bd5b",
+          "configurations": {
+            "android": "1:332637885308:android:9741b46b9b38363ac30af9",
+            "ios": "1:332637885308:ios:5bbd5fb337ea45d6c30af9",
+            "web": "1:332637885308:web:222f7a9041065616c30af9",
+            "windows": "1:332637885308:web:bb98e1693c68129bc30af9"
+          }
+        }
+      }
+    }
+  },
+  "firestore": {
+    "rules": "firestore.rules"
+  }
+}

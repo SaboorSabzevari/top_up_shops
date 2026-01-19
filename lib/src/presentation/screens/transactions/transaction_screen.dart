@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../domain/entity/transaction.dart'; // آدرس مدل تراکنش شما
 import '../../../providers/transaction_provider.dart'; // آدرس پرووایدرهای شما
+import '../../../data/local/app_database.dart';
 import 'package:intl/intl.dart' as intl; // برای فرمت تاریخ
 
 // تعریف رنگ‌ها در صورت عدم دسترسی به فایل colors.dart
@@ -88,7 +89,7 @@ class TransactionHistoryPage extends ConsumerWidget {
                       itemCount: transactions.length,
                       itemBuilder: (context, index) {
                         final t = transactions[index];
-                        return _buildTransactionCardFromModel(context, t);
+                        return _buildTransactionCardFromModel(context, ref, t);
                       },
                     );
                   },
@@ -149,7 +150,7 @@ class TransactionHistoryPage extends ConsumerWidget {
   }
 
   // کارت تراکنش بر اساس مدل داده‌ای
-  Widget _buildTransactionCardFromModel(BuildContext context, TransactionModel t) {
+  Widget _buildTransactionCardFromModel(BuildContext context, WidgetRef ref, TransactionModel t) {
     // فرمت تاریخ
     String formattedTime = t.createdAt;
     try {
@@ -187,6 +188,8 @@ class TransactionHistoryPage extends ConsumerWidget {
       operator: t.operator,
       sent: t.sentAmount.toString(),
       received: t.receivedAmount.toString(),
+      canRefund: t.transactionType != 'refund',
+      onRefund: () => _showRefundDialog(context, ref, t),
     );
   }
 
@@ -199,6 +202,8 @@ class TransactionHistoryPage extends ConsumerWidget {
     required String operator,
     required String sent,
     required String received,
+    required bool canRefund,
+    required VoidCallback onRefund,
   }) {
     bool isDark = Theme.of(context).brightness == Brightness.dark;
     const Color brandRed = Color(0xFFEA2A33);
@@ -248,8 +253,9 @@ class TransactionHistoryPage extends ConsumerWidget {
                             ),
                           ),
                           Row(
-                            children: [ _compactInfo(operator, isDark),
-                              SizedBox(width: 10,),
+                            children: [
+                              _compactInfo(operator, isDark),
+                              const SizedBox(width: 10),
                               Text(
                                 "$received ؋",
                                 style: const TextStyle(
@@ -258,6 +264,20 @@ class TransactionHistoryPage extends ConsumerWidget {
                                   color: brandRed,
                                 ),
                               ),
+                              if (canRefund) ...[
+                                const SizedBox(width: 8),
+                                InkWell(
+                                  onTap: onRefund,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.orange.shade50,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: const Text('برگشت', style: TextStyle(fontSize: 10, color: Colors.orange)),
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ],
@@ -459,5 +479,53 @@ class TransactionHistoryPage extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _showRefundDialog(BuildContext context, WidgetRef ref, TransactionModel t) async {
+    final amountCtrl = TextEditingController(text: t.receivedAmount.toString());
+    final reasonCtrl = TextEditingController();
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('ثبت برگشت'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: amountCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'مبلغ برگشت'),
+              ),
+              TextField(
+                controller: reasonCtrl,
+                decoration: const InputDecoration(labelText: 'دلیل'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('لغو')),
+            ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('ثبت')),
+          ],
+        );
+      },
+    );
+    if (result != true) return;
+    await DatabaseHelper.instance.addRefundTransaction(
+      originalRemoteId: t.remoteId ?? t.id.toString(),
+      customerId: t.customerId,
+      customerName: t.customerName,
+      customerType: t.customerType,
+      operatorName: t.operator,
+      phoneNumber: t.phoneNumber,
+      companyCode: t.companyCode,
+      amount: double.tryParse(amountCtrl.text) ?? 0,
+      originalReceivedAmount: t.receivedAmount.toDouble(),
+      originalProfit: t.profit.toDouble(),
+      reason: reasonCtrl.text.trim(),
+    );
+    ref.invalidate(transactionsProvider);
+    ref.invalidate(todayProfitProvider);
+    ref.invalidate(todayCountProvider);
   }
 }

@@ -1,4 +1,5 @@
 import 'package:top_up_shops/src/data/local/app_database.dart';
+import '../../services/session_service.dart';
 
 import '../../domain/entity/transaction.dart';
 
@@ -8,13 +9,15 @@ class TransactionRepository {
   /// همه تراکنش‌ها
   Future<List<TransactionModel>> getTransactions() async {
     final database = await _db.database;
+    final shopId = SessionService.instance.currentShopId;
 
     final result = await database.rawQuery('''
     SELECT t.*, c.name as current_customer_name 
     FROM transactions t
     LEFT JOIN customers c ON t.customer_id = c.id
+    WHERE t.shop_id = ? AND (t.is_deleted IS NULL OR t.is_deleted = 0)
     ORDER BY t.created_at DESC
-  ''');
+  ''', [shopId]);
 
     return result.map((map) {
       final updatedMap = Map<String, dynamic>.from(map);
@@ -26,11 +29,12 @@ class TransactionRepository {
   }
   Future<int> todayProfit() async {
     final database = await _db.database;
+    final shopId = SessionService.instance.currentShopId;
     final result = await database.rawQuery('''
     SELECT SUM(profit) as total
     FROM transactions
-    WHERE date(created_at) = date('now','localtime')
-  ''');
+    WHERE date(created_at) = date('now','localtime') AND shop_id = ?
+  ''', [shopId]);
 
     // تبدیل امن num به int برای جلوگیری از خطای نوع داده
     final total = result.first['total'];
@@ -41,48 +45,51 @@ class TransactionRepository {
 /// تعداد تراکنش‌های امروز
 Future<int> todayTransactionsCount() async {
   final database = await _db.database;
+  final shopId = SessionService.instance.currentShopId;
   final result = await database.rawQuery('''
     SELECT COUNT(*) as count 
     FROM transactions 
-    WHERE date(created_at) = date('now','localtime')
-  ''');
+    WHERE date(created_at) = date('now','localtime') AND shop_id = ?
+  ''', [shopId]);
   return result.first['count'] as int? ?? 0;
 }
   /// مجموع فروش امروز (مبلغ دریافتی)
   Future<int> todayTotalSales() async {
     final database = await _db.database;
+    final shopId = SessionService.instance.currentShopId;
     final result = await database.rawQuery('''
       SELECT SUM(received_amount) as total FROM transactions 
-      WHERE date(created_at) = date('now','localtime')
-    ''');
+      WHERE date(created_at) = date('now','localtime') AND shop_id = ?
+    ''', [shopId]);
     return (result.first['total'] as num? ?? 0).toInt();
   }
 
   /// مجموع تراکنش‌های امروز (مبلغ ارسال شده)
   Future<int> todaySentAmount() async {
     final database = await _db.database;
+    final shopId = SessionService.instance.currentShopId;
     final result = await database.rawQuery('''
       SELECT SUM(sent_amount) as total FROM transactions 
-      WHERE date(created_at) = date('now','localtime')
-    ''');
+      WHERE date(created_at) = date('now','localtime') AND shop_id = ?
+    ''', [shopId]);
     return (result.first['total'] as num? ?? 0).toInt();
   }
 
   /// محاسبه درصد تغییر نسبت به دیروز
   Future<double> getSalesGrowthPercentage() async {
     final database = await _db.database;
+    final shopId = SessionService.instance.currentShopId;
 
     // فروش امروز
-    final todayRes = await database.rawQuery("SELECT SUM(received_amount) as total FROM transactions WHERE date(created_at) = date('now','localtime')");
+    final todayRes = await database.rawQuery("SELECT SUM(received_amount) as total FROM transactions WHERE date(created_at) = date('now','localtime') AND shop_id = ?", [shopId]);
     double today = (todayRes.first['total'] as num? ?? 0).toDouble();
 
     // فروش دیروز
-    final yesterdayRes = await database.rawQuery("SELECT SUM(received_amount) as total FROM transactions WHERE date(created_at) = date('now', '-1 day', 'localtime')");
+    final yesterdayRes = await database.rawQuery("SELECT SUM(received_amount) as total FROM transactions WHERE date(created_at) = date('now', '-1 day', 'localtime') AND shop_id = ?", [shopId]);
     double yesterday = (yesterdayRes.first['total'] as num? ?? 0).toDouble();
 
     if (yesterday == 0) return today > 0 ? 100.0 : 0.0;
     return ((today - yesterday) / yesterday) * 100;
   }
 }
-
 

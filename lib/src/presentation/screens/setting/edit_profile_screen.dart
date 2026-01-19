@@ -2,8 +2,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../../../data/repository/shop_repository.dart';
 
 // اگر فایل theme/colors.dart را دارید از آن ایمپورت کنید، در غیر این صورت:
 const Color kPrimaryColor = Color(0xFFEA2A33);
@@ -21,6 +21,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
   final TextEditingController _storeNameCtrl = TextEditingController();
   final TextEditingController _phoneCtrl = TextEditingController();
   final TextEditingController _addressCtrl = TextEditingController();
+  final ShopRepository _repo = ShopRepository();
 
   String? _profileImagePath;
   bool _isLoading = true;
@@ -31,19 +32,19 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
     _loadProfileData();
   }
 
-  // --- بارگذاری اطلاعات از SharedPreferences ---
+  // --- بارگذاری اطلاعات از پایگاه داده ---
   Future<void> _loadProfileData() async {
-    final prefs = await SharedPreferences.getInstance();
+    final shop = await _repo.getCurrentShop();
     setState(() {
-      _storeNameCtrl.text = prefs.getString('store_name') ?? '';
-      _phoneCtrl.text = prefs.getString('store_phone') ?? '';
-      _addressCtrl.text = prefs.getString('store_address') ?? '';
-      _profileImagePath = prefs.getString('store_image_path');
+      _storeNameCtrl.text = shop?['name']?.toString() ?? '';
+      _phoneCtrl.text = shop?['phone']?.toString() ?? '';
+      _addressCtrl.text = shop?['address']?.toString() ?? '';
+      _profileImagePath = shop?['logo_path']?.toString();
       _isLoading = false;
     });
   }
 
-  // --- ذخیره اطلاعات در SharedPreferences ---
+  // --- ذخیره اطلاعات در پایگاه داده ---
   Future<void> _saveProfileData() async {
     if (_storeNameCtrl.text.isEmpty || _phoneCtrl.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -52,14 +53,12 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
       return;
     }
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('store_name', _storeNameCtrl.text);
-    await prefs.setString('store_phone', _phoneCtrl.text);
-    await prefs.setString('store_address', _addressCtrl.text);
-
-    if (_profileImagePath != null) {
-      await prefs.setString('store_image_path', _profileImagePath!);
-    }
+    await _repo.updateShopProfile(
+      name: _storeNameCtrl.text.trim(),
+      phone: _phoneCtrl.text.trim(),
+      address: _addressCtrl.text.trim(),
+      logoPath: _profileImagePath,
+    );
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
