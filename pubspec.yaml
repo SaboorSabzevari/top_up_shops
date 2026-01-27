@@ -55,6 +55,7 @@ dependencies:
   printing:
   excel:
   flutter_screenutil:
+  flutter_svg:
 
 
 
@@ -98,6 +99,7 @@ flutter:
   # example:
   assets:
     - assets/fonts/Vazirmatn-Regular.ttf
+    - assets/svg/
 
   fonts:
       - family: Vazir

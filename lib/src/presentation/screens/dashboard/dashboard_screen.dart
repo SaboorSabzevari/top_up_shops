@@ -2,8 +2,9 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path/path.dart';
+
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:top_up_shops/src/presentation/screens/dashboard/sell_paper_card/paper_card_screen.dart';
 import 'package:top_up_shops/src/presentation/screens/dashboard/send_credit/send_credit_screen.dart';
 import '../../../domain/entity/transaction.dart';
 import '../../../providers/transaction_provider.dart';
@@ -12,7 +13,7 @@ import '../transactions/transaction_screen.dart';
 final profileInfoProvider = FutureProvider<Map<String, String>>((ref) async {
   final prefs = await SharedPreferences.getInstance();
   return {
-    'name': prefs.getString('store_name') ?? 'فروشگاه من', // نام پیش‌فرض
+    'name': prefs.getString('store_name') ?? 'فروشگاه من',
     'image': prefs.getString('store_image_path') ?? '',
   };
 });
@@ -36,7 +37,7 @@ class DashboardScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: bgColor,
-      appBar: _buildAppBar(isDark, brandRed,profileAsync),
+      appBar: _buildAppBar(context,isDark, brandRed,profileAsync),
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () async {
@@ -51,7 +52,7 @@ class DashboardScreen extends ConsumerWidget {
             child: Column(
               children: [
                 const SizedBox(height: 20),
-                // ردیف کارت‌های کوچک
+
                 Row(
                   children: [
                     _buildMiniCard("تعداد امروز", "${todayCount.value ?? 0}", "عدد", isDark, brandRed),
@@ -86,13 +87,13 @@ class DashboardScreen extends ConsumerWidget {
        );
   }
 
-  PreferredSizeWidget _buildAppBar(bool isDark, Color red, AsyncValue<Map<String, String>> profileAsync) {
+  PreferredSizeWidget _buildAppBar(BuildContext context,bool isDark, Color red, AsyncValue<Map<String, String>> profileAsync) {
     return AppBar(
       backgroundColor: Colors.transparent,
-      elevation: 0, // تغییر به 0 برای زیبایی بیشتر
+      elevation: 0,
       title: Row(
         children: [
-          // بخش آواتار (عکس)
+
           profileAsync.when(
             data: (data) {
               final imagePath = data['image'];
@@ -137,6 +138,7 @@ class DashboardScreen extends ConsumerWidget {
       actions: [
         IconButton(
             onPressed: () {
+              Navigator.push(context, MaterialPageRoute(builder: (context)=>PaperTopupSalePage()));
               // رفرش دستی با دکمه Sync
               // اینجا چون به ref دسترسی نداریم (مگر اینکه پاس بدیم)، فعلا خالی می‌ماند
               // یا می‌توان یک VoidCallback برای رفرش پاس داد.

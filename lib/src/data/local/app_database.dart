@@ -54,27 +54,41 @@ class DatabaseHelper {
   )
 ''');
      await db.execute('CREATE TABLE providers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, type TEXT, ordinary_code TEXT, wholesale_code TEXT)'); // جدول تراکنش‌ها
-    await db.execute('''CREATE TABLE transactions (
-     id INTEGER PRIMARY KEY AUTOINCREMENT, 
-     customer_id INTEGER, 
-     customer_name TEXT, 
-     customer_type TEXT,
-     operator_name TEXT, 
-     phone_number TEXT, 
-     company_code TEXT,
-     sent_amount REAL, 
+    await db.execute('''
+  CREATE TABLE transactions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     
-     discount REAL DEFAULT 0,        
-     total_price REAL,               
-     paid_amount REAL DEFAULT 0,
-     remaining_amount REAL DEFAULT 0,
-     
-     received_amount REAL, 
-     cost_price REAL, 
-     profit REAL, 
-     ussd_command TEXT, 
-     created_at TEXT
-  )''');
+    -- مشخصات مشتری
+    customer_id INTEGER,                 -- اگر مشتری ناشناس باشد، این مقدار NULL است
+    customer_name TEXT,                  -- نام مشتری یا "مشتری رهگذر"
+    customer_type TEXT,                  -- 'REGISTERED' (ثبت شده) یا 'WALK_IN' (رهگذر)
+    
+    -- مشخصات نوع سرویس
+    transaction_type TEXT DEFAULT 'DIGITAL', -- مقادیر: 'DIGITAL' (شارژ) یا 'PAPER' (کارت فیزیکی)
+    operator_name TEXT,                  -- مثال: AWCC, ROSHAN
+    phone_number TEXT,                   -- برای کارت کاغذی می‌تواند NULL باشد
+    company_code TEXT,                   -- کد شرکت (برای مشتریان عمده)
+    
+    -- مقادیر کمی
+    sent_amount REAL,                    -- ارزش اسمی (مثلاً کارت ۵۰ افغانی)
+    quantity INTEGER DEFAULT 1,          -- تعداد (برای کارت کاغذی مثلا ۱۰ عدد، برای شارژ ۱)
+    
+    -- محاسبات مالی فروش
+    total_price REAL,                    -- مبلغ کل فاکتور (قیمت فی × تعداد - تخفیف)
+    discount REAL DEFAULT 0,             -- تخفیف داده شده
+    paid_amount REAL DEFAULT 0,          -- مبلغی که مشتری نقد پرداخت کرده
+    remaining_amount REAL DEFAULT 0,     -- مبلغ باقی‌مانده (بدهی)
+    
+    -- محاسبات سود و زیان (سمت فروشنده)
+    cost_price REAL,                     -- قیمت خرید تمام شده برای شما
+    profit REAL,                         -- سود خالص (فروش - خرید)
+    
+    -- اطلاعات سیستمی
+    received_amount REAL,                -- (جهت سازگاری با کدهای قبلی آمار) معمولا برابر paid_amount
+    ussd_command TEXT,                   -- کد دستوری اجرا شده (اختیاری برای کارت کاغذی)
+    created_at TEXT                      -- تاریخ و زمان دقیق تراکنش
+  )
+''');
     await _seedProviders(db);
   }
   Future<void> _seedProviders(Database db) async {
@@ -261,36 +275,76 @@ class DatabaseHelper {
   }
 // method for save transaction
   // در فایل app_database.dart، این متد را جایگزین قبلی کنید:
+  // Future<int> saveDetailedTransaction(Map<String, dynamic> data) async {
+  //   final db = await instance.database;
+  //
+  //   // اطمینان از اینکه مقادیر عددی هستند
+  //   double total = (data['total_price'] ?? 0.0).toDouble();
+  //   double paid = (data['paid_amount'] ?? 0.0).toDouble();
+  //   double remaining = total - paid;
+  //
+  //   return await db.insert('transactions', {
+  //     'customer_id': data['customer_id'],
+  //     'customer_name': data['customer_name'],
+  //     'customer_type': data['customer_type'],
+  //     'operator_name': data['operator_name'],
+  //     'phone_number': data['phone_number'],
+  //     'company_code': data['company_code'],
+  //     'sent_amount': data['sent_amount'],
+  //     'remaining_amount': remaining, // حالا این ستون در جدول وجود دارد
+  //
+  //     'discount': data['discount'] ?? 0.0,
+  //     'total_price': total,
+  //     'paid_amount': paid,
+  //
+  //     'received_amount': data['received_amount'] ?? total,
+  //     'cost_price': data['cost_price'],
+  //     'profit': data['profit'],
+  //     'ussd_command': data['ussd_command'],
+  //     'created_at': DateTime.now().toIso8601String(),
+  //   });
+  // }
   Future<int> saveDetailedTransaction(Map<String, dynamic> data) async {
     final db = await instance.database;
 
-    // اطمینان از اینکه مقادیر عددی هستند
+    // اطمینان از فرمت صحیح اعداد
     double total = (data['total_price'] ?? 0.0).toDouble();
     double paid = (data['paid_amount'] ?? 0.0).toDouble();
+    // محاسبه دقیق بدهی: اگر مشتری پول کمتر داد، مابقی بدهی می‌شود
     double remaining = total - paid;
 
     return await db.insert('transactions', {
-      'customer_id': data['customer_id'],
-      'customer_name': data['customer_name'],
-      'customer_type': data['customer_type'],
+      // بخش مشتری
+      'customer_id': data['customer_id'], // برای مشتری ناشناس null می‌آید
+      'customer_name': data['customer_name'] ?? 'مشتری رهگذر',
+      'customer_type': data['customer_type'] ?? 'WALK_IN',
+
+      // بخش نوع تراکنش (جدید)
+      'transaction_type': data['transaction_type'] ?? 'DIGITAL', // پیش‌فرض دیجیتال است
       'operator_name': data['operator_name'],
       'phone_number': data['phone_number'],
       'company_code': data['company_code'],
-      'sent_amount': data['sent_amount'],
-      'remaining_amount': remaining, // حالا این ستون در جدول وجود دارد
 
+      // بخش مقادیر (جدید)
+      'sent_amount': data['sent_amount'], // ارزش کارت (مثلا ۵۰)
+      'quantity': data['quantity'] ?? 1,  // تعداد کارت
+
+      // بخش مالی
       'discount': data['discount'] ?? 0.0,
       'total_price': total,
       'paid_amount': paid,
+      'remaining_amount': remaining,
 
-      'received_amount': data['received_amount'] ?? total,
+      // بخش سود و آمار
+      'received_amount': data['received_amount'] ?? paid, // برای سازگاری با آمار
       'cost_price': data['cost_price'],
       'profit': data['profit'],
+
+      // سیستمی
       'ussd_command': data['ussd_command'],
       'created_at': DateTime.now().toIso8601String(),
     });
-  }
-  Future<double> getCustomerTotalBalance(int customerId) async {
+  }Future<double> getCustomerTotalBalance(int customerId) async {
     final db = await instance.database;
     var result = await db.rawQuery(
         'SELECT SUM(total_price) - SUM(paid_amount) as balance FROM transactions WHERE customer_id = ?',
