@@ -365,7 +365,9 @@ class TransactionHistoryPage extends ConsumerWidget {
       ),
 
 
-        child: TextField(cursorColor: kPrimaryColor,
+        child: TextField(
+          textDirection: TextDirection.ltr,
+          cursorColor: kPrimaryColor,
           onChanged: (value) => ref.read(transactionSearchQueryProvider.notifier).state = value,
           decoration: InputDecoration(
             hintText: "جستجو (نام، شماره، کد شرکت)...",

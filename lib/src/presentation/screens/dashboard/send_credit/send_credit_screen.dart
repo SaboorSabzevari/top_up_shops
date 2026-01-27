@@ -1,10 +1,9 @@
 import 'dart:async';
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
-
 import '../../../../../l10n/app_localizations.dart';
 import '../../../../data/local/app_database.dart';
 import '../../../../providers/app_providers.dart';
@@ -53,12 +52,13 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
       remainingBalance = calculatedTotalPayable - paid;
     });
   }
+
   // کنترلرها
   final TextEditingController amountCtrl = TextEditingController();
   final TextEditingController customerNameCtrl = TextEditingController();
   final TextEditingController phoneCtrl = TextEditingController();
   final TextEditingController companyCodeCtrl = TextEditingController();
-  final TextEditingController creditCtrl = TextEditingController(text: '100');
+  final TextEditingController creditCtrl = TextEditingController(text: '0');
   final TextEditingController discountCtrl = TextEditingController(text: '0');
   final TextEditingController paidCtrl = TextEditingController();
   final TextEditingController wholesalePhoneCtrl = TextEditingController();
@@ -95,7 +95,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
 
   int get total =>
       (int.tryParse(creditCtrl.text) ?? 0) -
-          (int.tryParse(discountCtrl.text) ?? 0);
+      (int.tryParse(discountCtrl.text) ?? 0);
 
   @override
   void initState() {
@@ -106,25 +106,24 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
       }
     });
 
+    _loadUnitRates(); // بارگذاری نرخ‌ها
 
-      _loadUnitRates(); // بارگذاری نرخ‌ها
+    // اضافه کردن لیسنر برای محاسبه آنی با تغییر هر فیلد
+    creditCtrl.addListener(_performCalculations);
+    discountCtrl.addListener(_performCalculations);
+    paidCtrl.addListener(_performCalculations);
+  }
 
-      // اضافه کردن لیسنر برای محاسبه آنی با تغییر هر فیلد
-      creditCtrl.addListener(_performCalculations);
-      discountCtrl.addListener(_performCalculations);
-      paidCtrl.addListener(_performCalculations);
+  // 3. این متد را برای گرفتن نرخ از دیتابیس اضافه کنید
+  Future<void> _loadUnitRates() async {
+    final unit = await DatabaseHelper.instance.getSingleUnit();
+    if (mounted) {
+      setState(() {
+        unitBuyPrice = unit['buy_price'] ?? 0.0;
+        unitSellPrice = unit['sell_price'] ?? 0.0;
+      });
     }
-
-// 3. این متد را برای گرفتن نرخ از دیتابیس اضافه کنید
-    Future<void> _loadUnitRates() async {
-      final unit = await DatabaseHelper.instance.getSingleUnit();
-      if (mounted) {
-        setState(() {
-          unitBuyPrice = unit['buy_price'] ?? 0.0;
-          unitSellPrice = unit['sell_price'] ?? 0.0;
-        });
-      }
-    }
+  }
 
   @override
   void dispose() {
@@ -145,7 +144,9 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
 
     if (ussdCode.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('کد USSD معتبر تولید نشد! فیلدها را چک کنید.')),
+        const SnackBar(
+          content: Text('کد USSD معتبر تولید نشد! فیلدها را چک کنید.'),
+        ),
       );
       return;
     }
@@ -174,44 +175,51 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
       setState(() => _isUssdLoading = false);
     }
   }
-
-  Future<void> _executeUssdOnly(int simSlot) async {
-    String ussdCode = _buildUSSDCode(); // تولید کد بر اساس فیلدها
-
-    if (ussdCode.isEmpty || ussdCode == "*#") {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("لطفاً اطلاعات را کامل وارد کنید")),
-      );
-      return;
-    }
-
+  Future<void> _executeUssdOnly(int slotIndex) async {
     setState(() {
       _isUssdLoading = true;
-      _ussdResponse = ""; // پاک کردن پاسخ قبلی
+      _ussdResponse = "";
     });
 
     try {
-      // فراخوانی متد کاتلین و دریافت پاسخ واقعی از اپراتور
-      final String? result = await platform.invokeMethod('sendUssd', {
-        "code": ussdCode,
-        "slot": simSlot,
-      });
+      // ۱. بررسی مجوز (Permission.phone شامل CALL_PHONE و READ_PHONE_STATE است)
+      var status = await Permission.phone.status;
+
+      if (!status.isGranted) {
+        status = await Permission.phone.request();
+        if (!status.isGranted) {
+          throw PlatformException(
+            code: 'PERMISSION_DENIED',
+            message: 'برای ارسال کد دستوری و مدیریت سیم‌کارت، تایید مجوز تماس الزامی است.',
+          );
+        }
+      }
+
+      // ۲. فراخوانی متد (استفاده مستقیم از platform بدون پیشوند)
+      // دقت کنید کلیدها دقیقا "code" و "slot" باشند تا با MainActivity.kt شما همخوانی داشته باشند
+      final String result = await platform.invokeMethod(
+        'sendUssd',
+        {
+          'code': "*789#", // اینجا کد مورد نظر خود را قرار دهید
+          'slot': slotIndex,
+        },
+      );
 
       setState(() {
-        // قرار دادن پاسخ مستقیم سیستم در متغیر
-        _ussdResponse = result ?? "پاسخی از شبکه دریافت نشد";
+        _ussdResponse = result;
+        _isUssdLoading = false;
       });
 
     } on PlatformException catch (e) {
       setState(() {
+        _isUssdLoading = false;
         _ussdResponse = "خطای سیستم: ${e.message}";
       });
     } catch (e) {
       setState(() {
-        _ussdResponse = "خطای نامشخص رخ داد";
+        _isUssdLoading = false;
+        _ussdResponse = "خطای ناشناخته: $e";
       });
-    } finally {
-      setState(() => _isUssdLoading = false);
     }
   }
   void _showUssdResponseDialog(String message) {
@@ -219,9 +227,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text("پاسخ شبکه"),
-        content: SingleChildScrollView(
-          child: Text(message),
-        ),
+        content: SingleChildScrollView(child: Text(message)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -231,17 +237,20 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
             icon: const Icon(Icons.copy),
             onPressed: () {
               Clipboard.setData(ClipboardData(text: message));
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('پاسخ کپی شد')),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('پاسخ کپی شد')));
             },
           ),
         ],
       ),
     );
   }
+
   Future<void> _processAndSaveTransaction() async {
-    String finalPhone = (customerType == 'normal') ? phoneCtrl.text : wholesalePhoneCtrl.text;
+    String finalPhone = (customerType == 'normal')
+        ? phoneCtrl.text
+        : wholesalePhoneCtrl.text;
 
     try {
       // ۱. اعتبارسنجی ورودی‌ها
@@ -264,7 +273,9 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
 
       // ۲. دریافت مقادیر ورودی مالی
       double discount = double.tryParse(discountCtrl.text) ?? 0.0;
-      double paidCash = double.tryParse(paidCtrl.text) ?? 0.0; // پولی که مشتری نقد داد (مثلاً ۵۰۰۰)
+      double paidCash =
+          double.tryParse(paidCtrl.text) ??
+          0.0; // پولی که مشتری نقد داد (مثلاً ۵۰۰۰)
 
       // ۳. محاسبات بر اساس منطق شما (مثال احمد)
       // قیمت تمام شده برای شما: 10000 * 0.95 = 9500
@@ -288,12 +299,12 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
         'operator_name': selectedOperator,
         'company_code': companyCodeCtrl.text,
         'phone_number': finalPhone,
-        'sent_amount': sentAmount,      // مقدار کریدیت (10000)
-        'discount': discount,           // تخفیف (100)
-        'total_price': totalPrice,      // مبلغ نهایی فاکتور (9600)
-        'paid_amount': paidCash,        // مبلغ دریافتی نقد (5000)
-        'cost_price': costPrice,        // قیمت خرید برای شما (9500)
-        'profit': netProfit,            // سود خالص (100)
+        'sent_amount': sentAmount, // مقدار کریدیت (10000)
+        'discount': discount, // تخفیف (100)
+        'total_price': totalPrice, // مبلغ نهایی فاکتور (9600)
+        'paid_amount': paidCash, // مبلغ دریافتی نقد (5000)
+        'cost_price': costPrice, // قیمت خرید برای شما (9500)
+        'profit': netProfit, // سود خالص (100)
         'ussd_command': _buildUSSDCode(),
       });
 
@@ -316,12 +327,12 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
     }
   }
 
-
   void _showSnackBar(String message, Color color) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: color),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message), backgroundColor: color));
   }
+
   void _invalidateAllProviders() {
     ref.invalidate(transactionsProvider);
     ref.invalidate(todayProfitProvider);
@@ -330,10 +341,12 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
     ref.invalidate(salesGrowthProvider);
     ref.invalidate(recentTransactionsProvider);
   }
+
   void _showSuccessDialog(double received, double profit, String code) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(backgroundColor: Colors.white,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Icon(Icons.check_circle, color: Colors.green, size: 50),
         content: Column(
@@ -347,13 +360,12 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
             Text('مبلغ دریافتی: $received AFN'),
             Divider(),
             Text('سود شما: ${profit.toStringAsFixed(2)} AFN'),
-            
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('تایید',style: TextStyle(color: kPrimaryColor),),
+            child: const Text('تایید', style: TextStyle(color: kPrimaryColor)),
           ),
         ],
       ),
@@ -399,28 +411,28 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
               child: _searchResults.isEmpty
                   ? _buildNotFoundWidget()
                   : ListView.separated(
-                padding: EdgeInsets.zero,
-                shrinkWrap: true,
-                itemCount: _searchResults.length,
-                separatorBuilder: (_, __) => const Divider(height: 1),
-                itemBuilder: (context, index) {
-                  final customer = _searchResults[index];
-                  return ListTile(
-                    leading: const Icon(
-                      Icons.person_search,
-                      color: Color(0xFF6B7280),
+                      padding: EdgeInsets.zero,
+                      shrinkWrap: true,
+                      itemCount: _searchResults.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (context, index) {
+                        final customer = _searchResults[index];
+                        return ListTile(
+                          leading: const Icon(
+                            Icons.person_search,
+                            color: Color(0xFF6B7280),
+                          ),
+                          title: Text(
+                            customer['name'],
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          subtitle: Text(
+                            "کد: ${customer['customer_code']} | ${customer['type'] == 'WHOLESALE' ? 'عمده' : 'عادی'}",
+                          ),
+                          onTap: () => _selectCustomer(customer),
+                        );
+                      },
                     ),
-                    title: Text(
-                      customer['name'],
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    subtitle: Text(
-                      "کد: ${customer['customer_code']} | ${customer['type'] == 'WHOLESALE' ? 'عمده' : 'عادی'}",
-                    ),
-                    onTap: () => _selectCustomer(customer),
-                  );
-                },
-              ),
             ),
           ),
         ),
@@ -616,7 +628,8 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
         }
 
         if (foundCompanyData != null && foundCompanyData.isNotEmpty) {
-          final companyCode = foundCompanyData['company_code']?.toString() ??
+          final companyCode =
+              foundCompanyData['company_code']?.toString() ??
               foundCompanyData['dealer_code']?.toString() ??
               foundCompanyData['code']?.toString() ??
               '';
@@ -624,7 +637,8 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
           companyCodeCtrl.text = companyCode;
           isCompanySelectionLocked = true;
 
-          final customerPhone = foundCompanyData['phone']?.toString() ??
+          final customerPhone =
+              foundCompanyData['phone']?.toString() ??
               foundCompanyData['contact_number']?.toString();
           if (customerPhone != null && customerPhone.isNotEmpty) {
             wholesalePhoneCtrl.text = customerPhone;
@@ -695,10 +709,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
                 IconButton(
                   icon: const Icon(Icons.call, color: kPrimaryColor),
                   onPressed: () async {
-                    final Uri phoneUri = Uri(
-                      scheme: 'tel',
-                      path: ussdCode,
-                    );
+                    final Uri phoneUri = Uri(scheme: 'tel', path: ussdCode);
 
                     try {
                       await launchUrl(
@@ -760,86 +771,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
     );
   }
 
-  // === پنل عملیات پایینی بازطراحی شده ===
-  Widget _buildBottomActionPanel() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(
-          top: BorderSide(color: Colors.grey.shade300, width: 1),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // بخش پاسخ شبکه (فقط وقتی پاسخ وجود دارد)
-          if (_ussdResponse.isNotEmpty) _buildNetworkResponseSection(),
-
-          // دکمه ثبت تراکنش
-          ElevatedButton(
-            onPressed: _processAndSaveTransaction,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: kPrimaryColor,
-              foregroundColor: Colors.white,
-              minimumSize: const Size(double.infinity, 48),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              elevation: 0,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.save, size: 20),
-                const SizedBox(width: 8),
-                Text(
-                  l10n.transactionSaveAndSubmit,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          // دکمه‌های اجرای USSD در یک ردیف فشرده
-          Row(
-            children: [
-              Expanded(
-                child: _buildSimButton(
-                  simNumber: 1,
-                  slot: 0,
-                  color: Colors.green,
-                  icon: Icons.sim_card,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildSimButton(
-                  simNumber: 2,
-                  slot: 1,
-                  color: Colors.blue,
-                  icon: Icons.sim_card_outlined,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
+  // === پنل عملیات پایینی بازطراحی شد
   Widget _buildNetworkResponseSection() {
     return GestureDetector(
       onTap: _showFullNetworkResponse,
@@ -930,9 +862,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
             Text('پاسخ کامل شبکه'),
           ],
         ),
-        content: SingleChildScrollView(
-          child: SelectableText(_ussdResponse),
-        ),
+        content: SingleChildScrollView(child: SelectableText(_ussdResponse)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -942,9 +872,9 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
             icon: const Icon(Icons.copy),
             onPressed: () {
               Clipboard.setData(ClipboardData(text: _ussdResponse));
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('پاسخ کپی شد')),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('پاسخ کپی شد')));
               Navigator.pop(context);
             },
           ),
@@ -965,35 +895,33 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
         backgroundColor: color.withOpacity(0.9),
         foregroundColor: Colors.white,
         minimumSize: const Size(0, 42),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         elevation: 0,
         padding: const EdgeInsets.symmetric(horizontal: 8),
       ),
       child: _isUssdLoading
           ? const SizedBox(
-        width: 20,
-        height: 20,
-        child: CircularProgressIndicator(
-          strokeWidth: 2,
-          color: Colors.white,
-        ),
-      )
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
+            )
           : Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 18),
-          const SizedBox(width: 6),
-          Text(
-            "SIM $simNumber",
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 18),
+                const SizedBox(width: 6),
+                Text(
+                  "SIM $simNumber",
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -1050,7 +978,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
           _communicationSection(),
           const SizedBox(height: 20),
           _buildUSSDCodePreview(),
-          _buildUssdRedesignSection()
+          _buildUssdRedesignSection(),
         ],
       ),
     );
@@ -1229,11 +1157,11 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
   }
 
   Widget _operatorItem(
-      String title,
-      String type, {
-        Map<String, dynamic>? provider,
-        bool isOther = false,
-      }) {
+    String title,
+    String type, {
+    Map<String, dynamic>? provider,
+    bool isOther = false,
+  }) {
     final isSelected = selectedOperator == title;
 
     return GestureDetector(
@@ -1242,7 +1170,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
           if (_filteredProviders.isEmpty) return;
 
           final provider = _filteredProviders.firstWhere(
-                (p) => p['name']?.toString() == title,
+            (p) => p['name']?.toString() == title,
             orElse: () => {},
           );
 
@@ -1284,12 +1212,12 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
           ),
           boxShadow: isSelected
               ? [
-            BoxShadow(
-              color: primary.withOpacity(0.1),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ]
+                  BoxShadow(
+                    color: primary.withOpacity(0.1),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
               : [],
         ),
         child: Column(
@@ -1635,17 +1563,25 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
             child: Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color:ColorForProfit.withOpacity(0.1),
+                color: ColorForProfit.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: Colors.green.withOpacity(0.3)),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.account_balance_wallet_outlined, size: 18, color:ColorForProfit),
+                  Icon(
+                    Icons.account_balance_wallet_outlined,
+                    size: 18,
+                    color: ColorForProfit,
+                  ),
                   const SizedBox(width: 8),
                   Text(
                     "سود خالص شما: ${netProfit.toStringAsFixed(0)} AFN",
-                    style:  TextStyle(fontSize: 14, color: ColorForProfit, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: ColorForProfit,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
@@ -1654,13 +1590,13 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
           Row(
             children: [
               Expanded(
-                  flex: 3,
-                  child: _amountInput('مقدار کریدیت', creditCtrl, null)
+                flex: 3,
+                child: _amountInput('مقدار کریدیت', creditCtrl, null),
               ),
               const SizedBox(width: 12),
               Expanded(
-                  flex: 2,
-                  child: _amountInput('تخفیف (AFN)', discountCtrl, "AFN")
+                flex: 2,
+                child: _amountInput('تخفیف (AFN)', discountCtrl, "AFN"),
               ),
             ],
           ),
@@ -1671,8 +1607,8 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
           Container(
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
             decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(8)
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1683,7 +1619,10 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
                     SizedBox(width: 6),
                     Text(
                       'مبلغ نهایی فاکتور:',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
                     ),
                   ],
                 ),
@@ -1742,22 +1681,22 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
   }
 
   Widget _amountInput(
-      String label,
-      TextEditingController ctrl,
-      String? suffixText,
-      ) {
+    String label,
+    TextEditingController ctrl,
+    String? suffixText,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: const TextStyle(fontSize: 12, color: textMuted)),
         const SizedBox(height: 6),
         Container(
-          decoration: BoxDecoration(borderRadius: BorderRadius.circular(12),
-            border: BoxBorder.all(
-                
-                color: Colors.red.shade200)
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: BoxBorder.all(color: Colors.red.shade200),
           ),
-          child: TextField(textDirection: TextDirection.ltr,
+          child: TextField(
+            textDirection: TextDirection.ltr,
             cursorColor: kPrimaryColor,
             controller: ctrl,
             keyboardType: TextInputType.number,
@@ -1766,9 +1705,10 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
               filled: true,
               fillColor: const Color(0xFFF3F4F6),
               suffixText: suffixText,
-              border:OutlineInputBorder(borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none
-              )
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
             ),
             onChanged: (_) => setState(() {}),
           ),
@@ -1846,7 +1786,6 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-
         const SizedBox(height: 14),
 
         // ۲. دکمه‌های انتخاب سیم‌کارت (Grid Layout)
@@ -1870,7 +1809,9 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
   // ویجت دکمه سیم‌کارت طبق دیزاین
   Widget _simButtonDesign(String label, int slot) {
     return InkWell(
-      onTap: _isUssdLoading ? null : () => _executeUssdOnly(slot), // فقط اجرای USSD
+      onTap: _isUssdLoading
+          ? null
+          : () => _executeUssdOnly(slot), // فقط اجرای USSD
       child: Container(
         height: 56,
         decoration: BoxDecoration(
@@ -1888,7 +1829,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                  color: Colors.white
+                color: Colors.white,
               ),
             ),
           ],
@@ -1910,7 +1851,9 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
             color: _isUssdLoading ? Colors.blue[50] : const Color(0xFFF0FDF4),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: _isUssdLoading ? Colors.blue[100]! : const Color(0xFFDCFCE7),
+              color: _isUssdLoading
+                  ? Colors.blue[100]!
+                  : const Color(0xFFDCFCE7),
             ),
           ),
           child: Row(
@@ -1919,21 +1862,32 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
               // نمایش لودینگ چرخان هنگام درخواست و تیک سبز بعد از دریافت پاسخ
               _isUssdLoading
                   ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.blue)
-              )
-                  : const Icon(Icons.quickreply_outlined, color: Colors.green, size: 24),
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.blue,
+                      ),
+                    )
+                  : const Icon(
+                      Icons.quickreply_outlined,
+                      color: Colors.green,
+                      size: 24,
+                    ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _isUssdLoading ? "در حال دریافت پاسخ از شبکه..." : "پاسخ دریافت شده:",
+                      _isUssdLoading
+                          ? "در حال دریافت پاسخ از شبکه..."
+                          : "پاسخ دریافت شده:",
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: _isUssdLoading ? Colors.blue[800] : const Color(0xFF166534),
+                        color: _isUssdLoading
+                            ? Colors.blue[800]
+                            : const Color(0xFF166534),
                         fontSize: 13,
                       ),
                     ),
@@ -1945,7 +1899,8 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
                         fontSize: 14,
                         color: Colors.black87,
                         height: 1.5,
-                        fontFamily: 'monospace', // برای خوانایی بهتر کدهای عددی در پیام
+                        fontFamily:
+                            'monospace', // برای خوانایی بهتر کدهای عددی در پیام
                       ),
                     ),
                   ],
@@ -1957,6 +1912,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
       ],
     );
   }
+
   // ۴. دکمه فوتر برای ثبت تراکنش (جدا شده از اجرای USSD)
   Widget _buildFixedFooter() {
     return Container(
@@ -1969,7 +1925,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
             color: Colors.black.withOpacity(0.05),
             blurRadius: 10,
             offset: const Offset(0, -4),
-          )
+          ),
         ],
       ),
       child: ElevatedButton(
@@ -1977,7 +1933,9 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
         style: ElevatedButton.styleFrom(
           backgroundColor: kPrimaryColor,
           minimumSize: const Size(double.infinity, 56),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           elevation: 4,
           shadowColor: kPrimaryColor.withOpacity(0.4),
         ),
@@ -1988,7 +1946,11 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
             SizedBox(width: 12),
             Text(
               "ثبت تراکنش",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
             ),
           ],
         ),

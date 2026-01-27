@@ -122,13 +122,11 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    // تشخیص تم تیره/روشن (مشابه analyze_screen.dart)
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF211111) : kBackgroundColor,
-      // هدر چسبان مشابه HTML
-      appBar: AppBar(
+       appBar: AppBar(
         backgroundColor: (isDark ? const Color(0xFF211111) : kBackgroundColor).withOpacity(0.95),
         elevation: 0,
         leadingWidth: 100,
@@ -138,7 +136,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
           child: Row(
             children: [
               const SizedBox(width: 8),
-              Icon(Icons.chevron_right, size: 28, color: isDark ? Colors.white : Colors.black87),
+              Icon(Icons.arrow_back, size: 28, color: isDark ? Colors.white : Colors.black87),
               Text(
                 "بازگشت",
                 style: TextStyle(

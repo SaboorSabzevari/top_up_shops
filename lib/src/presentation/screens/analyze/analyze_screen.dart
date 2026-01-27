@@ -6,12 +6,10 @@ import '../../../data/local/app_database.dart';
 import '../../../domain/entity/transaction.dart';
 import '../../../providers/transaction_provider.dart';
 
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart' as intl;
-import 'package:path_provider/path_provider.dart';
-// استفاده از hide برای جلوگیری از تداخل نام Border
+
 import 'package:excel/excel.dart' as xl;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -38,13 +36,10 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
   static const Color surfaceDarkColor = Color(0xFF1E1E1E);
   static const Color surfaceLightColor = Color(0xFFFFFFFF);
 
-  // ۱. تولید PDF با فونت فارسی و ساختار جدولی
-  // --- خروجی PDF ---
-  // --- اصلاح شده: خروجی PDF با مدیریت خطا ---
   Future<void> _generatePdfReport(
-    List<TransactionModel> transactions,
-    String customerName,
-  ) async {
+      List<TransactionModel> transactions,
+      String customerName,
+      ) async {
     try {
       final pdf = pw.Document();
       final fontData = await rootBundle.load(
@@ -52,11 +47,33 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
       );
       final ttfFont = pw.Font.ttf(fontData);
 
-      // محاسبه مجموع مبلغ
-      int totalAmount = transactions.fold(
+       double totalInvoice = transactions.fold(
         0,
-        (sum, item) => sum + item.sentAmount,
+            (sum, item) => sum + item.totalPrice,
       );
+      double totalPaid = transactions.fold(
+        0,
+            (sum, item) => sum + item.paidAmount,
+      );
+
+      double remaining = totalInvoice - totalPaid;
+      String statusText = "";
+      String statusLabel = "";
+      PdfColor statusColor = PdfColors.black;
+
+       if (remaining > 0) {
+        statusLabel = "وضعیت: بدهکار";
+        statusText = "${intl.NumberFormat('#,###').format(remaining)} AFN";
+        statusColor = PdfColors.red900;
+      } else if (remaining < 0) {
+        statusLabel = "وضعیت: طلبکار";
+        statusText = "${intl.NumberFormat('#,###').format(remaining.abs())} AFN";
+        statusColor = PdfColors.green900;
+      } else {
+        statusLabel = "وضعیت:";
+        statusText = "تسویه شده";
+        statusColor = PdfColors.blue900;
+      }
 
       pdf.addPage(
         pw.MultiPage(
@@ -64,74 +81,122 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
           textDirection: pw.TextDirection.rtl,
           build: (pw.Context context) => [
             pw.Center(
-              child: pw.Text(
-                "گزارش تراکنش‌های $customerName",
-                style: pw.TextStyle(
-                  font: ttfFont,
-                  fontSize: 18,
-                  color: PdfColors.red900,
-                ),
+              child: pw.Column(
+                children: [
+                  pw.Text(
+                    "گزارش صورت‌حساب $customerName",
+                    style: pw.TextStyle(
+                      font: ttfFont,
+                      fontSize: 18,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                  pw.Text(
+                    "تاریخ گزارش: ${intl.DateFormat('yyyy/MM/dd HH:mm').format(DateTime.now())}",
+                    style: pw.TextStyle(font: ttfFont, fontSize: 10, color: PdfColors.grey600),
+                  ),
+                ],
               ),
             ),
-            pw.SizedBox(height: 15),
-            pw.TableHelper.fromTextArray(
+            pw.SizedBox(height: 20),
+
+             pw.TableHelper.fromTextArray(
               border: pw.TableBorder.all(color: PdfColors.grey300),
               headerStyle: pw.TextStyle(
                 font: ttfFont,
                 color: PdfColors.white,
                 fontSize: 10,
+                fontWeight: pw.FontWeight.bold,
               ),
               headerDecoration: const pw.BoxDecoration(
                 color: PdfColor.fromInt(0xFFEA2A33),
               ),
               cellStyle: pw.TextStyle(font: ttfFont, fontSize: 9),
+              cellAlignment: pw.Alignment.center,
               headers: [
                 'تاریخ',
-                'مبلغ (AFN)',
-                'شماره/کد شرکت',
-                'اپراتور',
+                'دریافتی (AFN)', // ستون دریافتی
+                'مبلغ فاکتور (AFN)', // ستون فاکتور
+                'شرح / اپراتور',
                 'ردیف',
               ],
               data: [
                 ...transactions.asMap().entries.map((entry) {
                   int index = entry.key;
                   var t = entry.value;
-                  String formattedDate = "";
+
+                  String formattedDate;
                   try {
                     DateTime dt = DateTime.parse(t.createdAt);
-                    formattedDate =
-                        "${dt.year}/${dt.month.toString().padLeft(2, '0')}/${dt.day.toString().padLeft(2, '0')} - ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
+                    formattedDate = "${dt.year}/${dt.month.toString().padLeft(2,'0')}/${dt.day.toString().padLeft(2,'0')}";
                   } catch (e) {
-                    formattedDate =
-                        t.createdAt; // اگر فرمت اشتباه بود خودش را نشان بده
+                    formattedDate = t.createdAt;
                   }
-                  final contact =
-                      (t.companyCode.isNotEmpty && t.companyCode != '—')
-                      ? "کد: ${t.companyCode}"
-                      : t.phoneNumber;
+
+                  final description = (t.companyCode.isNotEmpty && t.companyCode != '—')
+                      ? "${t.operator} (کد: ${t.companyCode})"
+                      : t.operator;
+
                   return [
                     formattedDate,
-
-                    t.sentAmount.toString(),
-                    contact,
-                    t.operator,
+                    intl.NumberFormat('#,###').format(t.paidAmount),
+                    intl.NumberFormat('#,###').format(t.totalPrice), // استفاده از totalPrice
+                    description,
                     index + 1,
                   ];
                 }),
-                // ردیف مجموع در انتهای جدول
-                ['', totalAmount.toString(), 'مجموع کل', '', ''],
+                // ردیف جمع کل
+                [
+                  '',
+                  intl.NumberFormat('#,###').format(totalPaid), // جمع دریافتی
+                  intl.NumberFormat('#,###').format(totalInvoice), // جمع فاکتور
+                  'مجموع کل',
+                  '',
+                ],
               ],
             ),
-            pw.SizedBox(height: 10),
-            pw.Text(
-              "تعداد کل تراکنش‌ها: ${transactions.length}",
-              style: pw.TextStyle(font: ttfFont, fontSize: 10),
+            pw.SizedBox(height: 15),
+
+            // بخش وضعیت حساب نهایی (پایین فاکتور)
+            pw.Container(
+              padding: const pw.EdgeInsets.all(10),
+              decoration: pw.BoxDecoration(
+                border: pw.Border.all(color: PdfColors.grey400),
+                borderRadius: const pw.BorderRadius.all(pw.Radius.circular(5)),
+                color: PdfColors.grey100,
+              ),
+              child: pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text(
+                    "تعداد تراکنش: ${transactions.length}",
+                    style: pw.TextStyle(font: ttfFont, fontSize: 10),
+                  ),
+                  pw.Row(
+                    children: [
+                      pw.Text(
+                        statusText,
+                        style: pw.TextStyle(
+                          font: ttfFont,
+                          fontSize: 12,
+                          fontWeight: pw.FontWeight.bold,
+                          color: statusColor,
+                        ),
+                      ),
+                      pw.SizedBox(width: 5),
+                      pw.Text(
+                        statusLabel,
+                        style: pw.TextStyle(font: ttfFont, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ],
         ),
       );
 
-      // ذخیره در دانلودها
       final directory = Directory('/storage/emulated/0/Download');
       final file = File("${directory.path}/Report_$customerName.pdf");
       await file.writeAsBytes(await pdf.save());
@@ -139,34 +204,41 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
       await Printing.layoutPdf(
         onLayout: (PdfPageFormat format) async => pdf.save(),
       );
-      _showSnackBar("PDF در پوشه Downloads ذخیره شد", Colors.green);
+      _showSnackBar("PDF ذخیره شد", Colors.green);
     } catch (e) {
       _showSnackBar("خطا در PDF: $e", Colors.red);
     }
   }
 
   Future<void> _generateExcelReport(
-    List<TransactionModel> transactions,
-    String customerName,
-  ) async {
+      List<TransactionModel> transactions,
+      String customerName,
+      ) async {
     try {
       var excel = xl.Excel.createExcel();
       xl.Sheet sheetObject = excel['Report'];
 
-      // هدر
+      // تنظیم راست به چپ برای اکسل
+      sheetObject.isRTL = true;
+
+      // هدر جدول
       sheetObject.appendRow([
         xl.TextCellValue('ردیف'),
         xl.TextCellValue('اپراتور'),
         xl.TextCellValue('شماره/کد شرکت'),
-        xl.TextCellValue('مبلغ (AFN)'),
+        xl.TextCellValue('مبلغ فاکتور (AFN)'),
+        xl.TextCellValue('مبلغ دریافتی (AFN)'),
         xl.TextCellValue('تاریخ'),
       ]);
 
-      int totalAmount = 0;
+      double totalInvoice = 0;
+      double totalPaid = 0;
 
       for (int i = 0; i < transactions.length; i++) {
         final t = transactions[i];
-        totalAmount += t.sentAmount;
+        totalInvoice += t.totalPrice; // جمع مبلغ فاکتور
+        totalPaid += t.paidAmount;    // جمع مبلغ دریافتی
+
         final contact = (t.companyCode.isNotEmpty && t.companyCode != '—')
             ? "کد: ${t.companyCode}"
             : t.phoneNumber;
@@ -175,33 +247,61 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
           xl.IntCellValue(i + 1),
           xl.TextCellValue(t.operator),
           xl.TextCellValue(contact),
-          xl.IntCellValue(t.sentAmount),
+          xl.DoubleCellValue(t.totalPrice),
+          xl.DoubleCellValue(t.paidAmount),
           xl.TextCellValue(t.createdAt),
         ]);
       }
 
-      // اضافه کردن ردیف مجموع
+      // ردیف خالی جهت فاصله
+      sheetObject.appendRow([xl.TextCellValue('')]);
+
+      // ردیف مجموع کل
       sheetObject.appendRow([
         xl.TextCellValue(''),
         xl.TextCellValue(''),
         xl.TextCellValue('مجموع کل:'),
-        xl.IntCellValue(totalAmount),
+        xl.DoubleCellValue(totalInvoice),
+        xl.DoubleCellValue(totalPaid),
         xl.TextCellValue(''),
       ]);
 
-      // ذخیره در مسیر دانلودها
+      // محاسبه وضعیت مانده
+      double remaining = totalInvoice - totalPaid;
+      String statusLabel;
+      double displayAmount;
+
+      if (remaining > 0) {
+        statusLabel = "وضعیت نهایی: بدهکار";
+        displayAmount = remaining;
+      } else if (remaining < 0) {
+        statusLabel = "وضعیت نهایی: طلبکار";
+        displayAmount = remaining.abs();
+      } else {
+        statusLabel = "وضعیت نهایی: تسویه";
+        displayAmount = 0;
+      }
+
+      // ردیف وضعیت نهایی
+      sheetObject.appendRow([
+        xl.TextCellValue(''),
+        xl.TextCellValue(''),
+        xl.TextCellValue(statusLabel),
+        xl.DoubleCellValue(displayAmount),
+        xl.TextCellValue(''),
+        xl.TextCellValue(''),
+      ]);
+
       final directory = Directory('/storage/emulated/0/Download');
-      final String fileName =
-          "Report_${customerName}_${DateTime.now().millisecondsSinceEpoch}.xlsx";
+      final String fileName = "Report_${customerName}_${DateTime.now().millisecondsSinceEpoch}.xlsx";
       final File file = File("${directory.path}/$fileName");
 
       await file.writeAsBytes(excel.save()!);
-      _showSnackBar("فایل اکسل در پوشه Downloads ذخیره شد", Colors.green);
+      _showSnackBar("فایل اکسل در پوشه Download ها ذخیره شد", Colors.green);
     } catch (e) {
       _showSnackBar("خطا در ذخیره اکسل: $e", Colors.red);
     }
-  } // متد کمکی برای نمایش اسنک‌بار
-
+  }
   void _showSnackBar(String message, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -346,6 +446,7 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
         ),
       ),
       child: TextField(
+        textDirection: TextDirection.ltr,
         autofocus: true,
         controller: _searchController,
         onChanged: _onSearchChanged,
@@ -448,7 +549,7 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),

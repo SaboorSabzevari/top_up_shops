@@ -54,6 +54,8 @@ dependencies:
   pdf:
   printing:
   excel:
+  flutter_screenutil:
+
 
 
 dev_dependencies:
