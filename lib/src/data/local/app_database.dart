@@ -89,9 +89,173 @@ class DatabaseHelper {
     created_at TEXT                      -- تاریخ و زمان دقیق تراکنش
   )
 ''');
+
+    // در متد _createDB در app_database.dart، جدول purchases را به این شکل تغییر دهید:
+    await db.execute('''
+  CREATE TABLE purchases (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    type TEXT,                -- 'PAPER' یا 'DIGITAL'
+    provider_name TEXT,       -- نام شرکت تأمین‌کننده
+    operator_name TEXT,       -- برای کاغذی (AWCC, Roshan...)
+    face_value INTEGER,       -- مقدار کارت (50, 100...)
+    quantity INTEGER,         -- تعداد برای کاغذی
+    
+    -- مقادیر اسمی
+    total_credit REAL,        -- مجموع مبلغ کریدیت (برای ارسالی)
+    nominal_price REAL,       -- مبلغ اسمی (قبل از تخفیف)
+    
+    -- مقادیر واقعی پرداختی
+    actual_paid REAL,         -- مبلغ واقعی که پرداخت کردید ✓
+    discount_amount REAL,     -- مقدار تخفیف
+    cost_per_unit REAL,       -- قیمت خرید فی واحد
+    
+    -- وضعیت پرداخت
+    payment_status TEXT,      -- 'FULL', 'PARTIAL', 'PENDING'
+    payment_date TEXT,        -- تاریخ پرداخت
+    
+    -- سیستمی
+    created_at TEXT
+  )
+''');
+    // داخل متد _createDB در DatabaseHelper
+    await db.execute('''
+  CREATE TABLE paper_stocks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    operator_name TEXT,  -- مثال: roshan
+    face_value INTEGER,  -- مثال: 100
+    quantity INTEGER DEFAULT 0, -- موجودی فعلی
+    UNIQUE(operator_name, face_value) -- جلوگیری از تکرار
+  )
+''');
+
+    await db.execute('''
+  CREATE TABLE provider_balances (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    provider_name TEXT UNIQUE, -- مثال: افغان پی
+    current_balance REAL DEFAULT 0 -- موجودی کریدیت
+  )
+''');
+    // در فایل app_database.dart
     await _seedProviders(db);
   }
-  Future<void> _seedProviders(Database db) async {
+  // --- مدیریت موجودی کارت کاغذی ---
+
+  // افزایش موجودی (هنگام خرید)
+  Future<void> increasePaperStock(String operator, int faceValue, int qty) async {
+    final db = await instance.database;
+    // چک میکنیم اگر رکورد هست آپدیت بشه، اگر نیست ساخته بشه
+    await db.rawInsert('''
+      INSERT INTO paper_stocks (operator_name, face_value, quantity)
+      VALUES (?, ?, ?)
+      ON CONFLICT(operator_name, face_value)
+      DO UPDATE SET quantity = quantity + ?
+    ''', [operator, faceValue, qty, qty]);
+  }
+
+  // کاهش موجودی (هنگام فروش)
+  Future<void> decreasePaperStock(String operator, int faceValue, int qty) async {
+    final db = await instance.database;
+    await db.rawUpdate('''
+      UPDATE paper_stocks 
+      SET quantity = quantity - ? 
+      WHERE operator_name = ? AND face_value = ?
+    ''', [qty, operator, faceValue]);
+  }
+
+  // دریافت موجودی یک کارت خاص (برای چک کردن قبل از فروش)
+  // در فایل app_database.dart متد زیر را پیدا و اصلاح کنید
+  Future<int> getPaperStockCount(String operator, int faceValue) async {
+    final db = await instance.database;
+
+    // استفاده از LOWER برای از بین بردن حساسیت به حروف بزرگ و کوچک
+    final res = await db.query(
+      'paper_stocks',
+      columns: ['quantity'],
+      where: 'LOWER(operator_name) = LOWER(?) AND face_value = ?',
+      whereArgs: [operator, faceValue],
+    );
+
+    if (res.isNotEmpty) {
+      return (res.first['quantity'] as num).toInt();
+    }
+    return 0;
+  }
+  // دریافت کل لیست موجودی کارت‌ها (برای نمایش در صفحه مدیریت)
+  Future<List<Map<String, dynamic>>> getAllPaperStocks() async {
+    final db = await instance.database;
+    return await db.query('paper_stocks', orderBy: 'operator_name, face_value');
+  }
+
+  // --- مدیریت موجودی کریدیت دیجیتال ---
+
+  // افزایش موجودی شرکت (هنگام خرید)
+  Future<void> increaseProviderBalance(String providerName, double amount) async {
+    final db = await instance.database;
+    await db.rawInsert('''
+      INSERT INTO provider_balances (provider_name, current_balance)
+      VALUES (?, ?)
+      ON CONFLICT(provider_name)
+      DO UPDATE SET current_balance = current_balance + ?
+    ''', [providerName, amount, amount]);
+  }
+
+  // کاهش موجودی شرکت (هنگام فروش به مشتری)
+  Future<void> decreaseProviderBalance(String providerName, double amount) async {
+    final db = await instance.database;
+    await db.rawUpdate('''
+      UPDATE provider_balances 
+      SET current_balance = current_balance - ? 
+      WHERE provider_name = ?
+    ''', [amount, providerName]);
+  }
+
+  // دریافت موجودی یک شرکت
+  Future<double> getProviderBalance(String providerName) async {
+    final db = await instance.database;
+    final res = await db.query(
+      'provider_balances',
+      columns: ['current_balance'],
+      where: 'provider_name = ?',
+      whereArgs: [providerName],
+    );
+    if (res.isNotEmpty) {
+      return (res.first['current_balance'] as num).toDouble();
+    }
+    return 0.0;
+  }
+
+  // دریافت لیست همه شرکت‌ها و موجودی‌شان
+  Future<List<Map<String, dynamic>>> getAllProviderBalances() async {
+    final db = await instance.database;
+    return await db.query('provider_balances');
+  }
+  // برای سازگاری با سیستم قدیمی، این متد را به‌روزرسانی کنید:
+  Future<int> insertPurchase(Map<String, dynamic> row) async {
+    Database db = await instance.database;
+
+    // تبدیل به فرمت جدول جدید
+    Map<String, dynamic> data = {
+      'type': row['type'],
+      'provider_name': row['provider_name'],
+      'operator_name': row['operator_name'],
+      'face_value': row['face_value'],
+      'quantity': row['quantity'],
+      'total_credit': row['total_credit'] ?? 0,
+      'cost_per_unit': row['cost_per_unit'] ?? 0,
+      'nominal_price': row['nominal_price'] ?? 0,
+      'actual_paid': row['actual_paid'] ?? row['nominal_price'] ?? 0,
+      'discount_amount': row['discount_amount'] ?? 0,
+      'payment_status': row['payment_status'] ?? 'FULL',
+      'payment_date': row['payment_date'],
+      'created_at': row['created_at'],
+    };
+
+    return await db.insert('purchases', data);
+  }Future<List<Map<String, dynamic>>> getProviders() async {
+    Database db = await instance.database;
+    // نام جدول را جایگزین 'providers_table' کنید
+    return await db.query('providers_table');
+  } Future<void> _seedProviders(Database db) async {
     final List<Map<String, dynamic>> initialProviders = [
       {
         'name': 'ستارگان متحد',
@@ -116,12 +280,6 @@ class DatabaseHelper {
         'type': 'شاهی ایزیلود',
         'ordinary_code': '545',
         'wholesale_code': '511*5'
-      },
-      {
-        'name': 'سلام (Salaam)',
-        'type': 'Salaam',
-        'ordinary_code': 'SA-ORD-400',
-        'wholesale_code': 'SA-WHL-800'
       },
     ];
 

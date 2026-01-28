@@ -111,18 +111,57 @@ class _PaperTopupSalePageState extends ConsumerState<PaperTopupSalePage> {  int 
   //     );
   //   }
   // }
+void _showErrorDialog(String msg) {
+  showDialog(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Row(
+        children: const [
+          Icon(Icons.error_outline, color: Colors.red),
+          SizedBox(width: 8),
+          Text("خطا"),
+        ],
+      ),
+      content: Text(
+        msg,
+        style: const TextStyle(fontSize: 14, height: 1.5),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text("متوجه شدم", style: TextStyle(color: Colors.red)),
+        )
+      ],
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    ),
+  );
+}
 Future<void> _processPaperSale() async {
+  // ۰. بررسی موجودی کارت در انبار (بخش جدید)
+  String currentOperator = operator; // این باید 'awcc' یا 'roshan' و غیره باشد، نه 'افغان بیسیم'
+
+  // برای دیباگ
+  print('بررسی موجودی برای: operator=$currentOperator, amount=$amount, quantity=$quantity');
+
+  int currentStock = await DatabaseHelper.instance.getPaperStockCount(currentOperator, amount);
+  if (currentStock < quantity) {
+    _showErrorDialog("موجودی کافی نیست! موجودی فعلی کارت $amount افغانی $currentOperator: $currentStock عدد");
+    return;
+  }
+
   // ۱. محاسبات پایه
   double totalPrice = (price * quantity).toDouble();
 
-  // ۲. منطق مبلغ دریافتی (اگر فیلد خالی بود، برای ناشناس فرض می‌کنیم کل پول را داده)
+  // ۲. منطق مبلغ دریافتی
   double cashReceived = double.tryParse(paidCtrl.text) ??
       (_selectedCustomerId == null ? totalPrice : 0.0);
 
   // ۳. محاسبه بدهی (مانده)
   double remaining = totalPrice - cashReceived;
 
-  // ۴. محاسبه سود (فرض بر ۹۵٪ قیمت اسمی به عنوان خرید)
+  // ۴. محاسبه سود
+  // نکته: اگر قیمت خرید دقیق را در دیتابیس دارید بهتر است از آن استفاده کنید
+  // فعلاً طبق فرمول شما (۹۵٪ ارزش اسمی) محاسبه می‌شود
   double costPerUnit = amount * 0.95;
   double totalCost = costPerUnit * quantity;
   double profit = totalPrice - totalCost;
@@ -136,23 +175,28 @@ Future<void> _processPaperSale() async {
     'sent_amount': amount.toDouble(),
     'quantity': quantity,
 
-    // --- بخش مالی اصلاح شده ---
+    // بخش مالی
     'total_price': totalPrice,
-    'paid_amount': cashReceived,     // مبلغی که واقعاً دریافت شده
-    'remaining_amount': remaining,   // مانده حساب (بدهی)
-    'received_amount': cashReceived, // برای هماهنگی با کدهای قدیمی آمار
-
+    'paid_amount': cashReceived,
+    'remaining_amount': remaining,
+    'received_amount': cashReceived,
     'cost_price': totalCost,
     'profit': profit,
+
+    // سایر فیلدها
     'company_code': '',
     'phone_number': '',
     'ussd_command': 'PAPER_SALE',
+    'created_at': DateTime.now().toIso8601String(),
   };
-
+  print("Debug: Searching for Operator: ${operator.toLowerCase()} with Value: $amount");
   try {
+    // ۵. ذخیره تراکنش
     await DatabaseHelper.instance.saveDetailedTransaction(transactionData);
 
-    // بروزرسانی استیت‌ها (Riverpod)
+    // ۶. کسر از موجودی انبار (بخش جدید)
+    await DatabaseHelper.instance.decreasePaperStock(currentOperator, amount, quantity);
+    // ۷. بروزرسانی UI و Riverpod
     ref.invalidate(transactionsProvider);
     ref.invalidate(todayProfitProvider);
     ref.invalidate(todayCountProvider);
@@ -161,20 +205,19 @@ Future<void> _processPaperSale() async {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(remaining > 0
-              ? 'ذخیره شد. مانده بدهی: $remaining'
+              ? 'فروش ثبت شد. مانده بدهی: ${remaining.toStringAsFixed(0)}'
               : 'فروش نقدی با موفقیت ثبت شد'),
           backgroundColor: Colors.green,
         ),
       );
-      // پاک کردن فرم بعد از موفقیت
+
+      // پاک کردن فرم
       paidCtrl.clear();
       _searchController.clear();
       setState(() { _selectedCustomerId = null; });
     }
   } catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('خطا در ذخیره: $e'), backgroundColor: Colors.red),
-    );
+    _showErrorDialog('خطا در ثبت فروش: $e');
   }
 }
   // ---------- متدهای جستجوی مشتری ----------
@@ -505,6 +548,9 @@ Future<void> _processPaperSale() async {
 
   @override
   Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      print('اپراتور فعلی در paper_card_screen: $operator');
+    });
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -770,11 +816,12 @@ Widget _amountInput(
 
 
   Widget _operatorGrid() {
+    // لیست اپراتورها در paper_card_screen.dart
     final List<Map<String, dynamic>> operators = [
       {
         'title': 'افغان بیسیم',
-        'value': 'awcc',
-        'svgPath': 'assets/svg/awcc.svg', // ذخیره مسیر SVG به صورت string
+        'value': 'awcc', // این باید با _selectedOperatorValue در buy_credit_screen مطابقت داشته باشد
+        'svgPath': 'assets/svg/awcc.svg',
         'useSvg': true,
       },
       {

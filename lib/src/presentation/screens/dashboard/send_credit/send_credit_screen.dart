@@ -11,6 +11,7 @@ import '../../../../providers/transaction_provider.dart';
 import '../../../../utils/colors.dart';
 import '../../../theme/colors.dart';
 import '../../customer/add_customer.dart';
+import '../invetory.dart';
 
 class DigitalTopupSalePage extends ConsumerStatefulWidget {
   const DigitalTopupSalePage({super.key});
@@ -271,51 +272,71 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
         return;
       }
 
-      // ۲. دریافت مقادیر ورودی مالی
-      double discount = double.tryParse(discountCtrl.text) ?? 0.0;
-      double paidCash =
-          double.tryParse(paidCtrl.text) ??
-          0.0; // پولی که مشتری نقد داد (مثلاً ۵۰۰۰)
+      // ۲. بررسی موجودی شرکت پروایدر (بخش جدید)
+      // selectedOperator نام شرکت انتخاب شده است (مثلاً "افغان پی")
+      double currentBalance = await DatabaseHelper.instance.getProviderBalance(selectedOperator);
 
-      // ۳. محاسبات بر اساس منطق شما (مثال احمد)
-      // قیمت تمام شده برای شما: 10000 * 0.95 = 9500
+      if (currentBalance < sentAmount) {
+        _showErrorDialog('موجودی شرکت "$selectedOperator" کافی نیست!\nموجودی فعلی: $currentBalance\nمبلغ درخواستی: $sentAmount');
+        return;
+      }
+
+      // ۳. دریافت مقادیر ورودی مالی
+      double discount = double.tryParse(discountCtrl.text) ?? 0.0;
+      double paidCash = double.tryParse(paidCtrl.text) ?? 0.0;
+
+      // ۴. محاسبات مالی
+      // قیمت تمام شده (خرید) = مقدار کریدیت * نرخ خرید
       double costPrice = sentAmount * unitBuyPrice;
 
-      // مبلغ اولیه فروش (بدون تخفیف): 10000 * 0.97 = 9700
+      // قیمت فروش اولیه = مقدار کریدیت * نرخ فروش
       double initialSalePrice = sentAmount * unitSellPrice;
 
-      // مبلغ نهایی فاکتور (با کسر تخفیف): 9700 - 100 = 9600
-      // این همان مبلغی است که مشتری "باید" پرداخت کند
+      // مبلغ نهایی فاکتور = قیمت فروش اولیه - تخفیف
       double totalPrice = initialSalePrice - discount;
 
-      // سود خالص: 9600 - 9500 = 100
+      // سود خالص
       double netProfit = totalPrice - costPrice;
 
-      // ۴. ذخیره در دیتابیس
+      // محاسبه مانده حساب (بدهی)
+      double remainingAmount = totalPrice - paidCash;
+
+      // ۵. ذخیره در دیتابیس
       await DatabaseHelper.instance.saveDetailedTransaction({
         'customer_id': selectedCustomerId,
         'customer_name': customerNameCtrl.text,
         'customer_type': customerType,
+        'transaction_type': 'DIGITAL', // نوع تراکنش دیجیتال
         'operator_name': selectedOperator,
         'company_code': companyCodeCtrl.text,
         'phone_number': finalPhone,
-        'sent_amount': sentAmount, // مقدار کریدیت (10000)
-        'discount': discount, // تخفیف (100)
-        'total_price': totalPrice, // مبلغ نهایی فاکتور (9600)
-        'paid_amount': paidCash, // مبلغ دریافتی نقد (5000)
-        'cost_price': costPrice, // قیمت خرید برای شما (9500)
-        'profit': netProfit, // سود خالص (100)
+        'sent_amount': sentAmount,
+        'quantity': 1,
+
+        // مالی
+        'discount': discount,
+        'total_price': totalPrice,
+        'paid_amount': paidCash,
+        'remaining_amount': remainingAmount,
+        'received_amount': paidCash,
+        'cost_price': costPrice,
+        'profit': netProfit,
+
         'ussd_command': _buildUSSDCode(),
+        'created_at': DateTime.now().toIso8601String(),
       });
 
-      // ۵. بروزرسانی UI و پاکسازی
+      // ۶. کسر از موجودی شرکت پروایدر (بخش جدید)
+      await DatabaseHelper.instance.decreaseProviderBalance(selectedOperator, sentAmount);
+
+      // ۷. بروزرسانی UI و پاکسازی
       if (mounted) {
-        // رفرش کردن تمام پرووایدرهای مرتبط با داشبورد و گزارشات
+        // رفرش کردن تمام پرووایدرها
         _invalidateAllProviders();
 
         _showSuccessDialog(totalPrice, netProfit, _buildUSSDCode());
 
-        // پاکسازی فیلدها برای تراکنش بعدی
+        // پاکسازی فیلدها
         creditCtrl.clear();
         discountCtrl.clear();
         paidCtrl.clear();
@@ -326,7 +347,31 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
       _showSnackBar('خطای غیرمنتظره: $e', Colors.red);
     }
   }
-
+  void _showErrorDialog(String msg) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: const [
+            Icon(Icons.error_outline, color: Colors.red),
+            SizedBox(width: 8),
+            Text("خطا"),
+          ],
+        ),
+        content: Text(
+          msg,
+          style: const TextStyle(fontSize: 14, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("متوجه شدم", style: TextStyle(color: Colors.red)),
+          )
+        ],
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
   void _showSnackBar(String message, Color color) {
     ScaffoldMessenger.of(
       context,
@@ -951,7 +996,9 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
               ),
             ),
           ),
-          const Icon(Icons.notifications, color: Colors.grey),
+          GestureDetector(
+              onTap: ()=>Navigator.push(context, MaterialPageRoute(builder: (context)=>InventoryScreen())),
+              child: const Icon(Icons.notifications, color: Colors.grey)),
         ],
       ),
     );

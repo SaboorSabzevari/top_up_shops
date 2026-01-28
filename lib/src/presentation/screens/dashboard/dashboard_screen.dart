@@ -9,6 +9,8 @@ import 'package:top_up_shops/src/presentation/screens/dashboard/send_credit/send
 import '../../../domain/entity/transaction.dart';
 import '../../../providers/transaction_provider.dart';
 import '../transactions/transaction_screen.dart';
+import 'buy_credit/buy_credit_screen.dart';
+import 'database_view.dart';
 
 final profileInfoProvider = FutureProvider<Map<String, String>>((ref) async {
   final prefs = await SharedPreferences.getInstance();
@@ -145,7 +147,22 @@ class DashboardScreen extends ConsumerWidget {
             },
             icon: const Icon(Icons.notifications_none, color: Colors.grey)
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 10),  IconButton(
+            onPressed: () {
+
+                  // Navigator.push(
+                  //   context,
+                  //   MaterialPageRoute(
+                  //     builder: (context) => const DatabaseViewerScreen(),
+                  //   ),
+                  // );
+              Navigator.push(context, MaterialPageRoute(builder: (context)=>PurchaseScreen()));
+              // رفرش دستی با دکمه Sync
+              // اینجا چون به ref دسترسی نداریم (مگر اینکه پاس بدیم)، فعلا خالی می‌ماند
+              // یا می‌توان یک VoidCallback برای رفرش پاس داد.
+            },
+            icon: const Icon(Icons.notifications_none, color: Colors.grey)
+        ),
       ],
     );
   }
