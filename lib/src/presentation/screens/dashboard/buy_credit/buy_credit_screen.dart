@@ -499,7 +499,7 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
                         _buildSuccessRow('مبلغ پرداختی:', '${data['actual_paid']} AFN', isBold: true),
                       ] else ...[
                         // برای حالت کارت کاغذی (در صورت نیاز)
-                        _buildSuccessRow('اپراتور:', _selectedOperator),
+                        _buildSuccessRow('اپراتور:', _selectedOperator ?? '-'),
                         _buildSuccessRow('تعداد:', '${data['quantity']} عدد'),
                         const Divider(height: 20),
                         _buildSuccessRow('مجموع پرداخت:', '${data['actual_paid']} AFN', isBold: true),

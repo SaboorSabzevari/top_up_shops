@@ -566,169 +566,116 @@ Future<void> _processPaperSale() async {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // برچسب
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8, right: 4),
+                  // برچسب بالایی با فونت جدید
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 10, right: 4),
                     child: Text(
-                      'جستجوی مشتری',
+                      'اطلاعات خریدار',
                       style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                        color: Colors.grey.shade700,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 15,
+                        color: Colors.black87,
                       ),
                     ),
                   ),
 
-                  // باکس جستجو با GlobalKey
+                  // باکس اصلی جستجو
                   Container(
                     key: _searchBoxKey,
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(16), // گوشه‌های گردتر مشابه طرح جدید
+                      border: Border.all(
+                        color: _selectedCustomerId != null ? Colors.green.shade300 : Colors.transparent,
+                        width: 1.5,
+                      ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 6,
-                          offset: const Offset(0, 3),
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
                         ),
                       ],
                     ),
-                    child: Row(
+                    child: Column(
                       children: [
-                        // آیکون جستجو
-                        Padding(
-                          padding: const EdgeInsets.only(right: 12, left: 16),
-                          child: Icon(
-                            _isSearching ? Icons.search : Icons.person_search,
-                            color: _isSearching ? Colors.blue : Colors.red,
-                            size: 22,
-                          ),
-                        ),
-
-                        // فیلد جستجو
-                        Expanded(
-                          child: TextField(
-                            controller: _searchController,
-                            focusNode: _searchFocusNode,
-                            decoration: InputDecoration(
-                              border: InputBorder.none,
-                              hintText: 'نام مشتری را وارد کنید...',
-                              hintStyle: TextStyle(color: Colors.grey.shade500),
-                              suffixIcon: _selectedCustomerId != null
-                                  ? IconButton(
-                                icon: Icon(Icons.close, color: Colors.red),
-                                onPressed: _clearCustomer,
-                                tooltip: 'پاک کردن انتخاب',
+                        Row(
+                          children: [
+                            // آیکون هوشمند (تغییر بر اساس وضعیت)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              child: _isSearching
+                                  ? const SizedBox(
+                                width: 20, height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFEA2A33)),
                               )
-                                  : null,
+                                  : Icon(
+                                _selectedCustomerId != null ? Icons.person_rounded : Icons.search_rounded,
+                                color: _selectedCustomerId != null ? Colors.green : Colors.grey.shade400,
+                                size: 24,
+                              ),
                             ),
-                            onChanged: _onSearchChanged,
-                            onTap: () {
-                              if (_selectedCustomerId != null && _searchController.text.isNotEmpty) {
-                                _searchController.selection = TextSelection.fromPosition(
-                                  TextPosition(offset: _searchController.text.length),
-                                );
-                              }
-                            },
-                          ),
+
+                            // فیلد ورودی
+                            Expanded(
+                              child: TextField(
+                                controller: _searchController,
+                                focusNode: _searchFocusNode,
+                                decoration: InputDecoration(
+                                  border: InputBorder.none,
+                                  hintText: 'نام مشتری را جستجو کنید...',
+                                  hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+                                  contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                                ),
+                                onChanged: _onSearchChanged,
+                              ),
+                            ),
+
+                            // دکمه پاک‌سازی
+                            if (_searchController.text.isNotEmpty || _selectedCustomerId != null)
+                              IconButton(
+                                icon: const Icon(Icons.close_rounded, size: 18),
+                                onPressed: _clearCustomer,
+                                color: Colors.grey.shade400,
+                              ),
+                          ],
                         ),
 
-                        // نشانگر انتخاب
-                        if (_selectedCustomerId != null)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 12, right: 16),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: Colors.green.shade100,
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: Colors.green.shade300),
+                        // بخش داخلی نمایش نام مشتری (فقط در صورت انتخاب)
+                        if (_selectedCustomerName != null)
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.green.shade50,
+                              borderRadius: const BorderRadius.only(
+                                bottomLeft: Radius.circular(16),
+                                bottomRight: Radius.circular(16),
                               ),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.check, size: 16, color: Colors.green.shade800),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    'انتخاب',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.green.shade800,
-                                    ),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.check_circle_rounded, color: Colors.green, size: 18),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'مشتری تایید شد: ',
+                                  style: TextStyle(color: Colors.green.shade700, fontSize: 13),
+                                ),
+                                Text(
+                                  _selectedCustomerName!,
+                                  style: TextStyle(
+                                    color: Colors.green.shade900,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
                           ),
                       ],
                     ),
                   ),
-
-                  // وضعیت جستجو
-                  if (_isSearching)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8, right: 12),
-                      child: Row(
-                        children: [
-                          SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.red,
-                            ),
-                          ),
-                          SizedBox(width: 8),
-                          Text(
-                            'در حال جستجو...',
-                            style: TextStyle(fontSize: 12, color: Colors.grey),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                  // نمایش نام مشتری انتخاب شده
-                  if (_selectedCustomerName != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.green.shade50,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.green.shade200),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.person, color: Colors.green.shade800, size: 20),
-                            SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'مشتری انتخاب شده:',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.green.shade600,
-                                    ),
-                                  ),
-                                  SizedBox(height: 2),
-                                  Text(
-                                    _selectedCustomerName!,
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.green.shade900,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
                 ],
               ),
               // -----------------------------------------------
@@ -1160,16 +1107,58 @@ Widget _amountInput(
                   showDialog(
                     context: context,
                     builder: (ctx) => AlertDialog(
-                      title: const Text("فروش به مشتری ناشناس"),
-                      content: const Text("آیا این فروش به صورت نقد و متفرقه ثبت شود؟"),
+                      backgroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      titlePadding: const EdgeInsets.only(top: 25, right: 20, left: 20),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                      actionsPadding: const EdgeInsets.only(bottom: 15, left: 10, right: 10),
+                      title: const Row(
+                        children: [
+                          Icon(Icons.person_outline_rounded, color: Color(0xFFEA2A33)),
+                          SizedBox(width: 10),
+                          Text(
+                            "فروش به مشتری ناشناس",
+                            style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                      content: const Text(
+                        "آیا این فروش به صورت نقد و متفرقه ثبت شود؟",
+                        style: TextStyle(fontSize: 14, color: Colors.grey, height: 1.5),
+                      ),
                       actions: [
-                        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("خیر")),
-                        TextButton(
-                            onPressed: () {
-                              Navigator.pop(ctx);
-                              _processPaperSale(); // فراخوانی تابع ذخیره
-                            },
-                            child: const Text("بله، ثبت شود")
+                        Row(
+                          children: [
+                            // دکمه انصراف
+                            Expanded(
+                              child: TextButton(
+                                onPressed: () => Navigator.pop(ctx),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: Colors.grey[600],
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                ),
+                                child: const Text("خیر، بازگشت"),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            // دکمه تایید با رنگ برند
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  Navigator.pop(ctx);
+                                  _processPaperSale();
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFEA2A33),
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                ),
+                                child: const Text("بله، ثبت شود"),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),

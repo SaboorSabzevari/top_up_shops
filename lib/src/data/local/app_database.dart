@@ -117,7 +117,7 @@ class DatabaseHelper {
     created_at TEXT
   )
 ''');
-    // داخل متد _createDB در DatabaseHelper
+
     await db.execute('''
   CREATE TABLE paper_stocks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -162,12 +162,9 @@ class DatabaseHelper {
     ''', [qty, operator, faceValue]);
   }
 
-  // دریافت موجودی یک کارت خاص (برای چک کردن قبل از فروش)
-  // در فایل app_database.dart متد زیر را پیدا و اصلاح کنید
-  Future<int> getPaperStockCount(String operator, int faceValue) async {
+   Future<int> getPaperStockCount(String operator, int faceValue) async {
     final db = await instance.database;
 
-    // استفاده از LOWER برای از بین بردن حساسیت به حروف بزرگ و کوچک
     final res = await db.query(
       'paper_stocks',
       columns: ['quantity'],
@@ -180,16 +177,12 @@ class DatabaseHelper {
     }
     return 0;
   }
-  // دریافت کل لیست موجودی کارت‌ها (برای نمایش در صفحه مدیریت)
-  Future<List<Map<String, dynamic>>> getAllPaperStocks() async {
+   Future<List<Map<String, dynamic>>> getAllPaperStocks() async {
     final db = await instance.database;
     return await db.query('paper_stocks', orderBy: 'operator_name, face_value');
   }
 
-  // --- مدیریت موجودی کریدیت دیجیتال ---
-
-  // افزایش موجودی شرکت (هنگام خرید)
-  Future<void> increaseProviderBalance(String providerName, double amount) async {
+ Future<void> increaseProviderBalance(String providerName, double amount) async {
     final db = await instance.database;
     await db.rawInsert('''
       INSERT INTO provider_balances (provider_name, current_balance)
@@ -209,7 +202,6 @@ class DatabaseHelper {
     ''', [amount, providerName]);
   }
 
-  // دریافت موجودی یک شرکت
   Future<double> getProviderBalance(String providerName) async {
     final db = await instance.database;
     final res = await db.query(
@@ -224,17 +216,14 @@ class DatabaseHelper {
     return 0.0;
   }
 
-  // دریافت لیست همه شرکت‌ها و موجودی‌شان
   Future<List<Map<String, dynamic>>> getAllProviderBalances() async {
     final db = await instance.database;
     return await db.query('provider_balances');
   }
-  // برای سازگاری با سیستم قدیمی، این متد را به‌روزرسانی کنید:
   Future<int> insertPurchase(Map<String, dynamic> row) async {
     Database db = await instance.database;
 
-    // تبدیل به فرمت جدول جدید
-    Map<String, dynamic> data = {
+     Map<String, dynamic> data = {
       'type': row['type'],
       'provider_name': row['provider_name'],
       'operator_name': row['operator_name'],
@@ -257,6 +246,7 @@ class DatabaseHelper {
     return await db.query('providers_table');
   } Future<void> _seedProviders(Database db) async {
     final List<Map<String, dynamic>> initialProviders = [
+
       {
         'name': 'ستارگان متحد',
         'type': 'ستارگان متحد',
@@ -431,74 +421,35 @@ class DatabaseHelper {
     final db = await instance.database;
     return await db.delete('units', where: 'id = ?', whereArgs: [id]);
   }
-// method for save transaction
-  // در فایل app_database.dart، این متد را جایگزین قبلی کنید:
-  // Future<int> saveDetailedTransaction(Map<String, dynamic> data) async {
-  //   final db = await instance.database;
-  //
-  //   // اطمینان از اینکه مقادیر عددی هستند
-  //   double total = (data['total_price'] ?? 0.0).toDouble();
-  //   double paid = (data['paid_amount'] ?? 0.0).toDouble();
-  //   double remaining = total - paid;
-  //
-  //   return await db.insert('transactions', {
-  //     'customer_id': data['customer_id'],
-  //     'customer_name': data['customer_name'],
-  //     'customer_type': data['customer_type'],
-  //     'operator_name': data['operator_name'],
-  //     'phone_number': data['phone_number'],
-  //     'company_code': data['company_code'],
-  //     'sent_amount': data['sent_amount'],
-  //     'remaining_amount': remaining, // حالا این ستون در جدول وجود دارد
-  //
-  //     'discount': data['discount'] ?? 0.0,
-  //     'total_price': total,
-  //     'paid_amount': paid,
-  //
-  //     'received_amount': data['received_amount'] ?? total,
-  //     'cost_price': data['cost_price'],
-  //     'profit': data['profit'],
-  //     'ussd_command': data['ussd_command'],
-  //     'created_at': DateTime.now().toIso8601String(),
-  //   });
-  // }
   Future<int> saveDetailedTransaction(Map<String, dynamic> data) async {
     final db = await instance.database;
 
-    // اطمینان از فرمت صحیح اعداد
     double total = (data['total_price'] ?? 0.0).toDouble();
     double paid = (data['paid_amount'] ?? 0.0).toDouble();
-    // محاسبه دقیق بدهی: اگر مشتری پول کمتر داد، مابقی بدهی می‌شود
     double remaining = total - paid;
 
     return await db.insert('transactions', {
-      // بخش مشتری
-      'customer_id': data['customer_id'], // برای مشتری ناشناس null می‌آید
+      'customer_id': data['customer_id'],
       'customer_name': data['customer_name'] ?? 'مشتری رهگذر',
       'customer_type': data['customer_type'] ?? 'WALK_IN',
 
-      // بخش نوع تراکنش (جدید)
-      'transaction_type': data['transaction_type'] ?? 'DIGITAL', // پیش‌فرض دیجیتال است
-      'operator_name': data['operator_name'],
+      'transaction_type': data['transaction_type'] ?? 'DIGITAL', 'operator_name': data['operator_name'],
       'phone_number': data['phone_number'],
       'company_code': data['company_code'],
 
-      // بخش مقادیر (جدید)
-      'sent_amount': data['sent_amount'], // ارزش کارت (مثلا ۵۰)
-      'quantity': data['quantity'] ?? 1,  // تعداد کارت
+      'sent_amount': data['sent_amount'],
+      'quantity': data['quantity'] ?? 1,
 
-      // بخش مالی
-      'discount': data['discount'] ?? 0.0,
+     'discount': data['discount'] ?? 0.0,
       'total_price': total,
       'paid_amount': paid,
       'remaining_amount': remaining,
 
-      // بخش سود و آمار
-      'received_amount': data['received_amount'] ?? paid, // برای سازگاری با آمار
+
+      'received_amount': data['received_amount'] ?? paid,
       'cost_price': data['cost_price'],
       'profit': data['profit'],
 
-      // سیستمی
       'ussd_command': data['ussd_command'],
       'created_at': DateTime.now().toIso8601String(),
     });

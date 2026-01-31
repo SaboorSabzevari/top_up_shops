@@ -2,8 +2,10 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/svg.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:top_up_shops/src/presentation/screens/dashboard/invetory.dart';
 import 'package:top_up_shops/src/presentation/screens/dashboard/sell_paper_card/paper_card_screen.dart';
 import 'package:top_up_shops/src/presentation/screens/dashboard/send_credit/send_credit_screen.dart';
 import '../../../domain/entity/transaction.dart';
@@ -75,7 +77,7 @@ class DashboardScreen extends ConsumerWidget {
                 // لیست تراکنش‌ها
                 recentTxns.when(
                   data: (txns) => Column(
-                    children: txns.map((t) => _buildRecentItem(t, isDark, brandRed)).toList(),
+                    children: txns.map((t) => _buildRecentItem(t,   brandRed)).toList(),
                   ),
                   loading: () => const Center(child: CircularProgressIndicator()),
                   error: (_, __) => const Text("خطا در بارگذاری"),
@@ -140,12 +142,20 @@ class DashboardScreen extends ConsumerWidget {
       actions: [
         IconButton(
             onPressed: () {
+              Navigator.push(context, MaterialPageRoute(builder: (context)=>InventoryScreen()));
+              // رفرش دستی با دکمه Sync
+              // اینجا چون به ref دسترسی نداریم (مگر اینکه پاس بدیم)، فعلا خالی می‌ماند
+              // یا می‌توان یک VoidCallback برای رفرش پاس داد.
+            },
+            icon: const Icon(Icons.inventory, color: Colors.grey)
+        ), IconButton(
+            onPressed: () {
               Navigator.push(context, MaterialPageRoute(builder: (context)=>PaperTopupSalePage()));
               // رفرش دستی با دکمه Sync
               // اینجا چون به ref دسترسی نداریم (مگر اینکه پاس بدیم)، فعلا خالی می‌ماند
               // یا می‌توان یک VoidCallback برای رفرش پاس داد.
             },
-            icon: const Icon(Icons.notifications_none, color: Colors.grey)
+            icon: const Icon(Icons.sell, color: Colors.grey)
         ),
         const SizedBox(width: 10),  IconButton(
             onPressed: () {
@@ -161,7 +171,7 @@ class DashboardScreen extends ConsumerWidget {
               // اینجا چون به ref دسترسی نداریم (مگر اینکه پاس بدیم)، فعلا خالی می‌ماند
               // یا می‌توان یک VoidCallback برای رفرش پاس داد.
             },
-            icon: const Icon(Icons.notifications_none, color: Colors.grey)
+            icon: const Icon(Icons.store, color: Colors.grey)
         ),
       ],
     );
@@ -268,39 +278,141 @@ Widget _buildMiniCard1(String title, String val, String unit, bool isDark, Color
       ),
     );
   }
+// ۱. تابع کمکی برای انتخاب آیکون بر اساس اپراتور و نوع تراکنش
+// ۱. تابع کمکی برای انتخاب آیکون بر اساس اپراتور و نوع تراکنش
 
-  Widget _buildRecentItem(TransactionModel t, bool isDark, Color red) {
+// ۲. اصلاح تابع اصلی ویجت تراکنش
+  Widget _buildRecentItem(TransactionModel t, Color red) {
+    // ۱. منطق انتخاب آیکون بر اساس اپراتور و نوع تراکنش
+    Widget transactionIcon;
+
+    // تبدیل نام اپراتور به حروف کوچک برای مقایسه دقیق‌تر
+    String op = t.operator.toLowerCase();
+    String assetPath = '';
+
+    // تشخیص مسیر فایل SVG بر اساس نام اپراتور
+    if (op.contains('awcc')) {
+      assetPath = 'assets/svg/awcc.svg';
+    } else if (op.contains('roshan')) {
+      assetPath = 'assets/svg/roshan.svg';
+    } else if (op.contains('etisalat')) {
+      assetPath = 'assets/svg/etisalat.svg';
+    } else if (op.contains('mtn') || op.contains('atoma')) {
+      assetPath = 'assets/svg/atoma.svg';
+    } else if (op.contains('salaam')) {
+      assetPath = 'assets/svg/salaam.svg';
+    }
+
+    // انتخاب آیکون بر اساس نوع تراکنش
+    if (t.transactionType == 'DIGITAL' && assetPath.isNotEmpty) {
+      // برای تراکنش دیجیتال: لوگوی اپراتور
+      transactionIcon = SvgPicture.asset(
+        assetPath,
+        width: 34,
+        height: 34,
+      );
+    } else if (t.transactionType == 'PAPER' && assetPath.isNotEmpty) {
+      // برای تراکنش کاغذی: لوگوی اپراتور
+      transactionIcon = SvgPicture.asset(
+        assetPath,
+        width: 34,
+        height: 34,
+      );
+    } else {
+      // برای سایر موارد: آیکون پیش‌فرض رعد
+      transactionIcon = Icon(Icons.bolt, color: red);
+    }
+
+    // ۲. ساختار ویجت (بقیه کد بدون تغییر)
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const  EdgeInsets.all(15),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF2A1D1D) : Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          )
+        ],
       ),
       child: Row(
         children: [
-          Container(width: 45, height: 45, decoration: BoxDecoration(color: red.withOpacity(0.1), shape: BoxShape.circle), child: Icon(Icons.bolt, color: red)),
+          Container(
+            width: 45,
+            height: 45,
+            decoration: BoxDecoration(
+                color: t.transactionType == 'PAPER'?Colors.white:red.withValues(alpha: 0.05),
+                shape: BoxShape.circle
+            ),
+            child: Center(child: transactionIcon), // نمایش آیکون انتخاب شده
+          ),
           const SizedBox(width: 15),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(t.operator, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                Text(t.phoneNumber, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                Text(
+                    t.operator,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)
+                ),
+                Text(
+                    t.phoneNumber,
+                    style: const TextStyle(fontSize: 11, color: Colors.grey)
+                ),
               ],
             ),
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text("${t.receivedAmount}؋", style: const TextStyle(fontWeight: FontWeight.bold)),
-              const Text("موفق", style: TextStyle(fontSize: 9, color: Colors.green, fontWeight: FontWeight.bold)),
+              Text(
+                  "${t.receivedAmount}؋",
+                  style: const TextStyle(fontWeight: FontWeight.bold)
+              ),
+              const Text(
+                  "موفق",
+                  style: TextStyle(fontSize: 9, color: Colors.green, fontWeight: FontWeight.bold)
+              ),
             ],
           )
         ],
       ),
     );
-  }
+  } // Widget _buildRecentItem(TransactionModel t, bool isDark, Color red) {
+  //   return Container(
+  //     margin: const EdgeInsets.only(bottom: 12),
+  //     padding: const  EdgeInsets.all(15),
+  //     decoration: BoxDecoration(
+  //       color: isDark ? const Color(0xFF2A1D1D) : Colors.white,
+  //       borderRadius: BorderRadius.circular(18),
+  //     ),
+  //     child: Row(
+  //       children: [
+  //         Container(width: 45, height: 45, decoration: BoxDecoration(color: red.withOpacity(0.1), shape: BoxShape.circle), child: Icon(Icons.bolt, color: red)),
+  //         const SizedBox(width: 15),
+  //         Expanded(
+  //           child: Column(
+  //             crossAxisAlignment: CrossAxisAlignment.start,
+  //             children: [
+  //               Text(t.operator, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+  //               Text(t.phoneNumber, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+  //             ],
+  //           ),
+  //         ),
+  //         Column(
+  //           crossAxisAlignment: CrossAxisAlignment.end,
+  //           children: [
+  //             Text("${t.receivedAmount}؋", style: const TextStyle(fontWeight: FontWeight.bold)),
+  //             const Text("موفق", style: TextStyle(fontSize: 9, color: Colors.green, fontWeight: FontWeight.bold)),
+  //           ],
+  //         )
+  //       ],
+  //     ),
+  //   );
+  // }
 
   Widget _buildSectionHeader(String title, Color red, BuildContext context) {
     return Row(
