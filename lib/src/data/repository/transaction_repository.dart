@@ -1,20 +1,30 @@
 import 'package:top_up_shops/src/data/local/app_database.dart';
-
 import '../../domain/entity/transaction.dart';
+import '../../providers/session_provider.dart';
 
 class TransactionRepository {
   final DatabaseHelper _db = DatabaseHelper.instance;
 
-  /// همه تراکنش‌ها
-  Future<List<TransactionModel>> getTransactions() async {
+  /// دریافت تراکنش‌ها بر اساس سطح دسترسی و آیدی دکان
+  Future<List<TransactionModel>> getTransactions(UserModel user) async {
     final database = await _db.database;
+
+    // فیلتر کردن بر اساس نقش: OWNER همه دکان را می‌بیند، STAFF فقط تراکنش‌های خودش
+    String whereClause = "t.shop_id = ?";
+    List<dynamic> whereArgs = [user.shopId];
+
+    if (user.role != 'OWNER') {
+      whereClause += " AND t.created_by = ?";
+      whereArgs.add(user.uid);
+    }
 
     final result = await database.rawQuery('''
     SELECT t.*, c.name as current_customer_name 
     FROM transactions t
     LEFT JOIN customers c ON t.customer_id = c.id
+    WHERE $whereClause
     ORDER BY t.created_at DESC
-  ''');
+  ''', whereArgs);
 
     return result.map((map) {
       final updatedMap = Map<String, dynamic>.from(map);
@@ -24,65 +34,71 @@ class TransactionRepository {
       return TransactionModel.fromMap(updatedMap);
     }).toList();
   }
-  Future<int> todayProfit() async {
+
+  /// سود امروز دکان
+  Future<int> todayProfit(String shopId) async {
     final database = await _db.database;
     final result = await database.rawQuery('''
     SELECT SUM(profit) as total
     FROM transactions
-    WHERE date(created_at) = date('now','localtime')
-  ''');
+    WHERE shop_id = ? AND date(created_at, 'localtime') = date('now','localtime')
+  ''', [shopId]);
 
-    // تبدیل امن num به int برای جلوگیری از خطای نوع داده
     final total = result.first['total'];
     if (total == null) return 0;
     return (total as num).toInt();
   }
 
-/// تعداد تراکنش‌های امروز
-Future<int> todayTransactionsCount() async {
-  final database = await _db.database;
-  final result = await database.rawQuery('''
+  /// تعداد تراکنش‌های امروز دکان
+  Future<int> todayTransactionsCount(String shopId) async {
+    final database = await _db.database;
+    final result = await database.rawQuery('''
     SELECT COUNT(*) as count 
     FROM transactions 
-    WHERE date(created_at) = date('now','localtime')
-  ''');
-  return result.first['count'] as int? ?? 0;
-}
-  /// مجموع فروش امروز (مبلغ دریافتی)
-  Future<int> todayTotalSales() async {
+    WHERE shop_id = ? AND date(created_at, 'localtime') = date('now','localtime')
+  ''', [shopId]);
+    return result.first['count'] as int? ?? 0;
+  }
+
+  /// مجموع فروش امروز دکان (مبلغ دریافتی)
+  Future<int> todayTotalSales(String shopId) async {
     final database = await _db.database;
     final result = await database.rawQuery('''
       SELECT SUM(received_amount) as total FROM transactions 
-      WHERE date(created_at) = date('now','localtime')
-    ''');
+      WHERE shop_id = ? AND date(created_at, 'localtime') = date('now','localtime')
+    ''', [shopId]);
     return (result.first['total'] as num? ?? 0).toInt();
   }
 
-  /// مجموع تراکنش‌های امروز (مبلغ ارسال شده)
-  Future<int> todaySentAmount() async {
+  /// مجموع تراکنش‌های امروز دکان (مبلغ ارسال شده)
+  Future<int> todaySentAmount(String shopId) async {
     final database = await _db.database;
     final result = await database.rawQuery('''
       SELECT SUM(sent_amount) as total FROM transactions 
-      WHERE date(created_at) = date('now','localtime')
-    ''');
+      WHERE shop_id = ? AND date(created_at, 'localtime') = date('now','localtime')
+    ''', [shopId]);
     return (result.first['total'] as num? ?? 0).toInt();
   }
 
-  /// محاسبه درصد تغییر نسبت به دیروز
-  Future<double> getSalesGrowthPercentage() async {
+  /// محاسبه درصد تغییر فروش دکان نسبت به دیروز
+  Future<double> getSalesGrowthPercentage(String shopId) async {
     final database = await _db.database;
 
-    // فروش امروز
-    final todayRes = await database.rawQuery("SELECT SUM(received_amount) as total FROM transactions WHERE date(created_at) = date('now','localtime')");
+    // فروش امروز دکان
+    final todayRes = await database.rawQuery('''
+      SELECT SUM(received_amount) as total FROM transactions 
+      WHERE shop_id = ? AND date(created_at, 'localtime') = date('now','localtime')
+    ''', [shopId]);
     double today = (todayRes.first['total'] as num? ?? 0).toDouble();
 
-    // فروش دیروز
-    final yesterdayRes = await database.rawQuery("SELECT SUM(received_amount) as total FROM transactions WHERE date(created_at) = date('now', '-1 day', 'localtime')");
+    // فروش دیروز دکان
+    final yesterdayRes = await database.rawQuery('''
+      SELECT SUM(received_amount) as total FROM transactions 
+      WHERE shop_id = ? AND date(created_at, 'localtime') = date('now', '-1 day', 'localtime')
+    ''', [shopId]);
     double yesterday = (yesterdayRes.first['total'] as num? ?? 0).toDouble();
 
     if (yesterday == 0) return today > 0 ? 100.0 : 0.0;
     return ((today - yesterday) / yesterday) * 100;
   }
 }
-
-

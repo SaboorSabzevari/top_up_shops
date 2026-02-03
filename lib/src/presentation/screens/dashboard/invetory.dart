@@ -3,6 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../data/local/app_database.dart';
 
 class InventoryScreen extends StatelessWidget {
+
   const InventoryScreen({super.key});
 
   @override
@@ -34,6 +35,7 @@ class InventoryScreen extends StatelessWidget {
               _buildSectionHeader(Icons.style_rounded, "موجودی کارت‌های کاغذی"),
 
               FutureBuilder<List<Map<String, dynamic>>>(
+
                 future: DatabaseHelper.instance.getAllPaperStocks(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {

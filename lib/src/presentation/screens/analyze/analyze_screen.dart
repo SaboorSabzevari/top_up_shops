@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../../../data/local/app_database.dart';
 import '../../../domain/entity/transaction.dart';
+import '../../../providers/session_provider.dart';
 import '../../../providers/transaction_provider.dart';
 
 import 'package:flutter/material.dart';
@@ -320,10 +321,19 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
       setState(() => _searchResults = []);
       return;
     }
-    final results = await DatabaseHelper.instance.ajaxSearch(query);
-    setState(() => _searchResults = results);
-  }
 
+    // استفاده از read به جای watch در بدنه تابع
+    final user = ref.read(currentUserProvider);
+
+    if (user != null) {
+      // اصلاح نام متغیر از val به query
+      final results = await DatabaseHelper.instance.ajaxSearch(query, user.shopId);
+
+      if (mounted) {
+        setState(() => _searchResults = results);
+      }
+    }
+  }
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;

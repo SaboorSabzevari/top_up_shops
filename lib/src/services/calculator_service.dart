@@ -1,7 +1,8 @@
-// lib/core/services/calculation_service.dart
 import 'dart:developer' as developer;
 
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+
+import 'package:path/path.dart';
 
 import '../data/local/app_database.dart';
 
@@ -18,7 +19,7 @@ class CalculationService {
   CalculationService._internal();
 
   // دریافت تنظیمات واحد از دیتابیس با کش
-  Future<Map<String, dynamic>> getUnitSettings({bool forceRefresh = false}) async {
+  Future<Map<String, dynamic>> getUnitSettings(String shopId, {bool forceRefresh = false}) async {
     if (!forceRefresh &&
         _cachedUnitSettings != null &&
         _lastCacheTime != null &&
@@ -26,9 +27,11 @@ class CalculationService {
       return _cachedUnitSettings!;
     }
 
-    _cachedUnitSettings = await _dbHelper.getSingleUnit();
+    _cachedUnitSettings = await _dbHelper.getSingleUnit(shopId);
     _lastCacheTime = DateTime.now();
     return _cachedUnitSettings!;
+
+
   }
 
   // محاسبات اصلی
@@ -53,8 +56,11 @@ class CalculationService {
   }
 
   // محاسبه با sentAmount به صورت مستقیم
-  Future<Map<String, double>> calculateWithAmount(double sentAmount) async {
-    final unitSettings = await getUnitSettings();
+// اصلاح شده: دریافت shopId الزامی است
+  Future<Map<String, double>> calculateWithAmount(double sentAmount, String shopId) async {
+    // تنظیمات را بر اساس آیدی دکان می‌گیریم
+    final unitSettings = await getUnitSettings(shopId);
+
     return calculateTransaction(
       sentAmount: sentAmount,
       unitSettings: unitSettings,
@@ -62,10 +68,10 @@ class CalculationService {
   }
 
   // ریفرش کش
-  Future<void> refreshCache() async {
+  Future<void> refreshCache(String shopId) async {
     _cachedUnitSettings = null;
     _lastCacheTime = null;
-    await getUnitSettings(forceRefresh: true);
+    await getUnitSettings(shopId,forceRefresh: true);
   }
 }
 
@@ -119,17 +125,20 @@ class PriceCalculationResult {
 
 // --- کلاس محاسبات مرکزی ---
 class PriceCalculator {
-  // محاسبه کامل با دریافت نرخ از دیتابیس (برای ذخیره)
+
+  // محاسبه کامل با دریافت نرخ از دیتابیس (برای زمان ذخیره تراکنش نهایی)
   static Future<PriceCalculationResult> calculateFull({
+    required String shopId, // اضافه شد: برای تشخیص دکان
     required double creditAmount,
     required double discountFixed,
     required double discountPercent,
     required DiscountType discountType,
   }) async {
     try {
-      final unitSettings = await DatabaseHelper.instance.getSingleUnit();
-      final double buyRate = unitSettings['buy_price'] ?? 0.0;
-      final double sellRate = unitSettings['sell_price'] ?? 0.0;
+      // دریافت نرخ‌های مخصوص به این دکان
+      final unitSettings = await DatabaseHelper.instance.getSingleUnit(shopId);
+      final double buyRate = (unitSettings['buy_price'] as num?)?.toDouble() ?? 0.0;
+      final double sellRate = (unitSettings['sell_price'] as num?)?.toDouble() ?? 0.0;
 
       return _calculate(
         creditAmount: creditAmount,
@@ -140,7 +149,7 @@ class PriceCalculator {
         sellRate: sellRate,
       );
     } catch (e) {
-      developer.log('خطا در محاسبه کامل: $e', name: 'PriceCalculator');
+      developer.log('خطا در محاسبه کامل برای دکان $shopId: $e', name: 'PriceCalculator');
       return PriceCalculationResult(
         creditAmount: creditAmount,
         discountAmount: 0,
@@ -157,7 +166,7 @@ class PriceCalculator {
     }
   }
 
-  // محاسبه Real-time (با نرخ‌های کش شده)
+  // محاسبه Real-time (بدون تغییر - چون نرخ‌ها از قبل توسط UI یا سرویس کش شده‌اند)
   static PriceCalculationResult calculateRealTime({
     required double creditAmount,
     required double discountFixed,
@@ -176,7 +185,7 @@ class PriceCalculator {
     );
   }
 
-  // محاسبات اصلی
+  // متد خصوصی محاسبات ریاضی (بدون تغییر منطق)
   static PriceCalculationResult _calculate({
     required double creditAmount,
     required double discountFixed,
@@ -185,26 +194,21 @@ class PriceCalculator {
     required double buyRate,
     required double sellRate,
   }) {
-    // محاسبه مقدار تخفیف بر اساس نوع
     double discountAmount = 0.0;
 
     if (discountType == DiscountType.percent) {
-      // تخفیف درصدی
       discountAmount = (creditAmount * discountPercent) / 100;
     } else {
-      // تخفیف مبلغ ثابت
       discountAmount = discountFixed;
     }
 
-    // اطمینان از اینکه تخفیف بیشتر از مبلغ اعتباری نباشد
     if (discountAmount > creditAmount) {
       discountAmount = creditAmount;
     }
 
-    // محاسبه مبلغ نهایی بعد از تخفیف
     double finalSentAmount = creditAmount - discountAmount;
 
-    // محاسبات قیمت
+    // محاسبات حساس مالی
     double costPrice = finalSentAmount * buyRate;
     double receivedAmount = finalSentAmount * sellRate;
     double profit = receivedAmount - costPrice;

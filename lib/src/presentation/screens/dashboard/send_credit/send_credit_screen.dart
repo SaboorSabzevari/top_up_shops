@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../../l10n/app_localizations.dart';
 import '../../../../data/local/app_database.dart';
 import '../../../../providers/app_providers.dart';
+import '../../../../providers/session_provider.dart';
 import '../../../../providers/transaction_provider.dart';
 import '../../../../utils/colors.dart';
 import '../../../theme/colors.dart';
@@ -104,10 +105,11 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
     _searchFocusNode.addListener(() {
       if (!_searchFocusNode.hasFocus) {
         _removeOverlay();
+        Future.microtask(() => _loadUnitRates());
       }
     });
 
-    _loadUnitRates(); // بارگذاری نرخ‌ها
+
 
     // اضافه کردن لیسنر برای محاسبه آنی با تغییر هر فیلد
     creditCtrl.addListener(_performCalculations);
@@ -117,15 +119,21 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
 
   // 3. این متد را برای گرفتن نرخ از دیتابیس اضافه کنید
   Future<void> _loadUnitRates() async {
-    final unit = await DatabaseHelper.instance.getSingleUnit();
+    // گرفتن اطلاعات کاربر فعلی از پروایدر
+    final user = ref.read(currentUserProvider);
+
+    if (user == null) return;
+
+    // پاس دادن shopId برای رفع ارور 1 positional argument expected
+    final unit = await DatabaseHelper.instance.getSingleUnit(user.shopId);
+
     if (mounted) {
       setState(() {
-        unitBuyPrice = unit['buy_price'] ?? 0.0;
-        unitSellPrice = unit['sell_price'] ?? 0.0;
+        unitBuyPrice = (unit['buy_price'] as num?)?.toDouble() ?? 0.0;
+        unitSellPrice = (unit['sell_price'] as num?)?.toDouble() ?? 0.0;
       });
     }
   }
-
   @override
   void dispose() {
     _debounce?.cancel();
@@ -254,6 +262,11 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
         : wholesalePhoneCtrl.text;
 
     try {
+      final user = ref.read(currentUserProvider);
+      if (user == null) {
+        _showSnackBar("خطا: کاربر وارد نشده است", Colors.red);
+        return;
+      }
       // ۱. اعتبارسنجی ورودی‌ها
       String amountText = creditCtrl.text.trim();
       if (amountText.isEmpty) {
@@ -274,8 +287,10 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
 
       // ۲. بررسی موجودی شرکت پروایدر (بخش جدید)
       // selectedOperator نام شرکت انتخاب شده است (مثلاً "افغان پی")
-      double currentBalance = await DatabaseHelper.instance.getProviderBalance(selectedOperator);
-
+      double currentBalance = await DatabaseHelper.instance.getProviderBalance(
+          selectedOperator,
+          user.shopId
+      );
       if (currentBalance < sentAmount) {
         _showErrorDialog('موجودی شرکت "$selectedOperator" کافی نیست!\nموجودی فعلی: $currentBalance\nمبلغ درخواستی: $sentAmount');
         return;
@@ -301,6 +316,13 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
       // محاسبه مانده حساب (بدهی)
       double remainingAmount = totalPrice - paidCash;
 
+
+      if (user == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("خطا: کاربر وارد نشده است")),
+        );
+        return;
+      }
       // ۵. ذخیره در دیتابیس
       await DatabaseHelper.instance.saveDetailedTransaction({
         'customer_id': selectedCustomerId,
@@ -324,10 +346,10 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
 
         'ussd_command': _buildUSSDCode(),
         'created_at': DateTime.now().toIso8601String(),
-      });
+      },user);
 
       // ۶. کسر از موجودی شرکت پروایدر (بخش جدید)
-      await DatabaseHelper.instance.decreaseProviderBalance(selectedOperator, sentAmount);
+      await DatabaseHelper.instance.decreaseProviderBalance(selectedOperator, sentAmount,user.shopId);
 
       // ۷. بروزرسانی UI و پاکسازی
       if (mounted) {
@@ -418,6 +440,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
   }
 
   void _onSearchChanged(String query) {
+    final user = ref.read(currentUserProvider);
     if (_debounce?.isActive ?? false) _debounce!.cancel();
 
     if (query.isEmpty) {
@@ -426,7 +449,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
     }
 
     _debounce = Timer(const Duration(milliseconds: 300), () async {
-      final results = await DatabaseHelper.instance.searchCustomers(query);
+      final results = await DatabaseHelper.instance.searchCustomers(query,user!.shopId);
       setState(() {
         _searchResults = results;
       });
@@ -581,65 +604,47 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
     }
   }
 
-  void _prepareFilteredProviders() async {
-    try {
-      final providersAsync = ref.read(providersListProvider);
+  void _prepareFilteredProviders() {
+    // استفاده از ref.read برای دریافت وضعیت فعلی لیست شرکت‌ها
+    final providersAsync = ref.read(providersListProvider);
 
-      providersAsync.when(
-        data: (providersData) {
-          if (!mounted) return;
+    providersAsync.whenData((providersData) {
+      if (!mounted) return;
 
-          final customerCompanyNames = _currentCustomerWholesaleCodes
-              .map((e) => e['company_name']?.toString().trim() ?? '')
-              .where((name) => name.isNotEmpty)
-              .toSet();
+      // استخراج نام شرکت‌هایی که مشتری با آن‌ها کد عمده دارد
+      final customerCompanyNames = _currentCustomerWholesaleCodes
+          .map((e) => e['company_name']?.toString().trim() ?? '')
+          .where((name) => name.isNotEmpty)
+          .toSet();
 
-          List<Map<String, dynamic>> filtered;
-          if (customerCompanyNames.isEmpty) {
-            filtered = List<Map<String, dynamic>>.from(providersData);
-          } else {
-            filtered = providersData.where((provider) {
-              final providerName = provider['name']?.toString().trim() ?? '';
-              return customerCompanyNames.contains(providerName);
-            }).toList();
-          }
+      List<Map<String, dynamic>>? filtered;
 
-          final otherProvider = {
-            'name': 'دیگر',
-            'type': 'other',
-            'id': -1,
-            'ordinary_code': '*999*',
-            'wholesale_code': '*999*',
-          };
-          final allProviders = [...filtered, otherProvider];
+      // اگر مشتری کد خاصی نداشت، همه را نشان بده، در غیر این صورت فیلتر کن
+      if (customerCompanyNames.isEmpty) {
+        filtered = List<Map<String, dynamic>>.from(providersData);
+      } else {
+        filtered = providersData.where((provider) {
+          final providerName = provider['name']?.toString().trim() ?? '';
+          return customerCompanyNames.contains(providerName);
+        }).cast<Map<String, dynamic>>().toList();
+      }
 
-          if (mounted) {
-            setState(() {
-              _filteredProviders = allProviders;
-            });
-          }
-        },
-        loading: () {
-          if (mounted) {
-            setState(() {
-              _filteredProviders = [];
-            });
-          }
-        },
-        error: (error, stackTrace) {
-          print('خطا در بارگذاری شرکت‌ها: $error');
-          if (mounted) {
-            setState(() {
-              _filteredProviders = [];
-            });
-          }
-        },
-      );
-    } catch (error) {
-      print('خطا در prepareFilteredProviders: $error');
-    }
+      // اضافه کردن گزینه "دیگر" به انتهای لیست
+      final otherProvider = {
+        'name': 'دیگر',
+        'type': 'other',
+        'id': -1,
+        'ordinary_code': '*999*',
+        'wholesale_code': '*999*',
+      };
+
+      if (mounted) {
+        setState(() {
+          _filteredProviders = [...?filtered, otherProvider];
+        });
+      }
+    });
   }
-
   void _selectProviderForWholesale(Map<String, dynamic> provider) {
     final providerName = provider['name']?.toString().trim() ?? '';
     final providerCode = provider['wholesale_code']?.toString().trim() ?? '';

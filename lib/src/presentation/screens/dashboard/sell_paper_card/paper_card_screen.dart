@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'dart:async';
 import '../../../../data/local/app_database.dart';
+import '../../../../providers/session_provider.dart';
 import '../../../../providers/transaction_provider.dart';
 import '../../../theme/colors.dart';
 
@@ -142,8 +143,8 @@ Future<void> _processPaperSale() async {
 
   // برای دیباگ
   print('بررسی موجودی برای: operator=$currentOperator, amount=$amount, quantity=$quantity');
-
-  int currentStock = await DatabaseHelper.instance.getPaperStockCount(currentOperator, amount);
+  final user = ref.read(currentUserProvider);
+  int currentStock = await DatabaseHelper.instance.getPaperStockCount(currentOperator, amount,user!.shopId);
   if (currentStock < quantity) {
     _showErrorDialog("موجودی کافی نیست! موجودی فعلی کارت $amount افغانی $currentOperator: $currentStock عدد");
     return;
@@ -166,6 +167,12 @@ Future<void> _processPaperSale() async {
   double totalCost = costPerUnit * quantity;
   double profit = totalPrice - totalCost;
 
+  if (user == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("خطا: کاربر وارد نشده است")),
+    );
+    return;
+  }
   final transactionData = {
     'customer_id': _selectedCustomerId,
     'customer_name': _selectedCustomerId != null ? _selectedCustomerName : "مشتری متفرقه (کارت $operator)",
@@ -192,10 +199,10 @@ Future<void> _processPaperSale() async {
   print("Debug: Searching for Operator: ${operator.toLowerCase()} with Value: $amount");
   try {
     // ۵. ذخیره تراکنش
-    await DatabaseHelper.instance.saveDetailedTransaction(transactionData);
+    await DatabaseHelper.instance.saveDetailedTransaction(transactionData,user);
 
     // ۶. کسر از موجودی انبار (بخش جدید)
-    await DatabaseHelper.instance.decreasePaperStock(currentOperator, amount, quantity);
+    await DatabaseHelper.instance.decreasePaperStock(currentOperator, amount, quantity,user.shopId);
     // ۷. بروزرسانی UI و Riverpod
     ref.invalidate(transactionsProvider);
     ref.invalidate(todayProfitProvider);
@@ -239,6 +246,7 @@ Future<void> _processPaperSale() async {
     });
 
     _debounce = Timer(const Duration(milliseconds: 300), () async {
+      final user = ref.read(currentUserProvider);
       try {
         print('جستجو برای: $query');
 
@@ -246,7 +254,7 @@ Future<void> _processPaperSale() async {
 
         // استفاده از متد searchCustomers
         try {
-          results = await DatabaseHelper.instance.searchCustomers(query);
+          results = await DatabaseHelper.instance.searchCustomers(query,user!.shopId);
           print('تعداد نتایج: ${results.length}');
 
           // برای debug: نمایش اولین نتیجه

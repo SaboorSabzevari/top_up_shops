@@ -2,14 +2,19 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:path/path.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:top_up_shops/src/presentation/screens/dashboard/invetory.dart';
 import 'package:top_up_shops/src/presentation/screens/dashboard/sell_paper_card/paper_card_screen.dart';
 import 'package:top_up_shops/src/presentation/screens/dashboard/send_credit/send_credit_screen.dart';
 import '../../../domain/entity/transaction.dart';
+import '../../../providers/session_provider.dart';
 import '../../../providers/transaction_provider.dart';
+import '../../../services/internet_chek.dart';
+import '../../../services/sync_service.dart';
 import '../transactions/transaction_screen.dart';
 import 'buy_credit/buy_credit_screen.dart';
 import 'database_view.dart';
@@ -21,11 +26,50 @@ final profileInfoProvider = FutureProvider<Map<String, String>>((ref) async {
     'image': prefs.getString('store_image_path') ?? '',
   };
 });
-class DashboardScreen extends ConsumerWidget {
-  const DashboardScreen({super.key});
 
+final isSyncingProvider = StateProvider<bool>((ref) => false);
+class DashboardScreen extends ConsumerWidget {
+   DashboardScreen({super.key});
+
+// در صفحه Home یا Settings
+  // در فایل dashboard_screen.dart
+  Future<void> _handleSync(BuildContext context, WidgetRef ref) async {
+    final user = ref.read(currentUserProvider);
+    if (user == null) return;
+
+    ref.read(isSyncingProvider.notifier).state = true;
+
+    try {
+      bool hasInternet = await checkInternetConnection();
+
+      if (hasInternet) {
+        final syncService = SyncService();
+
+        // ✅ اصلاح اصلی: به جای دو خط قبلی، فقط این خط را بنویسید
+        await syncService.syncAll(user.shopId);
+
+        _showSnackBar(context, "تمام اطلاعات با موفقیت همگام‌سازی شد ✅");
+      } else {
+        _showSnackBar(context, "اینترنت وصل نیست!", isError: true);
+      }
+    } catch (e) {
+      _showSnackBar(context, "خطا: $e", isError: true);
+    } finally {
+      ref.read(isSyncingProvider.notifier).state = false;
+    }
+  }
+  void _showSnackBar(BuildContext context, String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message, style: const TextStyle(fontFamily: 'Vazir')),
+        backgroundColor: isError ? Colors.red : Colors.green,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+
     final isDark = Theme.of(context).brightness == Brightness.dark;
     const brandRed = Color(0xFFEA2A33);
     final bgColor = isDark ? const Color(0xFF1A0D0D) : const Color(0xFFF8F6F6);
@@ -36,9 +80,8 @@ class DashboardScreen extends ConsumerWidget {
     final todayCount = ref.watch(todayCountProvider);
     final growth = ref.watch(salesGrowthProvider);
     final recentTxns = ref.watch(recentTransactionsProvider);
-
-    final profileAsync = ref.watch(profileInfoProvider);
-
+     final profileAsync = ref.watch(profileInfoProvider);
+    final isSyncing=ref.watch(isSyncingProvider);
     return Scaffold(
       backgroundColor: bgColor,
       appBar: _buildAppBar(context,isDark, brandRed,profileAsync),
@@ -59,6 +102,17 @@ class DashboardScreen extends ConsumerWidget {
 
                 Row(
                   children: [
+                    IconButton(
+                      onPressed: isSyncing ? null : () => _handleSync(context, ref),
+                      icon: isSyncing
+                          ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.red)
+                      )
+                          : const Icon(Icons.sync_rounded),
+                      tooltip: "هماهنگ‌سازی با سرور",
+                    ),
                     _buildMiniCard("تعداد امروز", "${todayCount.value ?? 0}", "عدد", isDark, brandRed),
                     const SizedBox(width: 10),
                     _buildMiniCard1("سود امروز", "${todayProfit.value ?? 0}", "افغانی", isDark, brandRed, highlight: true),
@@ -92,11 +146,13 @@ class DashboardScreen extends ConsumerWidget {
   }
 
   PreferredSizeWidget _buildAppBar(BuildContext context,bool isDark, Color red, AsyncValue<Map<String, String>> profileAsync) {
+
     return AppBar(
       backgroundColor: Colors.transparent,
       elevation: 0,
       title: Row(
         children: [
+
 
           profileAsync.when(
             data: (data) {
@@ -140,6 +196,8 @@ class DashboardScreen extends ConsumerWidget {
         ],
       ),
       actions: [
+
+
         IconButton(
             onPressed: () {
               Navigator.push(context, MaterialPageRoute(builder: (context)=>InventoryScreen()));

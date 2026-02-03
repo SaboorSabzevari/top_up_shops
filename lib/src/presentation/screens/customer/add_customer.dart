@@ -10,7 +10,9 @@ import '../../../data/local/app_database.dart';
 import '../../../domain/entity/customer.dart';
 import '../../../providers/app_providers.dart';
 import '../../../providers/customer_provider.dart';
+import '../../../providers/session_provider.dart';
 import '../../../services/file_helper.dart';
+import '../../../utils/debuge.dart';
 
 enum CustomerType { normal, shopkeeper }
 
@@ -270,7 +272,15 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
   }
 
   void _saveData() async {
-    if (!_formKey.currentState!.validate()) {
+    if (!_formKey.currentState!.validate()) return;
+
+    // 🔴 دریافت کاربر با روش جدید
+    final user = ref.read(currentUserProvider);
+
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('لطفاً دوباره وارد شوید')),
+      );
       return;
     }
 
@@ -322,15 +332,39 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
       type: typeStr,
       address: addressCtrl.text,
       profileImage: _profilePath,
-      tazkiraImage: _tazkiraPath,
+      tazkiraImage: _tazkiraPath, shopId: '',
     );
 
     try {
+      // ۱. دریافت اطلاعات کاربر فعلی از Riverpod
+      final user = ref.read(currentUserProvider);
+
+      if (user == null) {
+        // مدیریت خطا در صورت نبود کاربر
+        return;
+      }
+
       if (widget.customerData != null) {
-        final int customerId = widget.customerData!['id'];
-        await DatabaseHelper.instance.updateCustomer(customerId, customer, validPhones, wholesaleCodes);
+        final id = widget.customerData?['id'];
+        if (id == null) return;
+
+        final int customerId = id as int;
+        // اگر متد updateCustomer را هم تغییر داده‌اید، کاربر را به آن هم پاس دهید
+        await DatabaseHelper.instance.updateCustomer(
+            customerId,
+            customer,
+            validPhones,
+            wholesaleCodes,
+            user // اضافه کردن آرگومان کاربر
+        );
       } else {
-        await DatabaseHelper.instance.addCustomer(customer, validPhones, wholesaleCodes);
+        // ۲. پاس دادن آرگومان چهارم (user) برای رفع خطا
+        await DatabaseHelper.instance.addCustomer(
+            customer,
+            validPhones,
+            wholesaleCodes,
+            user // این همان آرگومانی است که جایش خالی بود
+        );
       }
 
       if (mounted) {

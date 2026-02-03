@@ -1,19 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:top_up_shops/src/presentation/screens/setting/edit_profile_screen.dart';
 
 import '../../../../data/local/app_database.dart';
+import '../../../../providers/auth_provider.dart';
+import '../../../../providers/session_provider.dart';
 
 enum PurchaseType { paperCard, sentCredit }
 
-class PurchaseScreen extends StatefulWidget {
+class PurchaseScreen extends ConsumerStatefulWidget { // تغییر کرد
   const PurchaseScreen({super.key});
 
   @override
-  State<PurchaseScreen> createState() => _PurchaseScreenState();
+  ConsumerState<PurchaseScreen> createState() => _PurchaseScreenState();
 }
 
-class _PurchaseScreenState extends State<PurchaseScreen> {
+class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر کرد
   double unitBuyPrice = 0.0;
   double unitSellPrice = 0.0;
   bool _isLoadingUnitRates = false;
@@ -21,13 +24,53 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
   bool _isLoadingProviders = false;
 
   Future<void> _loadDigitalProviders() async {
+    // 🔴 ابتدا وضعیت کاربر را چک می‌کنیم
+    final user = ref.read(currentUserProvider);
+
+    // 🔴 اگر کاربر null است، خطا نشان می‌دهیم و خروج می‌کنیم
+    if (user == null) {
+      print('❌ [ERROR] User is null in _loadDigitalProviders - Cannot load providers');
+
+      // برای دیباگ: بررسی می‌کنیم چه اتفاقی افتاده
+      print('🔍 [DEBUG] Checking auth state...');
+      final authState = ref.read(authProvider);
+      print('  Auth isLoggedIn: ${authState.isLoggedIn}');
+      print('  Auth user UID: ${authState.user?.uid}');
+
+      if (mounted) {
+        setState(() {
+          _isLoadingProviders = false;
+          _digitalProviders = []; // لیست خالی
+        });
+
+        // 🔴 نشان دادن پیام خطا به کاربر (اختیاری)
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('لطفاً دوباره وارد شوید'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+      return;
+    }
+
+    // 🔴 چک می‌کنیم shopId خالی نباشد
+    if (user.shopId.isEmpty) {
+      print('⚠️ [WARNING] shopId is empty for user: ${user.uid}');
+    }
+
+    print('✅ [DEBUG] Loading providers for user: ${user.uid}, shop: ${user.shopId}');
+
     if (mounted) {
       setState(() => _isLoadingProviders = true);
     }
 
     try {
-      // از DatabaseHelper برای دریافت لیست پروایدرها استفاده کنید
+      // 🔴 بدون استفاده از ! چون قبلاً چک کردیم user null نیست
       final providers = await DatabaseHelper.instance.getProviders();
+
+      print('📦 [DEBUG] Loaded ${providers.length} providers from database');
 
       if (mounted) {
         setState(() {
@@ -36,13 +79,15 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
           // تنظیم پروایدر پیش‌فرض
           if (providers.isNotEmpty && _selectedProvider.isEmpty) {
             _selectedProvider = providers.first['name']?.toString() ?? '';
+            print('🎯 [DEBUG] Set default provider to: $_selectedProvider');
           }
         });
       }
-    } catch (e) {
-      print('خطا در بارگذاری لیست پروایدرها: $e');
+    } catch (e, stackTrace) {
+      print('❌ [ERROR] خطا در بارگذاری لیست پروایدرها: $e');
+      print('📝 [STACK TRACE] $stackTrace');
 
-      // در صورت خطا، لیست پیش‌فرض از send_credit_screen
+      // در صورت خطا، لیست پیش‌فرض
       if (mounted) {
         setState(() {
           _digitalProviders = [
@@ -52,15 +97,18 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
             {'name': 'شاهی ایزیلود'},
             {'name': 'شرکت مخابراتی آریان'}
           ];
+          print('🔄 [DEBUG] Using fallback providers list');
         });
       }
     } finally {
       if (mounted) {
-        setState(() => _isLoadingProviders = false);
+        setState(() {
+          _isLoadingProviders = false;
+          print('✅ [DEBUG] Finished loading providers');
+        });
       }
     }
-  }
-  @override
+  } @override
   void initState() {
     super.initState();
     _initializeControllers();
@@ -72,9 +120,10 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
   // متد جدید: بارگذاری unit buy_price و sell_price
   Future<void> _loadUnitRates() async {
     setState(() => _isLoadingUnitRates = true);
-
+    final user = ref.read(currentUserProvider); // دریافت کاربر
+    if (user == null) return;
     try {
-      final unit = await DatabaseHelper.instance.getSingleUnit();
+      final unit = await DatabaseHelper.instance.getSingleUnit(user.shopId);
       if (mounted) {
         setState(() {
           unitBuyPrice = unit['buy_price'] ?? 0.95; // پیش‌فرض 0.95
@@ -375,38 +424,36 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
   // Save logic from PurchasePage
   Future<void> _savePurchase() async {
     try {
+      // ۱. دریافت اطلاعات کاربر و بررسی لاگین
+      final user = ref.read(currentUserProvider);
+      if (user == null) {
+        throw Exception("کاربر یافت نشد. لطفاً دوباره وارد شوید.");
+      }
+
+      // ۲. آماده‌سازی دیتای پایه خرید
       Map<String, dynamic> purchaseData = {
         'type': _selectedType == PurchaseType.paperCard ? 'PAPER' : 'DIGITAL',
         'provider_name': _selectedProvider,
         'payment_status': _paymentStatus,
         'payment_date': _paymentStatus == 'PENDING' ? null : DateTime.now().toIso8601String(),
         'created_at': DateTime.now().toIso8601String(),
+        'shop_id': user.shopId, // اضافه کردن شناسنامه دکان
       };
-      if (_selectedType == PurchaseType.paperCard) {
-        // کارت کاغذی
-        int quantity = int.tryParse(_quantityController.text) ?? 0;
 
-        // برای دیباگ
-        print('در حال افزایش موجودی: operator=$_selectedOperatorValue, faceValue=$_selectedFaceValue, quantity=$quantity');
+      // ۳. به‌روزرسانی موجودی انبار یا کیف پول شرکت (Wallet)
+      if (_selectedType == PurchaseType.paperCard) {
+        // حالت کارت کاغذی
+        int quantity = int.tryParse(_quantityController.text) ?? 0;
 
         await DatabaseHelper.instance.increasePaperStock(
-            _selectedOperatorValue, // این مهم است!
+            _selectedOperatorValue,
             _selectedFaceValue,
-            quantity
+            quantity,
+            user.shopId // آرگومان چهارم برای تفکیک دکان
         );
-      } else {
-        // کریدیت دیجیتال
-        double creditAmount = double.tryParse(_totalCreditController.text) ?? 0;
 
-        await DatabaseHelper.instance.increaseProviderBalance(
-            _selectedProvider, // مثلا "افغان پی"
-            creditAmount // مثلا 20000
-        );
-      }
-      if (_selectedType == PurchaseType.paperCard) {
-        // کارت کاغذی
+        // تکمیل اطلاعات خرید کارت
         double unitPrice = double.tryParse(_costPerUnitController.text) ?? 0;
-        int quantity = int.tryParse(_quantityController.text) ?? 0;
         double nominalPrice = unitPrice * quantity;
         double actualPaid = double.tryParse(_actualPaidController.text) ?? nominalPrice;
 
@@ -419,10 +466,20 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
           'actual_paid': actualPaid,
           'discount_amount': nominalPrice - actualPaid,
         });
+
       } else {
-        // کریدیت دیجیتال
+        // حالت کریدیت دیجیتال
         double creditAmount = double.tryParse(_totalCreditController.text) ?? 0;
-        double nominalPrice = creditAmount * unitBuyPrice; // مبلغ اسمی
+
+        // اصلاح خطای ۳ آرگومان: اضافه شدن user.shopId
+        await DatabaseHelper.instance.increaseProviderBalance(
+            _selectedProvider!,
+            creditAmount,
+            user.shopId
+        );
+
+        // تکمیل اطلاعات خرید دیجیتال
+        double nominalPrice = creditAmount * unitBuyPrice;
         double actualPaid = double.tryParse(_actualPaidController.text) ?? nominalPrice;
 
         purchaseData.addAll({
@@ -434,19 +491,26 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
         });
       }
 
-      // ذخیره در دیتابیس با جدول جدید
-      final purchaseId = await DatabaseHelper.instance.insertPurchase(purchaseData);
+      // ۴. ذخیره نهایی رکورد خرید در دیتابیس (ارسال کل شیء user)
+      // نکته: کست اشتباه (as UserModel) حذف شد
+      await DatabaseHelper.instance.insertPurchase(purchaseData, user);
 
-      // نمایش موفقیت
-      _showSuccessMessage(purchaseData);
+      // ۵. نمایش موفقیت
+      if (mounted) {
+        _showSuccessMessage(purchaseData);
+      }
 
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('❌ خطا: ${e.toString()}'), backgroundColor: Colors.red),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('❌ خطا در ثبت: ${e.toString()}'),
+              backgroundColor: Colors.red
+          ),
+        );
+      }
     }
   }
-
   void _showSuccessMessage(Map<String, dynamic> data) {
     showDialog(
       context: context,

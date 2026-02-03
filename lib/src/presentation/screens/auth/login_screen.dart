@@ -89,74 +89,71 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   Future<void> _loginWithEmail() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
+
+    // قبل از await دسترسی به ref امن است
     final rememberMe = ref.read(authProvider).rememberMe;
 
-    // اعتبارسنجی فیلدها
     if (email.isEmpty || password.isEmpty) {
       _showSnackBar(
         message: 'لطفاً ایمیل و رمز عبور را وارد کنید',
         backgroundColor: Colors.red.shade600,
         icon: Icons.error_outline,
-        durationSeconds: 3,
       );
       return;
     }
 
     try {
-      // ریست کردن فلگ
       _hasShownSuccessSnackBar = false;
 
-      // فراخوانی لاگین
+      // ۱. اجرای عملیات لاگین
       await ref.read(authProvider.notifier).loginWithEmailAndPassword(
         email: email,
         password: password,
         rememberMe: rememberMe,
       );
 
-      // کمی تأخیر برای به‌روزرسانی state
-      await Future.delayed(const Duration(milliseconds: 300));
+      // ۲. چک کردن فوری: آیا بعد از لاگین هنوز صفحه باز است؟
+      if (!mounted) return;
 
       final authState = ref.read(authProvider);
 
-      // بررسی موفقیت‌آمیز بودن لاگین
       if (authState.isLoggedIn && !_hasShownSuccessSnackBar) {
         _hasShownSuccessSnackBar = true;
 
-        // نمایش اسنک‌بار موفقیت
         _showSnackBar(
-          message: 'ورود با موفقیت انجام شد ',
+          message: 'ورود با موفقیت انجام شد',
           backgroundColor: Colors.green.shade600,
           icon: Icons.check_circle_outline,
-          durationSeconds: 2,
         );
 
-        // تأخیر برای نمایش اسنک‌بار قبل از ناوبری
+        // ۳. منتظر ماندن برای نمایش پیام به کاربر
         await Future.delayed(const Duration(seconds: 2));
 
+        // ۴. دوباره چک کردن mounted قبل از استفاده از context یا ref
         if (!mounted) return;
 
-        // ناوبری به صفحه اصلی
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (_) => HomeScreen()),
               (route) => false,
         );
+      } else if (authState.error != null) {
+        // اگر لاگین نشد و خطایی در state ثبت شده بود
+        _showSnackBar(
+          message: authState.error!,
+          backgroundColor: Colors.red.shade600,
+          icon: Icons.error_outline,
+        );
       }
-    } catch (_) {
-      // خواندن خطا از provider
-      final authState = ref.read(authProvider);
-      final errorMessage = authState.error ?? 'خطا در ورود، دوباره تلاش کنید';
-
-      // نمایش اسنک‌بار خطا
+    } catch (e) {
+      if (!mounted) return;
       _showSnackBar(
-        message: errorMessage,
+        message: 'خطای غیرمنتظره: $e',
         backgroundColor: Colors.red.shade600,
         icon: Icons.error_outline,
-        durationSeconds: 4,
       );
     }
   }
-
   // ================= UI =================
 
   @override

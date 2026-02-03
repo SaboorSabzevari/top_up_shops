@@ -1,5 +1,7 @@
 class TransactionModel {
   final int id;
+  final String shopId;      // اضافه شد
+  final String createdBy;   // اضافه شد (UID کارمند یا مدیر)
   final int? customerId;
   final String customerName;
   final String customerType;
@@ -9,21 +11,19 @@ class TransactionModel {
   final String operator;
   final int quantity;
   final int sentAmount;
-
-  // فیلدهای اصلی مالی
   final double totalPrice;
-  final double paidAmount; // این همان مبلغ دریافتی است
+  final double paidAmount;
   final double remainingAmount;
   final double costPrice;
   final int profit;
   final String createdAt;
 
-  // --- رفع ارور: اضافه کردن Getter برای سازگاری با کدهای قدیمی ---
-  // این خط باعث می‌شود هر جا در برنامه t.receivedAmount صدا زده شد، مقدار paidAmount برگردانده شود
   double get receivedAmount => paidAmount;
 
   TransactionModel({
     required this.id,
+    required this.shopId,    // اضافه شد
+    required this.createdBy, // اضافه شد
     this.customerId,
     required this.customerName,
     required this.customerType,
@@ -44,6 +44,8 @@ class TransactionModel {
   factory TransactionModel.fromMap(Map<String, dynamic> map) {
     return TransactionModel(
       id: map['id'] as int,
+      shopId: (map['shop_id'] ?? '') as String,     // خواندن از دیتابیس
+      createdBy: (map['created_by'] ?? '') as String, // خواندن از دیتابیس
       customerId: map['customer_id'] as int?,
       customerName: (map['customer_name'] ?? 'نامشخص') as String,
       customerType: (map['customer_type'] ?? 'WALK_IN') as String,
@@ -54,7 +56,6 @@ class TransactionModel {
       quantity: (map['quantity'] as num? ?? 1).toInt(),
       sentAmount: (map['sent_amount'] as num? ?? 0).toInt(),
       totalPrice: (map['total_price'] as num? ?? 0).toDouble(),
-      // اینجا مقدار را از هر دو ستون احتمالی می‌خوانیم تا خطا ندهد
       paidAmount: (map['paid_amount'] as num? ?? map['received_amount'] as num? ?? 0).toDouble(),
       remainingAmount: (map['remaining_amount'] as num? ?? 0).toDouble(),
       costPrice: (map['cost_price'] as num? ?? 0).toDouble(),

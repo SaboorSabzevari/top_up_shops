@@ -118,6 +118,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
+import 'package:path/path.dart';
+import 'package:top_up_shops/src/providers/session_provider.dart';
 import '../data/repository/transaction_repository.dart';
 import '../domain/entity/transaction.dart';
 
@@ -125,20 +127,60 @@ import '../domain/entity/transaction.dart';
 final transactionRepositoryProvider = Provider((ref) => TransactionRepository());
 
 // لیست کل تراکنش‌ها از دیتابیس
+// لیست تراکنش‌ها: فقط دکان فعلی و با رعایت نقش کاربر
 final transactionsProvider = FutureProvider<List<TransactionModel>>((ref) {
-  return ref.read(transactionRepositoryProvider).getTransactions();
+  final user = ref.watch(currentUserProvider);
+  if (user == null) return [];
+  // متد getTransactions را در ریپازیتوری قبلاً اصلاح کردیم تا یوزر بگیرد
+  return ref.read(transactionRepositoryProvider).getTransactions(user);
+});
+
+// سود امروز دکان فعلی
+final todayProfitProvider = FutureProvider<int>((ref) {
+  final user = ref.watch(currentUserProvider);
+  if (user == null) return 0;
+  return ref.read(transactionRepositoryProvider).todayProfit(user.shopId);
+});
+
+// مجموع فروش امروز دکان فعلی
+final todaySalesProvider = FutureProvider<int>((ref) {
+  final user = ref.watch(currentUserProvider);
+  if (user == null) return 0;
+  return ref.read(transactionRepositoryProvider).todayTotalSales(user.shopId);
+});
+
+// درصد رشد فروش دکان فعلی
+final salesGrowthProvider = FutureProvider<double>((ref) {
+  final user = ref.watch(currentUserProvider);
+  if (user == null) return 0.0;
+  return ref.read(transactionRepositoryProvider).getSalesGrowthPercentage(user.shopId);
 });
 
 // سود امروز
-final todayProfitProvider = FutureProvider<int>((ref) {
-  return ref.read(transactionRepositoryProvider).todayProfit();
+// مجموع فروش امروز دکان (مبلغ دریافتی از مشتری)
+final todayTotalSalesProvider = FutureProvider<int>((ref) {
+  final user = ref.watch(currentUserProvider);
+  if (user == null) return 0;
+
+  return ref.read(transactionRepositoryProvider).todayTotalSales(user.shopId);
 });
 
-// تعداد تراکنش‌های امروز
+// مجموع مبلغ ارسال شده امروز دکان (مبلغ خام کریدیت)
+final todaySentAmountProvider = FutureProvider<int>((ref) {
+  final user = ref.watch(currentUserProvider);
+  if (user == null) return 0;
+
+  return ref.read(transactionRepositoryProvider).todaySentAmount(user.shopId);
+});
+
+// تعداد کل تراکنش‌های امروز دکان
 final todayCountProvider = FutureProvider<int>((ref) {
-  return ref.read(transactionRepositoryProvider).todayTransactionsCount();
-});
+  final user = ref.watch(currentUserProvider);
+  if (user == null) return 0;
 
+  return ref.read(transactionRepositoryProvider).todayTransactionsCount(user.shopId);
+});
+// تعداد
 // وضعیت‌های فیلتر تاریخچه
 final transactionSearchQueryProvider = StateProvider<String>((ref) => '');
 final filterCustomerTypeProvider = StateProvider<String?>((ref) => null);
@@ -151,45 +193,6 @@ final reportDateRangeProvider = StateProvider<DateTimeRange?>((ref) => null);
 // به جای ذخیره نام، آیدی مشتری انتخاب شده را اینجا نگه می‌داریم
 final selectedCustomerIdProvider = StateProvider<int?>((ref) => null);
 
-// --- پروایدر فیلتر شده برای صفحه "تاریخچه تراکنش‌ها" ---
-// final filteredTransactionsProvider = Provider<AsyncValue<List<TransactionModel>>>((ref) {
-//   final transactionsAsync = ref.watch(transactionsProvider);
-//   final query = ref.watch(transactionSearchQueryProvider).trim().toLowerCase();
-//   final customerType = ref.watch(filterCustomerTypeProvider);
-//   final operator = ref.watch(filterOperatorProvider);
-//   final dateRange = ref.watch(filterDateProvider);
-//
-//   return transactionsAsync.whenData((list) {
-//     return list.where((t) {
-//       // اصلاح بخش جستجو:
-//       // این شرط باعث می‌شود حتی اگر نام مشتری تغییر کرده باشد،
-//       // جستجو روی نام قدیمی که در تراکنش ثبت شده بود هم جواب دهد.
-//       final matchesQuery = query.isEmpty ||
-//           t.customerName.toLowerCase().contains(query) ||
-//           t.phoneNumber.contains(query) ||
-//           t.companyCode.toLowerCase().contains(query);
-//
-//       final matchesType = customerType == null || t.customerType == customerType;
-//       final matchesOperator = operator == null || t.operator == operator;
-//
-//       bool matchesDate = true;
-//       if (dateRange != null) {
-//         try {
-//           final tDate = DateTime.parse(t.createdAt);
-//           final start = DateTime(dateRange.start.year, dateRange.start.month, dateRange.start.day);
-//           final end = DateTime(dateRange.end.year, dateRange.end.month, dateRange.end.day, 23, 59, 59);
-//           matchesDate = tDate.isAfter(start.subtract(const Duration(seconds: 1))) &&
-//               tDate.isBefore(end.add(const Duration(seconds: 1)));
-//         } catch (e) {
-//           matchesDate = false;
-//         }
-//       }
-//
-//       return matchesQuery && matchesType && matchesOperator && matchesDate;
-//     }).toList();
-//   });
-// });
-// --- ۳. اصلاح شده: پروایدر فیلتر شده برای صفحه "آنالیز مشتری" ---
 final customerReportTransactionsProvider = Provider<AsyncValue<List<TransactionModel>>>((ref) {
   final transactionsAsync = ref.watch(transactionsProvider);
 
@@ -224,11 +227,7 @@ final customerReportTransactionsProvider = Provider<AsyncValue<List<TransactionM
 // ۱. اصلاح ارور selectedCustomerNameProvider (تغییر به ID)
 
 // ۲. اصلاح ارور todaySalesProvider (اطمینان از وجود تعریف)
-final todaySalesProvider = FutureProvider<int>((ref) => ref.watch(transactionRepositoryProvider).todayTotalSales());
 // سایر پروایدرهای آماری
-final todayTotalSalesProvider = FutureProvider<int>((ref) => ref.read(transactionRepositoryProvider).todayTotalSales());
-final todaySentAmountProvider = FutureProvider<int>((ref) => ref.read(transactionRepositoryProvider).todaySentAmount());
-final salesGrowthProvider = FutureProvider<double>((ref) => ref.read(transactionRepositoryProvider).getSalesGrowthPercentage());
 final recentTransactionsProvider = FutureProvider<List<TransactionModel>>((ref) async {
   final all = await ref.watch(transactionsProvider.future);
   return all.take(5).toList();
