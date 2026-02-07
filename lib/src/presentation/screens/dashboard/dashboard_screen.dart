@@ -12,6 +12,7 @@ import 'package:top_up_shops/src/presentation/screens/dashboard/sell_paper_card/
 import 'package:top_up_shops/src/presentation/screens/dashboard/send_credit/send_credit_screen.dart';
 import '../../../domain/entity/transaction.dart';
 import '../../../providers/session_provider.dart';
+import '../../../providers/sync_provider.dart';
 import '../../../providers/transaction_provider.dart';
 import '../../../services/internet_chek.dart';
 import '../../../services/sync_service.dart';
@@ -47,13 +48,16 @@ class DashboardScreen extends ConsumerWidget {
 
         // ✅ اصلاح اصلی: به جای دو خط قبلی، فقط این خط را بنویسید
         await syncService.syncAll(user.shopId);
-
+        ref.invalidate(transactionsProvider);
+        ref.invalidate(todaySalesProvider);
+        ref.invalidate(todayProfitProvider);
         _showSnackBar(context, "تمام اطلاعات با موفقیت همگام‌سازی شد ✅");
       } else {
         _showSnackBar(context, "اینترنت وصل نیست!", isError: true);
       }
     } catch (e) {
       _showSnackBar(context, "خطا: $e", isError: true);
+      print("$e");
     } finally {
       ref.read(isSyncingProvider.notifier).state = false;
     }
@@ -82,6 +86,8 @@ class DashboardScreen extends ConsumerWidget {
     final recentTxns = ref.watch(recentTransactionsProvider);
      final profileAsync = ref.watch(profileInfoProvider);
     final isSyncing=ref.watch(isSyncingProvider);
+    final syncState = ref.watch(syncProvider);
+    final syncNotifier = ref.read(syncProvider.notifier);
     return Scaffold(
       backgroundColor: bgColor,
       appBar: _buildAppBar(context,isDark, brandRed,profileAsync),
@@ -102,6 +108,45 @@ class DashboardScreen extends ConsumerWidget {
 
                 Row(
                   children: [
+                    IconButton(
+                      onPressed: syncState.isSyncing ? null : () => syncNotifier.syncNow(),
+                      icon: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          // آیکون اصلی (اگر در حال سینک باشد می‌چرخد)
+                          syncState.isSyncing
+                              ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(brandRed),
+                            ),
+                          )
+                              : const Icon(Icons.sync, color: Colors.grey),
+
+                          // نمایش عدد تسک‌های باقی‌مانده (Badge)
+                          if (syncState.pendingOps > 0 && !syncState.isSyncing)
+                            Positioned(
+                              right: 0,
+                              top: 0,
+                              child: Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: BoxDecoration(
+                                  color: brandRed,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
+                                child: Text(
+                                  '${syncState.pendingOps}',
+                                  style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
                     IconButton(
                       onPressed: isSyncing ? null : () => _handleSync(context, ref),
                       icon: isSyncing

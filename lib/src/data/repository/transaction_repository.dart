@@ -4,7 +4,24 @@ import '../../providers/session_provider.dart';
 
 class TransactionRepository {
   final DatabaseHelper _db = DatabaseHelper.instance;
+  Future<int> addTransaction(Map<String, dynamic> data) async {
+    final db = await _db.database;
+    return await db.transaction((txn) async {
+      // ۱. درج در جدول اصلی
+      final id = await txn.insert('transactions', data);
 
+      // ۲. درج در صف همگام‌سازی (Outbox)
+      await _db.enqueueOutbox(
+        txn,
+        entity: 'transactions',
+        entityId: data['remote_id'] ?? id.toString(),
+        opType: 'create',
+        payload: data,
+      );
+
+      return id;
+    });
+  }
   /// دریافت تراکنش‌ها بر اساس سطح دسترسی و آیدی دکان
   Future<List<TransactionModel>> getTransactions(UserModel user) async {
     final database = await _db.database;
@@ -13,10 +30,6 @@ class TransactionRepository {
     String whereClause = "t.shop_id = ?";
     List<dynamic> whereArgs = [user.shopId];
 
-    if (user.role != 'OWNER') {
-      whereClause += " AND t.created_by = ?";
-      whereArgs.add(user.uid);
-    }
 
     final result = await database.rawQuery('''
     SELECT t.*, c.name as current_customer_name 

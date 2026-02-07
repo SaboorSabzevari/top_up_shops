@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import 'package:uuid/uuid.dart';
 import '../../domain/entity/customer.dart';
 import '../../domain/entity/providers.dart';
 import '../../providers/session_provider.dart';
@@ -8,6 +10,7 @@ class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
   static Database? _database;
   DatabaseHelper._init();
+  static const _uuid = Uuid();
 
   Future<Database> get database async {
     if (_database != null) return _database!;
@@ -34,6 +37,16 @@ class DatabaseHelper {
   }
 
   Future _createDB(Database db, int version) async {
+    await db.execute('''
+  CREATE TABLE sync_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    table_name TEXT,
+    record_id INTEGER,
+    operation TEXT,
+    sync_time TEXT,
+    status TEXT
+  )
+''');
     await db.execute('''CREATE TABLE customers (
     id INTEGER PRIMARY KEY AUTOINCREMENT, 
     name TEXT, 
@@ -45,8 +58,8 @@ class DatabaseHelper {
     address TEXT, 
     tazkira_image TEXT
   )''');
-    await db.execute('CREATE TABLE customer_phones (id INTEGER PRIMARY KEY AUTOINCREMENT, customer_id INTEGER, phone_number TEXT)');
-    await db.execute('CREATE TABLE customer_wholesale_codes (id INTEGER PRIMARY KEY AUTOINCREMENT, customer_id INTEGER, company_name TEXT, company_code TEXT)');
+    await db.execute('CREATE TABLE customer_phones (id INTEGER PRIMARY KEY AUTOINCREMENT, shop_id TEXT, customer_id INTEGER, phone_number TEXT)');
+    await db.execute('CREATE TABLE customer_wholesale_codes (id INTEGER PRIMARY KEY AUTOINCREMENT, shop_id TEXT, customer_id INTEGER, company_name TEXT, company_code TEXT)');
     await db.execute('''CREATE TABLE units (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     buy_price REAL NOT NULL,
@@ -54,8 +67,40 @@ class DatabaseHelper {
     name TEXT,
     shop_id TEXT NOT NULL
   )''');
-     await db.execute('CREATE TABLE providers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, type TEXT, ordinary_code TEXT, wholesale_code TEXT)'); // جدول تراکنش‌ها
     await db.execute('''
+  CREATE TABLE outbox (
+    op_id TEXT PRIMARY KEY,
+    shop_id TEXT,
+    entity TEXT,
+    entity_id TEXT,
+    op_type TEXT,
+    payload_json TEXT,
+    status TEXT DEFAULT 'pending', -- pending, syncing, failed
+    attempts INTEGER DEFAULT 0,
+    next_attempt_at_ms INTEGER,
+    created_at_ms INTEGER
+  )
+''');
+
+    await db.execute('''
+  CREATE TABLE sync_state (
+    entity TEXT PRIMARY KEY,
+    last_pulled_at TEXT
+  )
+''');
+    // در فایل app_database.dart و داخل متد _createDB
+
+    await db.execute('''
+  CREATE TABLE providers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, -- یا اگر دستی ست میکنید INTEGER PRIMARY KEY
+    name TEXT NOT NULL,
+    type TEXT,
+    ordinary_code TEXT,
+    wholesale_code TEXT,
+    shop_id TEXT,  -- ✅ این خط حیاتی است که باید اضافه شود
+    created_at TEXT
+  )
+'''); await db.execute('''
   CREATE TABLE transactions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     
@@ -65,6 +110,7 @@ class DatabaseHelper {
     customer_type TEXT,                  -- 'REGISTERED' (ثبت شده) یا 'WALK_IN' (رهگذر)
     shop_id TEXT NOT NULL,         -- اضافه شد
     created_by TEXT NOT NULL,      -- اضافه شد
+    is_synced INTEGER DEFAULT 0,
     -- مشخصات نوع سرویس
     transaction_type TEXT DEFAULT 'DIGITAL', -- مقادیر: 'DIGITAL' (شارژ) یا 'PAPER' (کارت فیزیکی)
     operator_name TEXT,                  -- مثال: AWCC, ROSHAN
@@ -111,16 +157,17 @@ class DatabaseHelper {
     shop_id TEXT NOT NULL,
     created_by TEXT NOT NULL
   )''');
+    // در متد _createDB، جدول paper_stock را اصلاح کنید:
     await db.execute('''
-  CREATE TABLE paper_stock (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    operator TEXT,
-    face_value INTEGER,
-    quantity INTEGER DEFAULT 0,
-    shop_id TEXT,
-    UNIQUE(operator, face_value, shop_id) -- این خط حیاتی است
-  )
-''');
+    CREATE TABLE IF NOT EXISTS paper_stock (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      operator_name TEXT,
+      face_value INTEGER,
+      quantity INTEGER DEFAULT 0,
+      shop_id TEXT,
+      UNIQUE(operator_name, face_value, shop_id)
+    )
+  ''');
     await db.execute('''CREATE TABLE provider_balances (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     provider_name TEXT, 
@@ -148,17 +195,36 @@ class DatabaseHelper {
   }
   // --- مدیریت موجودی کارت کاغذی ---
 
-  // افزایش موجودی (هنگام خرید)
+  Future<void> enqueueOutbox(
+      DatabaseExecutor db, {
+        required String entity,
+        required String entityId,
+        required String opType,
+        required Map<String, dynamic> payload,
+      }) async {
+    final opId = _uuid.v4();
+    final now = DateTime.now().millisecondsSinceEpoch;
+
+    await db.insert('outbox', {
+      'op_id': opId,
+      'shop_id': SessionService.instance.currentShopId,
+      'entity': entity,
+      'entity_id': entityId,
+      'op_type': opType,
+      'payload_json': jsonEncode(payload),
+      'created_at_ms': now,
+      'next_attempt_at_ms': now,
+    });
+  }
 
   // کاهش موجودی (هنگام فروش)
 // در DatabaseHelper
   Future<int> decreasePaperStock(String operator, int faceValue, int qty, String shopId) async {
     final db = await instance.database;
 
-    // استفاده از نام جدول اصلاح شده
     final res = await db.query(
       'paper_stock',
-      where: 'operator = ? AND face_value = ? AND shop_id = ?',
+      where: 'operator_name = ? AND face_value = ? AND shop_id = ?', // تغییر به operator_name
       whereArgs: [operator, faceValue, shopId],
     );
 
@@ -176,31 +242,29 @@ class DatabaseHelper {
       }
     }
     throw Exception("این کارت در انبار دکان شما تعریف نشده است.");
-  } // افزایش موجودی (هنگام خرید) - مختص همان دکان
-  Future<void> increasePaperStock(String operator, int faceValue, int qty, String shopId) async {
+  }  Future<void> increasePaperStock(String operator, int faceValue, int qty, String shopId) async {
     final db = await instance.database;
     await db.rawInsert('''
-    INSERT INTO paper_stock (operator, face_value, quantity, shop_id)
+    INSERT INTO paper_stock (operator_name, face_value, quantity, shop_id)
     VALUES (?, ?, ?, ?)
-    ON CONFLICT(operator, face_value, shop_id) 
+    ON CONFLICT(operator_name, face_value, shop_id) 
     DO UPDATE SET quantity = quantity + EXCLUDED.quantity
-  ''', [operator, faceValue, qty, shopId]); // دقت کنید پارامتر qty اضافه حذف شد چون از EXCLUDED استفاده کردیم
-  } // دریافت تعداد موجودی یک کارت در دکان فعلی
+  ''', [operator, faceValue, qty, shopId]);
+  }
   Future<int> getPaperStockCount(String operator, int faceValue, String shopId) async {
     final db = await instance.database;
     final res = await db.query(
       'paper_stock',
       columns: ['quantity'],
-      where: 'LOWER(operator) = LOWER(?) AND face_value = ? AND shop_id = ?',
+      where: 'LOWER(operator_name) = LOWER(?) AND face_value = ? AND shop_id = ?', // تغییر به operator_name
       whereArgs: [operator, faceValue, shopId],
     );
     return res.isNotEmpty ? (res.first['quantity'] as num).toInt() : 0;
   }
-   Future<List<Map<String, dynamic>>> getAllPaperStocks() async {
+  Future<List<Map<String, dynamic>>> getAllPaperStocks() async {
     final db = await instance.database;
     return await db.query('paper_stock', orderBy: 'operator_name, face_value');
   }
-
   // ۱. افزایش موجودی شرکت (هنگام خرید کریدیت عمده)
   Future<void> increaseProviderBalance(String providerName, double amount, String shopId) async {
     final db = await instance.database;
@@ -498,20 +562,11 @@ class DatabaseHelper {
   }
   Future<List<Map<String, dynamic>>> getFilteredTransactions(UserModel user) async {
     final db = await instance.database;
-
-    if (user.role == 'OWNER') {
-      // صاحب دکان: تمام تراکنش‌های دکان خودش
-      return await db.query('transactions',
-          where: 'shop_id = ?',
-          whereArgs: [user.shopId],
-          orderBy: 'created_at DESC');
-    } else {
-      // کارمند: فقط تراکنش‌هایی که خودش ثبت کرده
-      return await db.query('transactions',
-          where: 'shop_id = ? AND created_by = ?',
-          whereArgs: [user.shopId, user.uid],
-          orderBy: 'created_at DESC');
-    }
+    // برای همه یکسان: تمام تراکنش‌های دکان
+    return await db.query('transactions',
+        where: 'shop_id = ?',
+        whereArgs: [user.shopId],
+        orderBy: 'created_at DESC');
   } // در فایل app_database.dart
   Future<int> insertDetailedTransaction(Map<String, dynamic> data, UserModel user) async {
     final db = await instance.database;
@@ -524,14 +579,14 @@ class DatabaseHelper {
 
     return await db.insert('transactions', row);
   }
-  Future<void> insertStaff(String uid, String name, String email, String shopId) async {
-    final db = await instance.database;
-    await db.insert('users', {
-      'uid': uid,
-      'name': name,
-      'email': email,
-      'role': 'STAFF',
-      'shop_id': shopId, // آیدی دکانِ مدیری که او را ساخته
-    });
-  }
+  // Future<void> insertStaff(String uid, String name, String email, String shopId) async {
+  //   final db = await instance.database;
+  //   await db.insert('users', {
+  //     'uid': uid,
+  //     'name': name,
+  //     'email': email,
+  //     'role': 'STAFF',
+  //     'shop_id': shopId, // آیدی دکانِ مدیری که او را ساخته
+  //   });
+  // }
 }

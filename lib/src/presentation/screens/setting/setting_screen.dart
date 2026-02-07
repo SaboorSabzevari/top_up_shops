@@ -7,7 +7,7 @@ import '../../../providers/auth_provider.dart';
 import '../../../providers/local_provider.dart';
 import '../../theme/colors.dart';
 import '../auth/login_screen.dart';
-import 'add_employee.dart';
+
 import 'edit_profile_screen.dart' hide kPrimaryColor;
 import 'package:top_up_shops/src/presentation/screens/setting/unit_screen.dart';
 
@@ -112,8 +112,7 @@ class SettingsScreen extends ConsumerWidget {
                   iconColor: Colors.purple,
                   title: l10n.aboutUs,
                   onTap: () {
-                    Navigator.push(context, MaterialPageRoute(builder: (context)=>AddStaffPage()));
-                  },
+                         },
                 ),
               ],
             ),

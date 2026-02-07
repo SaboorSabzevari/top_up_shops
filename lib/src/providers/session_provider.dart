@@ -32,7 +32,20 @@ class UserModel {
     );
   }
 }
+class SessionService {
+  static final SessionService instance = SessionService._internal();
+  SessionService._internal();
 
+  UserModel? _currentUser;
+
+  // متد برای دسترسی سریع به shopId که در خطاها دیده میشد
+  String get currentShopId => _currentUser?.shopId ?? '';
+  UserModel? get user => _currentUser;
+
+  void update(UserModel? user) {
+    _currentUser = user;
+  }
+}
 class SessionNotifier extends StateNotifier<UserModel?> {
   SessionNotifier() : super(null) {
     _loadSession();
