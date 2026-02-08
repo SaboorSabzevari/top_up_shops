@@ -159,6 +159,11 @@ class CustomerListPage extends ConsumerWidget {
             label: const Text("عمده"),
             selected: activeFilter == 'WHOLESALE',
             onSelected: (_) => ref.read(customerFilterProvider.notifier).state = 'WHOLESALE',
+          ),const SizedBox(width: 8),
+          FilterChip(
+            label: const Text("عادی"),
+            selected: activeFilter == 'ORDINARY',
+            onSelected: (_) => ref.read(customerFilterProvider.notifier).state = 'ORDINARY',
           ),
           // سایر فیلترها...
         ],

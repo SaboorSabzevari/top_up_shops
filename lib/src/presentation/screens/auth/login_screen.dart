@@ -265,7 +265,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 label: l10n.password,
                 controller: _passwordController,
                 icon: Icons.lock,
-                hintText: 'گذرواژه خود را وارد کنبد',
+                hintText: 'گذرواژه خود را وارد کنید',
                 isPassword: true,
                 isPasswordVisible: _isPasswordVisible,
                 onToggleVisibility: () {
@@ -273,6 +273,20 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     _isPasswordVisible = !_isPasswordVisible;
                   });
                 },
+                // اضافه کردن دکمه در اینجا
+                trailing: GestureDetector(
+                  onTap: () {
+                    // عملیات فراموشی رمز
+                  },
+                  child: Text(
+                    l10n.forgotPassword,
+                    style: TextStyle(
+                      color: kPrimaryColor,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
               ),
 
               Padding(
@@ -289,17 +303,17 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       },
                     ),
                     Text(l10n.memorizeMe),
-                    const Spacer(),
-                    TextButton(
-                      onPressed: () {},
-                      child: Text(
-                        l10n.forgotPassword,
-                        style: TextStyle(
-                          color: kPrimaryColor,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
+                    // const Spacer(),
+                    // TextButton(
+                    //   onPressed: () {},
+                    //   child: Text(
+                    //     l10n.forgotPassword,
+                    //     style: TextStyle(
+                    //       color: kPrimaryColor,
+                    //       fontSize: 13,
+                    //     ),
+                    //   ),
+                    // ),
                   ],
                 ),
               ),
@@ -411,13 +425,21 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     required bool isPassword,
     bool isPasswordVisible = false,
     VoidCallback? onToggleVisibility,
+    Widget? trailing, // <--- اضافه کردن این پارامتر
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+        // استفاده از Row برای قرار دادن لیبل و دکمه فراموشی در یک خط
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+            ),
+            if (trailing != null) trailing, // نمایش ویجت اضافه در صورت وجود
+          ],
         ),
         const SizedBox(height: 8),
         Container(
@@ -431,19 +453,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             obscureText: isPassword && !isPasswordVisible,
             decoration: InputDecoration(
               hintText: hintText,
-              hintStyle: TextStyle(
-                color: Colors.grey
-              ),
+              hintStyle: const TextStyle(color: Colors.grey),
               border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16, vertical: 16),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
               prefixIcon: Icon(icon, size: 20),
               suffixIcon: isPassword
                   ? IconButton(
                 icon: Icon(
-                  isPasswordVisible
-                      ? Icons.visibility_off
-                      : Icons.visibility,
+                  isPasswordVisible ? Icons.visibility_off : Icons.visibility,
                   size: 20,
                 ),
                 onPressed: onToggleVisibility,

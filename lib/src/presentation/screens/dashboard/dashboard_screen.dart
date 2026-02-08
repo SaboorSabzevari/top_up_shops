@@ -108,45 +108,45 @@ class DashboardScreen extends ConsumerWidget {
 
                 Row(
                   children: [
-                    IconButton(
-                      onPressed: syncState.isSyncing ? null : () => syncNotifier.syncNow(),
-                      icon: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          // آیکون اصلی (اگر در حال سینک باشد می‌چرخد)
-                          syncState.isSyncing
-                              ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(brandRed),
-                            ),
-                          )
-                              : const Icon(Icons.sync, color: Colors.grey),
-
-                          // نمایش عدد تسک‌های باقی‌مانده (Badge)
-                          if (syncState.pendingOps > 0 && !syncState.isSyncing)
-                            Positioned(
-                              right: 0,
-                              top: 0,
-                              child: Container(
-                                padding: const EdgeInsets.all(2),
-                                decoration: BoxDecoration(
-                                  color: brandRed,
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
-                                child: Text(
-                                  '${syncState.pendingOps}',
-                                  style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
+                    // IconButton(
+                    //   onPressed: syncState.isSyncing ? null : () => syncNotifier.syncNow(),
+                    //   icon: Stack(
+                    //     alignment: Alignment.center,
+                    //     children: [
+                    //       // آیکون اصلی (اگر در حال سینک باشد می‌چرخد)
+                    //       syncState.isSyncing
+                    //           ? const SizedBox(
+                    //         width: 20,
+                    //         height: 20,
+                    //         child: CircularProgressIndicator(
+                    //           strokeWidth: 2,
+                    //           valueColor: AlwaysStoppedAnimation<Color>(brandRed),
+                    //         ),
+                    //       )
+                    //           : const Icon(Icons.sync, color: Colors.grey),
+                    //
+                    //       // نمایش عدد تسک‌های باقی‌مانده (Badge)
+                    //       if (syncState.pendingOps > 0 && !syncState.isSyncing)
+                    //         Positioned(
+                    //           right: 0,
+                    //           top: 0,
+                    //           child: Container(
+                    //             padding: const EdgeInsets.all(2),
+                    //             decoration: BoxDecoration(
+                    //               color: brandRed,
+                    //               borderRadius: BorderRadius.circular(10),
+                    //             ),
+                    //             constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
+                    //             child: Text(
+                    //               '${syncState.pendingOps}',
+                    //               style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
+                    //               textAlign: TextAlign.center,
+                    //             ),
+                    //           ),
+                    //         ),
+                    //     ],
+                    //   ),
+                    // ),
                     IconButton(
                       onPressed: isSyncing ? null : () => _handleSync(context, ref),
                       icon: isSyncing
@@ -160,7 +160,7 @@ class DashboardScreen extends ConsumerWidget {
                     ),
                     _buildMiniCard("تعداد امروز", "${todayCount.value ?? 0}", "عدد", isDark, brandRed),
                     const SizedBox(width: 10),
-                    _buildMiniCard1("سود امروز", "${todayProfit.value ?? 0}", "افغانی", isDark, brandRed, highlight: true),
+                    _buildMiniCard1("سود امروز", "${todayProfit.value ?? 0}", "؋", isDark, brandRed, highlight: true),
                   ],
                 ),
                 const SizedBox(height: 20),

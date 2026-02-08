@@ -559,9 +559,14 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
       customerCodeCtrl.text = customer['customer_code']?.toString() ?? '';
       customerType = (customer['type'] == 'WHOLESALE') ? 'bulk' : 'normal';
       isCompanySelectionLocked = false;
+
+      // اصلاح بخش خواندن wholesale_codes
       _currentCustomerWholesaleCodes = fullDetails['wholesale_codes'] ?? [];
+
       _selectedNormalProviderCode = null;
       _selectedBulkProviderCode = null;
+
+      // اصلاح بخش خواندن تلفن‌ها
       _normalCustomerPhones = [];
       _selectedPhone = null;
       _bulkCustomerPhones = [];
@@ -571,39 +576,30 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
       wholesalePhoneCtrl.clear();
       companyCodeCtrl.clear();
       selectedOperator = '';
-    });
 
-    if (customerType == 'normal') {
-      final List phonesList = fullDetails['phones'] ?? [];
-      if (phonesList.isNotEmpty) {
-        setState(() {
-          _normalCustomerPhones = phonesList
-              .map((p) => p['phone_number'].toString())
-              .toList();
+      // خواندن تلفن‌ها از JSON
+      if (fullDetails['phones'] is List) {
+        final phonesList = fullDetails['phones'] as List;
+        if (customerType == 'normal') {
+          _normalCustomerPhones = phonesList.map((p) => p.toString()).toList();
           if (_normalCustomerPhones.length == 1) {
             _selectedPhone = _normalCustomerPhones[0];
             phoneCtrl.text = _selectedPhone!;
           }
-        });
-      }
-    } else if (customerType == 'bulk') {
-      final List phonesList = fullDetails['phones'] ?? [];
-      if (phonesList.isNotEmpty) {
-        setState(() {
-          _bulkCustomerPhones = phonesList
-              .map((p) => p['phone_number'].toString())
-              .toList();
+        } else {
+          _bulkCustomerPhones = phonesList.map((p) => p.toString()).toList();
           if (_bulkCustomerPhones.length == 1) {
             _selectedBulkPhone = _bulkCustomerPhones[0];
             wholesalePhoneCtrl.text = _selectedBulkPhone!;
           }
-        });
+        }
       }
+    });
 
+    if (customerType == 'bulk') {
       _prepareFilteredProviders();
     }
   }
-
   void _prepareFilteredProviders() {
     // استفاده از ref.read برای دریافت وضعیت فعلی لیست شرکت‌ها
     final providersAsync = ref.read(providersListProvider);
@@ -992,7 +988,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
           ),
           Expanded(
             child: Text(
-              l10n.transactionHistory,
+             "ارسال کریدیت",
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontWeight: FontWeight.bold,

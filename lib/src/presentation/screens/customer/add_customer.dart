@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
@@ -106,35 +107,67 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
           normalPhones.clear();
           dealers.clear();
 
-          final List phones = details['phones'] ?? [];
-          if (phones.isNotEmpty) {
-            for (var p in phones) {
-              normalPhones.add(TextEditingController(text: p['phone_number'].toString()));
+          // پارس کردن phones از JSON
+          List<dynamic> phonesData = [];
+          if (details['phones'] is String) {
+            try {
+              phonesData = jsonDecode(details['phones'] as String);
+            } catch (e) {
+              phonesData = [];
+            }
+          } else if (details['phones'] is List) {
+            phonesData = details['phones'] as List<dynamic>;
+          }
+
+          if (phonesData.isNotEmpty) {
+            for (var p in phonesData) {
+              if (p is Map) {
+                normalPhones.add(TextEditingController(text: p['phone_number']?.toString() ?? ''));
+              } else if (p is String) {
+                normalPhones.add(TextEditingController(text: p));
+              }
             }
           } else if (_customerType == CustomerType.normal) {
             normalPhones.add(TextEditingController());
           }
 
-          final List codes = details['wholesale_codes'] ?? [];
-          if (codes.isNotEmpty) {
-            for (var c in codes) {
+          // پارس کردن wholesale_codes از JSON
+          List<dynamic> codesData = [];
+          if (details['wholesale_codes'] is String) {
+            try {
+              codesData = jsonDecode(details['wholesale_codes'] as String);
+            } catch (e) {
+              codesData = [];
+            }
+          } else if (details['wholesale_codes'] is List) {
+            codesData = details['wholesale_codes'] as List<dynamic>;
+          }
+
+          if (codesData.isNotEmpty) {
+            for (var c in codesData) {
               final item = _DealerItem();
-              item.companyType = c['company_name']?.toString();
-              item.codeCtrl.text = c['company_code']?.toString() ?? '';
+              if (c is Map) {
+                item.companyType = c['company']?.toString() ?? c['company_name']?.toString();
+                item.codeCtrl.text = c['code']?.toString() ?? c['company_code']?.toString() ?? '';
+              }
               dealers.add(item);
             }
           } else if (_customerType == CustomerType.shopkeeper) {
             dealers.add(_DealerItem());
           }
 
-          if (_customerType == CustomerType.shopkeeper && phones.isNotEmpty) {
-            wholesaleMainPhone.text = phones[0]['phone_number'].toString();
+          // برای مشتری عمده، اولین شماره را در فیلد اصلی قرار بده
+          if (_customerType == CustomerType.shopkeeper && phonesData.isNotEmpty) {
+            if (phonesData[0] is Map) {
+              wholesaleMainPhone.text = phonesData[0]['phone_number']?.toString() ?? '';
+            } else if (phonesData[0] is String) {
+              wholesaleMainPhone.text = phonesData[0] as String;
+            }
           }
         });
       }
     });
   }
-
   void _changeCustomerType(CustomerType newType) {
     if (newType == _customerType) return;
 
@@ -318,7 +351,7 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
     }
 
     List<Map<String, String>> wholesaleCodes = dealers
-        .where((d) => d.companyType != null && d.codeCtrl.text.isNotEmpty)
+        .where((d) => d.companyType != null && d.companyType!.isNotEmpty && d.codeCtrl.text.isNotEmpty)
         .map((e) => {
       'company': e.companyType!,
       'code': e.codeCtrl.text
@@ -330,11 +363,14 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
       customerCode: widget.customerData?['customer_code'] ??
           'CUST-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}',
       type: typeStr,
+      shopId: user.shopId, // ✅ اضافه شد
+      createdBy: user.uid, // ✅ اضافه شد
       address: addressCtrl.text,
       profileImage: _profilePath,
-      tazkiraImage: _tazkiraPath, shopId: '',
+      tazkiraImage: _tazkiraPath,
+      phones: validPhones, // ✅ اضافه شد
+      wholesaleCodes: wholesaleCodes, // ✅ اضافه شد
     );
-
     try {
       // ۱. دریافت اطلاعات کاربر فعلی از Riverpod
       final user = ref.read(currentUserProvider);

@@ -47,6 +47,7 @@ class DatabaseHelper {
     status TEXT
   )
 ''');
+    // در متد _createDB، جدول customers را به این صورت تغییر دهید:
     await db.execute('''CREATE TABLE customers (
     id INTEGER PRIMARY KEY AUTOINCREMENT, 
     name TEXT, 
@@ -56,9 +57,11 @@ class DatabaseHelper {
     created_by TEXT,
     profile_image TEXT, 
     address TEXT, 
-    tazkira_image TEXT
+    tazkira_image TEXT,
+    phones TEXT DEFAULT '[]', -- JSON array برای ذخیره چندین شماره
+    wholesale_codes TEXT DEFAULT '[]' -- JSON array برای ذخیره چندین کد شرکت
   )''');
-    await db.execute('CREATE TABLE customer_phones (id INTEGER PRIMARY KEY AUTOINCREMENT, shop_id TEXT, customer_id INTEGER, phone_number TEXT)');
+    // await db.execute('CREATE TABLE customer_phones (id INTEGER PRIMARY KEY AUTOINCREMENT, shop_id TEXT, customer_id INTEGER, phone_number TEXT)');
     await db.execute('CREATE TABLE customer_wholesale_codes (id INTEGER PRIMARY KEY AUTOINCREMENT, shop_id TEXT, customer_id INTEGER, company_name TEXT, company_code TEXT)');
     await db.execute('''CREATE TABLE units (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -358,28 +361,27 @@ class DatabaseHelper {
     }
   }
 
-  Future<int> addCustomer(Customer c, List<String>? phones, List<Map<String, String>>? wholesaleCodes, UserModel user) async {  final db = await instance.database;
+  Future<int> addCustomer(Customer c, List<String>? phones, List<Map<String, String>>? wholesaleCodes, UserModel user) async {
+    final db = await instance.database;
     return await db.transaction((txn) async {
       final customerMap = c.toMap();
       customerMap['shop_id'] = user.shopId;
       customerMap['created_by'] = user.uid;
 
-      final id = await txn.insert('customers', customerMap);
+      // تبدیل لیست‌ها به JSON
+      if (phones != null && phones.isNotEmpty) {
+        customerMap['phones'] = jsonEncode(phones);
+      } else {
+        customerMap['phones'] = '[]';
+      }
 
-      if (phones != null) {
-        for (var p in phones) {
-          await txn.insert('customer_phones', {'customer_id': id, 'phone_number': p});
-        }
+      if (wholesaleCodes != null && wholesaleCodes.isNotEmpty) {
+        customerMap['wholesale_codes'] = jsonEncode(wholesaleCodes);
+      } else {
+        customerMap['wholesale_codes'] = '[]';
       }
-       if (wholesaleCodes != null && wholesaleCodes.isNotEmpty) {
-        for (var item in wholesaleCodes) {
-          await txn.insert('customer_wholesale_codes', {
-            'customer_id': id,
-            'company_name': item['company'],
-            'company_code': item['code'],
-          });
-        }
-      }
+
+      final id = await txn.insert('customers', customerMap);
       return id;
     });
   }
@@ -387,42 +389,33 @@ class DatabaseHelper {
   Future<void> updateCustomer(int id, Customer c, List<String>? phones, List<Map<String, String>>? wholesaleCodes, UserModel user) async {
     final db = await instance.database;
     await db.transaction((txn) async {
-      // آپدیت اطلاعات پایه با شرط shop_id برای امنیت
+      final Map<String, dynamic> updateData = {
+        'name': c.name,
+        'customer_code': c.customerCode,
+        'type': c.type,
+        'shop_id': user.shopId,
+        'created_by': user.uid,
+        'address': c.address,
+        'profile_image': c.profileImage,
+        'tazkira_image': c.tazkiraImage,
+      };
+
+      // آپدیت JSON‌ها
+      updateData['phones'] = jsonEncode(phones ?? []);
+      updateData['wholesale_codes'] = jsonEncode(wholesaleCodes ?? []);
+
       await txn.update(
         'customers',
-        c.toMap(),
+        updateData,
         where: 'id = ? AND shop_id = ?',
         whereArgs: [id, user.shopId],
       );
-
-      // حذف موبایل‌های قبلی و ثبت جدید
-      await txn.delete('customer_phones', where: 'customer_id = ?', whereArgs: [id]);
-      if (phones != null) {
-        for (var p in phones) {
-          await txn.insert('customer_phones', {'customer_id': id, 'phone_number': p});
-        }
-      }
-
-      // حذف کدهای عمده قبلی و ثبت جدید
-      await txn.delete('customer_wholesale_codes', where: 'customer_id = ?', whereArgs: [id]);
-      if (wholesaleCodes != null) {
-        for (var item in wholesaleCodes) {
-          await txn.insert('customer_wholesale_codes', {
-            'customer_id': id,
-            'company_name': item['company'],
-            'company_code': item['code'],
-          });
-        }
-      }
     });
-  }
-// اضافه کردن پارامتر دوم (shopId) به تعریف تابع
-  Future<List<Map<String, dynamic>>> searchCustomers(String query, String shopId) async {
+  } Future<List<Map<String, dynamic>>> searchCustomers(String query, String shopId) async {
     final db = await instance.database;
 
     return await db.query(
       'customers',
-      // اضافه کردن شرط shop_id به کوئری
       where: '(name LIKE ? OR customer_code LIKE ?) AND shop_id = ?',
       whereArgs: ['%$query%', '%$query%', shopId],
     );
@@ -430,13 +423,63 @@ class DatabaseHelper {
   Future<Map<String, dynamic>> getCustomerFullDetails(int id) async {
     final db = await instance.database;
     final customer = await db.query('customers', where: 'id = ?', whereArgs: [id]);
+
+    if (customer.isEmpty) {
+      return {};
+    }
+
     final result = Map<String, dynamic>.from(customer.first);
-    result['phones'] = await db.query('customer_phones', where: 'customer_id = ?', whereArgs: [id]);
-    result['wholesale_codes'] = await db.query('customer_wholesale_codes', where: 'customer_id = ?', whereArgs: [id]);
+
+    // پارس کردن JSON‌ها
+    try {
+      final phonesJson = result['phones'] as String?;
+      if (phonesJson != null && phonesJson.isNotEmpty) {
+        final parsed = jsonDecode(phonesJson);
+        if (parsed is List) {
+          // اگر JSON یک لیست مستقیم از شماره‌هاست
+          result['phones'] = parsed.map((phone) {
+            if (phone is Map) {
+              return phone;
+            } else {
+              return {'phone_number': phone.toString()};
+            }
+          }).toList();
+        } else {
+          result['phones'] = [];
+        }
+      } else {
+        result['phones'] = [];
+      }
+    } catch (e) {
+      result['phones'] = [];
+    }
+
+    try {
+      final codesJson = result['wholesale_codes'] as String?;
+      if (codesJson != null && codesJson.isNotEmpty) {
+        final parsed = jsonDecode(codesJson);
+        if (parsed is List) {
+          result['wholesale_codes'] = parsed.map((code) {
+            if (code is Map) {
+              return {
+                'company_name': code['company'] ?? code['company_name'],
+                'company_code': code['code'] ?? code['company_code']
+              };
+            }
+            return code;
+          }).toList();
+        } else {
+          result['wholesale_codes'] = [];
+        }
+      } else {
+        result['wholesale_codes'] = [];
+      }
+    } catch (e) {
+      result['wholesale_codes'] = [];
+    }
+
     return result;
   }
-
-  //CRUD for providers
   Future<int> addProvider(Map<String, dynamic> providerMap) async {
     final db = await instance.database;
     return await db.insert('providers', providerMap);
