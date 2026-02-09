@@ -1,16 +1,13 @@
 import 'dart:io';
-
 import 'package:flutter/services.dart';
-
+import 'package:flutter_screenutil/flutter_screenutil.dart'; // اضافه کردن این خط
 import '../../../data/local/app_database.dart';
 import '../../../domain/entity/transaction.dart';
 import '../../../providers/session_provider.dart';
 import '../../../providers/transaction_provider.dart';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart' as intl;
-
 import 'package:excel/excel.dart' as xl;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -48,7 +45,7 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
       );
       final ttfFont = pw.Font.ttf(fontData);
 
-       double totalInvoice = transactions.fold(
+      double totalInvoice = transactions.fold(
         0,
             (sum, item) => sum + item.totalPrice,
       );
@@ -62,13 +59,13 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
       String statusLabel = "";
       PdfColor statusColor = PdfColors.black;
 
-       if (remaining > 0) {
+      if (remaining > 0) {
         statusLabel = "وضعیت: بدهکار";
-        statusText = "${intl.NumberFormat('#,###').format(remaining)} AFN";
+        statusText = "${intl.NumberFormat('#,###').format(remaining)} افغانی ";
         statusColor = PdfColors.red900;
       } else if (remaining < 0) {
         statusLabel = "وضعیت: طلبکار";
-        statusText = "${intl.NumberFormat('#,###').format(remaining.abs())} AFN";
+        statusText = "${intl.NumberFormat('#,###').format(remaining.abs())} افغانی ";
         statusColor = PdfColors.green900;
       } else {
         statusLabel = "وضعیت:";
@@ -101,7 +98,7 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
             ),
             pw.SizedBox(height: 20),
 
-             pw.TableHelper.fromTextArray(
+            pw.TableHelper.fromTextArray(
               border: pw.TableBorder.all(color: PdfColors.grey300),
               headerStyle: pw.TextStyle(
                 font: ttfFont,
@@ -116,8 +113,8 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
               cellAlignment: pw.Alignment.center,
               headers: [
                 'تاریخ',
-                'دریافتی (AFN)', // ستون دریافتی
-                'مبلغ فاکتور (AFN)', // ستون فاکتور
+                'دریافتی (افغانی)',
+                'مبلغ فاکتور (افغانی)',
                 'شرح / اپراتور',
                 'ردیف',
               ],
@@ -141,7 +138,7 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                   return [
                     formattedDate,
                     intl.NumberFormat('#,###').format(t.paidAmount),
-                    intl.NumberFormat('#,###').format(t.totalPrice), // استفاده از totalPrice
+                    intl.NumberFormat('#,###').format(t.totalPrice),
                     description,
                     index + 1,
                   ];
@@ -149,8 +146,8 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                 // ردیف جمع کل
                 [
                   '',
-                  intl.NumberFormat('#,###').format(totalPaid), // جمع دریافتی
-                  intl.NumberFormat('#,###').format(totalInvoice), // جمع فاکتور
+                  intl.NumberFormat('#,###').format(totalPaid),
+                  intl.NumberFormat('#,###').format(totalInvoice),
                   'مجموع کل',
                   '',
                 ],
@@ -158,7 +155,7 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
             ),
             pw.SizedBox(height: 15),
 
-            // بخش وضعیت حساب نهایی (پایین فاکتور)
+            // بخش وضعیت حساب نهایی
             pw.Container(
               padding: const pw.EdgeInsets.all(10),
               decoration: pw.BoxDecoration(
@@ -227,8 +224,8 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
         xl.TextCellValue('ردیف'),
         xl.TextCellValue('اپراتور'),
         xl.TextCellValue('شماره/کد شرکت'),
-        xl.TextCellValue('مبلغ فاکتور (AFN)'),
-        xl.TextCellValue('مبلغ دریافتی (AFN)'),
+        xl.TextCellValue('مبلغ فاکتور (؋)'),
+        xl.TextCellValue('مبلغ دریافتی (؋)'),
         xl.TextCellValue('تاریخ'),
       ]);
 
@@ -237,12 +234,12 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
 
       for (int i = 0; i < transactions.length; i++) {
         final t = transactions[i];
-        totalInvoice += t.totalPrice; // جمع مبلغ فاکتور
-        totalPaid += t.paidAmount;    // جمع مبلغ دریافتی
+        totalInvoice += t.totalPrice;
+        totalPaid += t.paidAmount;
 
         final contact = (t.companyCode.isNotEmpty && t.companyCode != '—')
             ? "کد: ${t.companyCode}"
-            : t.phoneNumber;
+            : _cleanPhone(t.phoneNumber);
 
         sheetObject.appendRow([
           xl.IntCellValue(i + 1),
@@ -303,12 +300,13 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
       _showSnackBar("خطا در ذخیره اکسل: $e", Colors.red);
     }
   }
+
   void _showSnackBar(String message, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
           message,
-          style: const TextStyle(fontFamily: 'Noto Sans Arabic'),
+          style: TextStyle(fontFamily: 'Noto Sans Arabic', fontSize: 14.sp),
         ),
         backgroundColor: color,
         behavior: SnackBarBehavior.floating,
@@ -322,11 +320,9 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
       return;
     }
 
-    // استفاده از read به جای watch در بدنه تابع
     final user = ref.read(currentUserProvider);
 
     if (user != null) {
-      // اصلاح نام متغیر از val به query
       final results = await DatabaseHelper.instance.ajaxSearch(query, user.shopId);
 
       if (mounted) {
@@ -334,8 +330,12 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
       }
     }
   }
+
   @override
   Widget build(BuildContext context) {
+    // مقداردهی اولیه ScreenUtil
+    ScreenUtil.init(context, designSize: const Size(360, 800));
+
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final reportTransactions = ref.watch(customerReportTransactionsProvider);
     final dateRange = ref.watch(reportDateRangeProvider);
@@ -346,13 +346,13 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
         backgroundColor: isDark ? backgroundDarkColor : backgroundLightColor,
         appBar: _buildAppBar(isDark),
         body: SingleChildScrollView(
-          padding: const EdgeInsets.all(0),
+          padding: EdgeInsets.all(0),
           child: Column(
             children: [
               if (_searchResults.isNotEmpty) _buildSearchResults(isDark),
-              const SizedBox(height: 16),
+              SizedBox(height: 16.h),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
+                padding: EdgeInsets.symmetric(horizontal: 8.w),
                 child: Column(
                   children: [
                     if (_selectedCustomer != null) ...[
@@ -362,9 +362,9 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                         loading: () => _buildCustomerHeader(isDark, []),
                         error: (e, st) => _buildCustomerHeader(isDark, []),
                       ),
-                      const SizedBox(height: 8),
+                      SizedBox(height: 8.h),
                       _buildDatePicker(context, isDark, dateRange),
-                      const SizedBox(height: 8),
+                      SizedBox(height: 8.h),
                       _buildTransactionsTable(isDark, reportTransactions),
                     ] else
                       _buildEmptyState(isDark),
@@ -383,12 +383,11 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
       backgroundColor: (isDark ? backgroundDarkColor : backgroundLightColor)
           .withOpacity(0.8),
       elevation: 0,
-
       title: Text(
         "گزارش تراکنش‌های مشتری",
         style: TextStyle(
           color: isDark ? Colors.white : Colors.black,
-          fontSize: 18,
+          fontSize: 18.sp,
           fontWeight: FontWeight.bold,
           fontFamily: 'Noto Sans Arabic',
         ),
@@ -406,7 +405,7 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                 data: (list) {
                   if (list.isEmpty) return const SizedBox.shrink();
                   return PopupMenuButton<String>(
-                    icon: const Icon(Icons.ios_share, color: primaryColor),
+                    icon: Icon(Icons.ios_share, color: primaryColor, size: 24.w),
                     onSelected: (value) {
                       if (value == 'pdf') {
                         _generatePdfReport(list, _selectedCustomer!['name']);
@@ -415,42 +414,41 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                       }
                     },
                     itemBuilder: (context) => [
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'pdf',
-                        child: Text("خروجی PDF"),
+                        child: Text("خروجی PDF", style: TextStyle(fontSize: 14.sp)),
                       ),
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'excel',
-                        child: Text("خروجی Excel"),
+                        child: Text("خروجی Excel", style: TextStyle(fontSize: 14.sp)),
                       ),
                     ],
                   );
                 },
-                loading: () => const Center(
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                loading: () => Center(
+                  child: CircularProgressIndicator(strokeWidth: 2.w),
                 ),
                 error: (e, st) =>
-                    const Icon(Icons.error_outline, color: Colors.orange),
+                    Icon(Icons.error_outline, color: Colors.orange, size: 24.w),
               );
             },
           ),
       ],
       bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(56),
+        preferredSize: Size.fromHeight(56.h),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
           child: _buildSearchBar(isDark),
         ),
       ),
     );
   }
 
-  // Search Bar - Exact match to HTML
   Widget _buildSearchBar(bool isDark) {
     return Container(
       decoration: BoxDecoration(
         color: isDark ? surfaceDarkColor : surfaceLightColor,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(12.r),
         border: Border.all(
           color: isDark ? const Color(0xFF374151) : const Color(0xFFE5E7EB),
         ),
@@ -460,30 +458,29 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
         autofocus: true,
         controller: _searchController,
         onChanged: _onSearchChanged,
-        style: const TextStyle(fontSize: 14, fontFamily: 'Noto Sans Arabic'),
-        decoration: const InputDecoration(
+        style: TextStyle(fontSize: 14.sp, fontFamily: 'Noto Sans Arabic'),
+        decoration: InputDecoration(
           hintText: "جستجوی مشتری (نام یا کد)...",
-          hintStyle: TextStyle(fontFamily: 'Noto Sans Arabic'),
-          prefixIcon: Icon(Icons.search, color: primaryColor),
+          hintStyle: TextStyle(fontFamily: 'Noto Sans Arabic', fontSize: 14.sp),
+          prefixIcon: Icon(Icons.search, color: primaryColor, size: 24.w),
           border: InputBorder.none,
-          contentPadding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+          contentPadding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 16.w),
         ),
       ),
     );
   }
 
-  // Search Results
   Widget _buildSearchResults(bool isDark) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 4.h),
       decoration: BoxDecoration(
         color: isDark ? surfaceDarkColor : surfaceLightColor,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(12.r),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            blurRadius: 10.r,
+            offset: Offset(0, 4.h),
           ),
         ],
       ),
@@ -496,11 +493,11 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
           return ListTile(
             title: Text(
               customer['name'],
-              style: const TextStyle(fontFamily: 'Noto Sans Arabic'),
+              style: TextStyle(fontFamily: 'Noto Sans Arabic', fontSize: 14.sp),
             ),
             subtitle: Text(
               customer['customer_code'] ?? '',
-              style: const TextStyle(fontFamily: 'Manrope'),
+              style: TextStyle(fontFamily: 'Manrope', fontSize: 12.sp),
             ),
             onTap: () {
               setState(() {
@@ -509,13 +506,10 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                 _searchController.text = customer['name'];
               });
 
-              // اصلاح ریشه‌ای: به جای نام، آیدی را در پروایدر ست می‌کنیم
-              // توجه: فیلد id باید در خروجی ajaxSearch وجود داشته باشد
               ref.read(selectedCustomerIdProvider.notifier).state =
-                  customer['id'];
+              customer['id'];
               customer['name'];
 
-              // ۲. بستن کیبورد برای باز شدن فضای جدول
               FocusScope.of(context).unfocus();
             },
           );
@@ -524,21 +518,17 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
     );
   }
 
-  // Customer Header - Exact match to HTML with circle background
-  // در تابع _buildCustomerHeader، بعد از کد موجود، اطلاعات مالی اضافه کنید:
-
   Widget _buildCustomerHeader(
-    bool isDark,
-    List<TransactionModel> transactions,
-  ) {
-    // محاسبه مجموع‌ها
+      bool isDark,
+      List<TransactionModel> transactions,
+      ) {
     double totalInvoiceAmount = transactions.fold(
       0,
-      (sum, item) => sum + item.totalPrice,
+          (sum, item) => sum + item.totalPrice,
     );
     double totalPaidAmount = transactions.fold(
       0,
-      (sum, item) => sum + item.paidAmount,
+          (sum, item) => sum + item.paidAmount,
     );
     double totalRemaining = totalInvoiceAmount - totalPaidAmount;
 
@@ -550,34 +540,33 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
         : (totalRemaining < 0 ? Colors.green : Colors.grey);
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16.r),
       decoration: BoxDecoration(
         color: isDark ? surfaceDarkColor : surfaceLightColor,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(16.r),
         border: Border.all(
           color: isDark ? const Color(0xFF374151) : const Color(0xFFF3F4F6),
         ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
+            blurRadius: 4.r,
+            offset: Offset(0, 2.h),
           ),
         ],
       ),
       child: Stack(
         children: [
-          // Circle background از قبل موجود
           Positioned(
-            top: -30,
-            left: -30,
+            top: -30.h,
+            left: -30.w,
             child: Container(
-              width: 96,
-              height: 96,
+              width: 96.w,
+              height: 96.h,
               decoration: BoxDecoration(
                 color: primaryColor.withOpacity(0.05),
-                borderRadius: const BorderRadius.only(
-                  bottomRight: Radius.circular(100),
+                borderRadius: BorderRadius.only(
+                  bottomRight: Radius.circular(100.r),
                 ),
               ),
             ),
@@ -590,46 +579,46 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                   Row(
                     children: [
                       CircleAvatar(
-                        radius: 28,
+                        radius: 28.r,
                         backgroundColor: isDark
                             ? Colors.white.withOpacity(0.1)
                             : const Color(0xFFE5E7EB),
                         backgroundImage:
-                            _selectedCustomer!['profile_image'] != null
+                        _selectedCustomer!['profile_image'] != null
                             ? FileImage(
-                                File(_selectedCustomer!['profile_image']),
-                              )
+                          File(_selectedCustomer!['profile_image']),
+                        )
                             : null,
                         child: _selectedCustomer!['profile_image'] == null
                             ? Text(
-                                _selectedCustomer!['name'].isNotEmpty
-                                    ? _selectedCustomer!['name'][0]
-                                          .toUpperCase()
-                                    : '?',
-                                style: TextStyle(
-                                  color: isDark ? Colors.white : Colors.black,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              )
+                          _selectedCustomer!['name'].isNotEmpty
+                              ? _selectedCustomer!['name'][0]
+                              .toUpperCase()
+                              : '?',
+                          style: TextStyle(
+                            color: isDark ? Colors.white : Colors.black,
+                            fontSize: 20.sp,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        )
                             : null,
                       ),
-                      const SizedBox(width: 16),
+                      SizedBox(width: 16.w),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             "نام مشتری",
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: 12.sp,
                               color: Colors.grey,
                               fontFamily: 'Noto Sans Arabic',
                             ),
                           ),
                           Text(
                             _selectedCustomer!['name'],
-                            style: const TextStyle(
-                              fontSize: 20,
+                            style: TextStyle(
+                              fontSize: 18.sp,
                               fontWeight: FontWeight.bold,
                               fontFamily: 'Noto Sans Arabic',
                             ),
@@ -641,20 +630,20 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      const Text(
+                      Text(
                         "کد مشتری",
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 12.sp,
                           color: Colors.grey,
                           fontFamily: 'Noto Sans Arabic',
                         ),
                       ),
                       Text(
                         "#${_selectedCustomer!['customer_code'] ?? '---'}",
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: primaryColor,
                           fontWeight: FontWeight.bold,
-                          fontSize: 16,
+                          fontSize: 16.sp,
                           fontFamily: 'Manrope',
                         ),
                       ),
@@ -663,10 +652,9 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                 ],
               ),
 
-              // بخش جدید: اطلاعات مالی
-              const SizedBox(height: 16),
+              SizedBox(height: 16.h),
               Divider(color: Colors.grey.withOpacity(0.3)),
-              const SizedBox(height: 12),
+              SizedBox(height: 12.h),
 
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -674,18 +662,18 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         "مجموع فاکتورها",
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 12.sp,
                           color: Colors.grey,
                           fontFamily: 'Noto Sans Arabic',
                         ),
                       ),
                       Text(
-                        "${intl.NumberFormat('#,###').format(totalInvoiceAmount)} AFN",
-                        style: const TextStyle(
-                          fontSize: 16,
+                        "${intl.NumberFormat('#,###').format(totalInvoiceAmount)} ؋ ",
+                        style: TextStyle(
+                          fontSize: 16.sp,
                           fontWeight: FontWeight.bold,
                           fontFamily: 'Noto Sans Arabic',
                         ),
@@ -695,18 +683,18 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      const Text(
+                      Text(
                         "مجموع دریافتی‌ها",
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 12.sp,
                           color: Colors.grey,
                           fontFamily: 'Noto Sans Arabic',
                         ),
                       ),
                       Text(
-                        "${intl.NumberFormat('#,###').format(totalPaidAmount)} AFN",
-                        style: const TextStyle(
-                          fontSize: 16,
+                        "${intl.NumberFormat('#,###').format(totalPaidAmount)} ؋ ",
+                        style: TextStyle(
+                          fontSize: 16.sp,
                           fontWeight: FontWeight.bold,
                           fontFamily: 'Noto Sans Arabic',
                         ),
@@ -716,14 +704,13 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                 ],
               ),
 
-              const SizedBox(height: 12),
+              SizedBox(height: 12.h),
 
-              // وضعیت بدهکاری/طلبکاری
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: EdgeInsets.all(12.r),
                 decoration: BoxDecoration(
                   color: statusColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(12.r),
                   border: Border.all(color: statusColor.withOpacity(0.3)),
                 ),
                 child: Row(
@@ -735,7 +722,7 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                         Text(
                           "وضعیت حساب",
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 12.sp,
                             color: Colors.grey,
                             fontFamily: 'Noto Sans Arabic',
                           ),
@@ -743,7 +730,7 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                         Text(
                           statusText,
                           style: TextStyle(
-                            fontSize: 16,
+                            fontSize: 16.sp,
                             fontWeight: FontWeight.bold,
                             color: statusColor,
                             fontFamily: 'Noto Sans Arabic',
@@ -752,9 +739,9 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                       ],
                     ),
                     Text(
-                      "${totalRemaining.abs().toStringAsFixed(0)} AFN",
+                      "${totalRemaining.abs().toStringAsFixed(0)} ؋ ",
                       style: TextStyle(
-                        fontSize: 18,
+                        fontSize: 18.sp,
                         fontWeight: FontWeight.bold,
                         color: statusColor,
                         fontFamily: 'Manrope',
@@ -769,19 +756,16 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
       ),
     );
   }
-  // Date Picker - Exact match to HTML
-  // حذف متد _buildDatePicker فعلی و جایگزینی با این کد:
 
   Widget _buildDatePicker(
-    BuildContext context,
-    bool isDark,
-    DateTimeRange? range,
-  ) {
+      BuildContext context,
+      bool isDark,
+      DateTimeRange? range,
+      ) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
       child: Row(
         children: [
-          // آیکون تقویم (همانند صفحه تراکنش)
           IconButton(
             onPressed: () async {
               final DateTimeRange? picked = await showDateRangePicker(
@@ -809,32 +793,32 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
             icon: Icon(
               Icons.date_range_rounded,
               color: range != null ? primaryColor : Colors.grey,
+              size: 24.w,
             ),
             style: IconButton.styleFrom(
               backgroundColor: isDark
                   ? Colors.white.withOpacity(0.05)
                   : Colors.grey.shade100,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(8.r),
               ),
             ),
           ),
 
-          const SizedBox(width: 8),
+          SizedBox(width: 8.w),
 
-          // نمایش تاریخ انتخاب شده (اگر وجود داشته باشد)
           if (range != null) ...[
             Expanded(
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
+                padding: EdgeInsets.symmetric(
+                  horizontal: 12.w,
+                  vertical: 8.h,
                 ),
                 decoration: BoxDecoration(
                   color: isDark
                       ? surfaceDarkColor.withOpacity(0.5)
                       : Colors.grey[50],
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(8.r),
                   border: Border.all(
                     color: isDark
                         ? const Color(0xFF374151)
@@ -843,17 +827,17 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.history_toggle_off,
-                      size: 14,
+                      size: 14.w,
                       color: Colors.grey,
                     ),
-                    const SizedBox(width: 6),
+                    SizedBox(width: 6.w),
                     Expanded(
                       child: Text(
                         "${intl.DateFormat('yyyy/MM/dd').format(range.start)} - ${intl.DateFormat('yyyy/MM/dd').format(range.end)}",
-                        style: const TextStyle(
-                          fontSize: 12,
+                        style: TextStyle(
+                          fontSize: 12.sp,
                           fontFamily: 'Noto Sans Arabic',
                         ),
                         overflow: TextOverflow.ellipsis,
@@ -861,18 +845,18 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                     ),
                     GestureDetector(
                       onTap: () =>
-                          ref.read(reportDateRangeProvider.notifier).state =
-                              null,
+                      ref.read(reportDateRangeProvider.notifier).state =
+                      null,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 8.w,
+                          vertical: 4.h,
                         ),
-                        child: const Text(
+                        child: Text(
                           "لغو",
                           style: TextStyle(
-                            fontSize: 10,
-                            color: Color(0xFFEA2A33),
+                            fontSize: 10.sp,
+                            color: const Color(0xFFEA2A33),
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -883,7 +867,6 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
               ),
             ),
           ] else ...[
-            // اگر تاریخی انتخاب نشده
             Expanded(
               child: GestureDetector(
                 onTap: () async {
@@ -897,29 +880,29 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                   }
                 },
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 12,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 12.w,
+                    vertical: 12.h,
                   ),
                   decoration: BoxDecoration(
                     color: isDark
                         ? surfaceDarkColor.withOpacity(0.5)
                         : Colors.grey[50],
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(8.r),
                     border: Border.all(
                       color: isDark
                           ? const Color(0xFF374151)
                           : const Color(0xFFE5E7EB),
                     ),
                   ),
-                  child: const Row(
+                  child: Row(
                     children: [
-                      Icon(Icons.calendar_today, size: 16, color: Colors.grey),
-                      SizedBox(width: 8),
+                      Icon(Icons.calendar_today, size: 16.w, color: Colors.grey),
+                      SizedBox(width: 8.w),
                       Text(
                         "انتخاب بازه زمانی",
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 12.sp,
                           color: Colors.grey,
                           fontFamily: 'Noto Sans Arabic',
                         ),
@@ -935,212 +918,55 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
     );
   }
 
-  // Transactions Table - Exact match to HTML with independent scroll
-  Widget _buildTransactionsTable(
-    bool isDark,
-    AsyncValue<List<TransactionModel>> transactionsAsync,
-  ) {
+  Widget _buildTransactionsTable(bool isDark, AsyncValue<List<TransactionModel>> transactionsAsync) {
     return transactionsAsync.when(
-      loading: () =>
-          const Center(child: CircularProgressIndicator(color: primaryColor)),
-      error: (e, stack) => Center(
-        child: Text(
-          "خطا در بارگذاری: $e",
-          style: const TextStyle(fontFamily: 'Noto Sans Arabic'),
-        ),
-      ),
+      loading: () => const Center(child: CircularProgressIndicator(color: primaryColor)),
+      error: (e, _) => Center(child: Text("خطا: $e")),
       data: (list) {
-        if (list.isEmpty) {
-          return _buildEmptyState(isDark);
-        }
-
-        final totalAmount = list.fold<int>(
-          0,
-          (sum, item) => sum + item.sentAmount,
-        );
-
+        if (list.isEmpty) return _buildEmptyState(isDark);
         return Container(
-          clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
             color: isDark ? surfaceDarkColor : surfaceLightColor,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: isDark ? const Color(0xFF374151) : const Color(0xFFF3F4F6),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-            ],
+            borderRadius: BorderRadius.circular(12.r),
+            border: Border.all(color: isDark ? Colors.white10 : Colors.black12),
           ),
           child: Column(
             children: [
-              // Table header
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? const Color(0xFF1F2937)
-                      : const Color(0xFFF9FAFB),
-                  border: Border(
-                    bottom: BorderSide(
-                      color: isDark
-                          ? const Color(0xFF374151)
-                          : const Color(0xFFE5E7EB),
-                    ),
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "همه تراکنش‌ها",
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            fontFamily: 'Noto Sans Arabic',
-                          ),
-                        ),
-                        Text(
-                          "نمایش کل سوابق دیتابیس",
-                          style: TextStyle(
-                            fontSize: 9,
-                            color: Colors.grey,
-                            fontFamily: 'Noto Sans Arabic',
-                          ),
-                        ),
-                      ],
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
+              _buildTableHeader(isDark, list.length),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Container(
+                  constraints: BoxConstraints(minWidth: 336.w),
+                  child: Table(
+                    columnWidths: const {
+                      0: FlexColumnWidth(2.5), // شماره موبایل
+                      1: FlexColumnWidth(2),   // فاکتور
+                      2: FlexColumnWidth(2),   // دریافتی
+                      3: FlexColumnWidth(1.5), // تاریخ
+                    },
+                    children: [
+                      TableRow(
+                        decoration: BoxDecoration(color: isDark ? Colors.white.withOpacity(0.05) : Colors.grey.shade50),
+                        children: [
+                          _buildHeaderCell("شماره موبایل", isLeft: true),
+                          _buildHeaderCell("فاکتور"),
+                          _buildHeaderCell("دریافتی"),
+                          _buildHeaderCell("تاریخ", hasIcon: false),
+                        ],
                       ),
-                      decoration: BoxDecoration(
-                        color: primaryColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(100),
-                      ),
-                      child: Text(
-                        "${list.length} مورد",
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: primaryColor,
-                          fontWeight: FontWeight.bold,
-                          fontFamily: 'Noto Sans Arabic',
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Scrollable Table with Zebra Stripes
-              ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxHeight: MediaQuery.of(context).size.height * 0.5,
-                ),
-                child: Scrollbar(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.vertical,
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: _buildCustomTable(list, isDark),
-                    ),
+                      ...list.map((t) => TableRow(
+                        children: [
+                          _buildDataCell(_cleanPhone(t.phoneNumber), isLeft: true, isBold: false),
+                          _buildDataCell(intl.NumberFormat('#,###').format(t.totalPrice)),
+                          _buildDataCell(intl.NumberFormat('#,###').format(t.paidAmount), color: Colors.green),
+                          _buildDataCell(t.createdAt.split('T')[0], isGrey: true, fontSize: 10),
+                        ],
+                      )),
+                    ],
                   ),
                 ),
               ),
 
-              // Total footer
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: primaryColor.withOpacity(0.05),
-                  border: Border(
-                    top: BorderSide(
-                      color: primaryColor.withOpacity(0.1),
-                      width: 1,
-                    ),
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.account_balance_wallet,
-                              color: primaryColor,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              "مجموع تراکنش‌ها",
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: isDark
-                                    ? const Color(0xFFD1D5DB)
-                                    : const Color(0xFF374151),
-                                fontFamily: 'Noto Sans Arabic',
-                              ),
-                            ),
-                          ],
-                        ),
-                        Text.rich(
-                          TextSpan(
-                            children: [
-                              TextSpan(
-                                text: intl.NumberFormat(
-                                  '#,###',
-                                ).format(totalAmount),
-                                style: const TextStyle(
-                                  color: primaryColor,
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 24,
-                                  fontFamily: 'Manrope',
-                                ),
-                              ),
-                              const WidgetSpan(child: SizedBox(width: 4)),
-                              TextSpan(
-                                text: 'AFN',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: primaryColor,
-                                  fontFamily: 'Manrope',
-                                ),
-                              ),
-                            ],
-                          ),
-                          textDirection: TextDirection.ltr,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      "این مبلغ نمایانگر مجموع کل تراکنش‌های ثبت شده برای این کاربر در تمام دوران است.",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: Colors.grey,
-                        fontStyle: FontStyle.italic,
-                        height: 1.5,
-                        fontFamily: 'Noto Sans Arabic',
-                      ),
-                    ),
-                  ],
-                ),
-              ),
             ],
           ),
         );
@@ -1148,21 +974,89 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
     );
   }
 
-  // Custom Table with Zebra Stripes
+  Widget _buildTableHeader(bool isDark, int count) {
+    return Container(
+      padding: EdgeInsets.all(12.r),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: isDark ? Colors.white10 : Colors.black12)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text("لیست تراکنش‌ها", style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.bold)),
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 2.h),
+            decoration: BoxDecoration(color: primaryColor.withOpacity(0.1), borderRadius: BorderRadius.circular(20.r)),
+            child: Text("$count مورد", style: TextStyle(fontSize: 10.sp, color: primaryColor, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+  Widget _buildHeaderCell(String label, {bool hasIcon = true, bool isLeft = false}) {
+    return TableCell(
+      child: Container(
+        padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 4.w),
+        child: Row(
+          mainAxisAlignment: isLeft ? MainAxisAlignment.start : MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (hasIcon) Icon(Icons.unfold_more, size: 12.w, color: primaryColor),
+            if (hasIcon) SizedBox(width: 2.w),
+            Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 10.sp,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey,
+                    fontFamily: 'Noto Sans Arabic',
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDataCell(String text, {bool isLeft = false, bool isBold = true, Color? color, bool isGrey = false, double fontSize = 11}) {
+    return TableCell(
+      child: Container(
+        padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 4.w),
+        alignment: isLeft ? Alignment.centerRight : Alignment.center,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: fontSize.sp,
+              fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+              color: color ?? (isGrey ? Colors.grey : null),
+              fontFamily: 'Manrope',
+            ),
+          ),
+        ),
+      ),
+    );
+  }
   Widget _buildCustomTable(List<TransactionModel> transactions, bool isDark) {
     return Container(
       constraints: BoxConstraints(
-        minWidth: MediaQuery.of(context).size.width - 32,
+        minWidth: MediaQuery.of(context).size.width - 32.w,
       ),
       child: Table(
         border: TableBorder.symmetric(
           inside: BorderSide(
             color: isDark ? const Color(0xFF374151) : const Color(0xFFE5E7EB),
-            width: 0.5,
+            width: 0.5.w,
           ),
         ),
         columnWidths: const {
-          0: FlexColumnWidth(1.1),
+          0: FlexColumnWidth(1.4), // افزایش از 1.1 به 1.4
           1: FlexColumnWidth(1.1),
           2: FlexColumnWidth(1.1),
           3: FlexColumnWidth(1),
@@ -1176,87 +1070,83 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
             children: [
               TableCell(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 14,
-                    horizontal: 6,
+                  padding: EdgeInsets.symmetric(
+                    vertical: 14.h,
+                    horizontal: 6.w,
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text(
-                        'شماره موبایل',
+                      Flexible(
+                        child: FittedBox( // <--- متن را مقیاس‌بندی می‌کند تا جا شود
+                          fit: BoxFit.scaleDown,
+                          child: Text('شماره موبایل',),
+                        ),
+                      ),
+                      SizedBox(width: 4.w),
+                      Icon(Icons.swap_vert, size: 14.w, color: primaryColor),
+                    ],
+                  )
+                ),
+              ),
+              TableCell(
+                child: Container(
+                  padding: EdgeInsets.symmetric(
+                    vertical: 14.h,
+                    horizontal: 6.w,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'مبلغ فاکتور',
                         style: TextStyle(
-                          fontSize: 10,
+                          fontSize: 10.sp,
                           fontWeight: FontWeight.bold,
                           color: Colors.grey,
                           fontFamily: 'Noto Sans Arabic',
                         ),
                       ),
-                      const SizedBox(width: 4),
-                      Icon(Icons.swap_vert, size: 14, color: primaryColor),
+                      SizedBox(width: 4.w),
+                      Icon(Icons.unfold_more, size: 14.w, color: primaryColor),
                     ],
                   ),
                 ),
               ),
               TableCell(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 14,
-                    horizontal: 6,
+                  padding: EdgeInsets.symmetric(
+                    vertical: 14.h,
+                    horizontal: 6.w,
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text(
-                        'مبلغ فاکتور', // تغییر از 'مقدار کریدیت'
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.grey,
-                          fontFamily: 'Noto Sans Arabic',
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Icon(Icons.unfold_more, size: 14, color: primaryColor),
-                    ],
-                  ),
-                ),
-              ),
-              TableCell(
-                // ستون جدید برای مبلغ دریافتی
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 14,
-                    horizontal: 6,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text(
+                      Text(
                         'مبلغ دریافتی',
                         style: TextStyle(
-                          fontSize: 10,
+                          fontSize: 10.sp,
                           fontWeight: FontWeight.bold,
                           color: Colors.grey,
                           fontFamily: 'Noto Sans Arabic',
                         ),
                       ),
-                      const SizedBox(width: 4),
-                      Icon(Icons.unfold_more, size: 14, color: primaryColor),
+                      SizedBox(width: 4.w),
+                      Icon(Icons.unfold_more, size: 14.w, color: primaryColor),
                     ],
                   ),
                 ),
               ),
               TableCell(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 14,
-                    horizontal: 6,
+                  padding: EdgeInsets.symmetric(
+                    vertical: 14.h,
+                    horizontal: 6.w,
                   ),
-                  child: const Text(
+                  child: Text(
                     'تاریخ',
                     style: TextStyle(
-                      fontSize: 10,
+                      fontSize: 10.sp,
                       fontWeight: FontWeight.bold,
                       color: Colors.grey,
                       fontFamily: 'Noto Sans Arabic',
@@ -1266,20 +1156,17 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
               ),
             ],
           ),
-          // Data rows with Zebra Stripes
           ...transactions.asMap().entries.map((entry) {
             final index = entry.key;
             final transaction = entry.value;
 
-            // Zebra Stripes effect
             final bool isEvenRow = index % 2 == 0;
             final Color rowColor = isEvenRow
                 ? (isDark
-                      ? Colors.white.withOpacity(0.02)
-                      : const Color(0xFFF9FAFB))
+                ? Colors.white.withOpacity(0.02)
+                : const Color(0xFFF9FAFB))
                 : Colors.transparent;
 
-            // در قسمت داده‌های جدول - ردیف‌های تراکنش
             return TableRow(
               decoration: BoxDecoration(color: rowColor),
               children: [
@@ -1287,14 +1174,14 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                   child: InkWell(
                     onTap: () {},
                     child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 14,
-                        horizontal: 6,
+                      padding: EdgeInsets.symmetric(
+                        vertical: 14.h,
+                        horizontal: 6.w,
                       ),
                       child: Text(
-                        transaction.phoneNumber,
-                        style: const TextStyle(
-                          fontSize: 12,
+                        _cleanPhone(transaction.phoneNumber),
+                        style: TextStyle(
+                          fontSize: 12.sp,
                           letterSpacing: 1.0,
                           fontFamily: 'Manrope',
                         ),
@@ -1303,13 +1190,12 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                   ),
                 ),
                 TableCell(
-                  // سلول مبلغ فاکتور
                   child: InkWell(
                     onTap: () {},
                     child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 14,
-                        horizontal: 16,
+                      padding: EdgeInsets.symmetric(
+                        vertical: 14.h,
+                        horizontal: 16.w,
                       ),
                       child: Text.rich(
                         TextSpan(
@@ -1318,15 +1204,16 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                               text: intl.NumberFormat(
                                 '#,###',
                               ).format(transaction.totalPrice),
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontFamily: 'Manrope',
+                                fontSize: 12.sp,
                               ),
                             ),
-                            const TextSpan(
-                              text: ' AFN',
+                            TextSpan(
+                              text: ' ؋ ',
                               style: TextStyle(
-                                fontSize: 10,
+                                fontSize: 10.sp,
                                 fontWeight: FontWeight.normal,
                                 color: Colors.grey,
                               ),
@@ -1338,13 +1225,12 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                   ),
                 ),
                 TableCell(
-                  // سلول مبلغ دریافتی
                   child: InkWell(
                     onTap: () {},
                     child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 14,
-                        horizontal: 16,
+                      padding: EdgeInsets.symmetric(
+                        vertical: 14.h,
+                        horizontal: 16.w,
                       ),
                       child: Text.rich(
                         TextSpan(
@@ -1353,15 +1239,16 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                               text: intl.NumberFormat(
                                 '#,###',
                               ).format(transaction.paidAmount),
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontFamily: 'Manrope',
+                                fontSize: 12.sp,
                               ),
                             ),
-                            const TextSpan(
-                              text: ' AFN',
+                            TextSpan(
+                              text: ' ؋ ',
                               style: TextStyle(
-                                fontSize: 10,
+                                fontSize: 10.sp,
                                 fontWeight: FontWeight.normal,
                                 color: Colors.grey,
                               ),
@@ -1376,14 +1263,14 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                   child: InkWell(
                     onTap: () {},
                     child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 14,
-                        horizontal: 2,
+                      padding: EdgeInsets.symmetric(
+                        vertical: 14.h,
+                        horizontal: 2.w,
                       ),
                       child: Text(
                         transaction.createdAt.split('T')[0],
-                        style: const TextStyle(
-                          fontSize: 11,
+                        style: TextStyle(
+                          fontSize: 11.sp,
                           color: Colors.grey,
                           fontFamily: 'Manrope',
                         ),
@@ -1399,14 +1286,13 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
     );
   }
 
-  // Empty State
   Widget _buildEmptyState(bool isDark) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 60, horizontal: 20),
+      padding: EdgeInsets.symmetric(vertical: 60.h, horizontal: 20.w),
       width: double.infinity,
       decoration: BoxDecoration(
         color: isDark ? surfaceDarkColor : surfaceLightColor,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(16.r),
         border: Border.all(
           color: isDark ? const Color(0xFF374151) : const Color(0xFFF3F4F6),
         ),
@@ -1416,25 +1302,25 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
         children: [
           Icon(
             Icons.auto_graph_rounded,
-            size: 48,
+            size: 48.w,
             color: Colors.grey.withOpacity(0.3),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16.h),
           Text(
             "برای دیدن گزارش ها, نام مشتری مورد نظر را وارد کنید!",
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 14.sp,
               fontWeight: FontWeight.bold,
               fontFamily: 'Noto Sans Arabic',
               color: isDark ? const Color(0xFFD1D5DB) : const Color(0xFF374151),
             ),
           ),
-          const SizedBox(height: 8),
-          const Text(
+          SizedBox(height: 8.h),
+          Text(
             "در این بازه زمانی هیچ فعالیتی ثبت نشده است",
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 11,
+              fontSize: 11.sp,
               color: Colors.grey,
               fontFamily: 'Noto Sans Arabic',
             ),
@@ -1442,5 +1328,12 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
         ],
       ),
     );
+  }
+
+  String _cleanPhone(String phone) {
+    if (phone.contains('{') || phone.contains('phone_number')) {
+      return phone.replaceAll(RegExp(r'[^0-9]'), '');
+    }
+    return phone;
   }
 }

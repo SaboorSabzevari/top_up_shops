@@ -1,22 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:top_up_shops/src/presentation/screens/setting/edit_profile_screen.dart';
-
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../../data/local/app_database.dart';
 import '../../../../providers/auth_provider.dart';
 import '../../../../providers/session_provider.dart';
+import '../../../theme/colors.dart';
 
 enum PurchaseType { paperCard, sentCredit }
 
-class PurchaseScreen extends ConsumerStatefulWidget { // تغییر کرد
+class PurchaseScreen extends ConsumerStatefulWidget {
   const PurchaseScreen({super.key});
 
   @override
   ConsumerState<PurchaseScreen> createState() => _PurchaseScreenState();
 }
 
-class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر کرد
+class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
   double unitBuyPrice = 0.0;
   double unitSellPrice = 0.0;
   bool _isLoadingUnitRates = false;
@@ -24,15 +24,11 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
   bool _isLoadingProviders = false;
 
   Future<void> _loadDigitalProviders() async {
-    // 🔴 ابتدا وضعیت کاربر را چک می‌کنیم
     final user = ref.read(currentUserProvider);
 
-    // 🔴 اگر کاربر null است، خطا نشان می‌دهیم و خروج می‌کنیم
     if (user == null) {
       print('❌ [ERROR] User is null in _loadDigitalProviders - Cannot load providers');
 
-      // برای دیباگ: بررسی می‌کنیم چه اتفاقی افتاده
-      print('🔍 [DEBUG] Checking auth state...');
       final authState = ref.read(authProvider);
       print('  Auth isLoggedIn: ${authState.isLoggedIn}');
       print('  Auth user UID: ${authState.user?.uid}');
@@ -40,10 +36,9 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
       if (mounted) {
         setState(() {
           _isLoadingProviders = false;
-          _digitalProviders = []; // لیست خالی
+          _digitalProviders = [];
         });
 
-        // 🔴 نشان دادن پیام خطا به کاربر (اختیاری)
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('لطفاً دوباره وارد شوید'),
@@ -55,7 +50,6 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
       return;
     }
 
-    // 🔴 چک می‌کنیم shopId خالی نباشد
     if (user.shopId.isEmpty) {
       print('⚠️ [WARNING] shopId is empty for user: ${user.uid}');
     }
@@ -67,7 +61,6 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
     }
 
     try {
-      // 🔴 بدون استفاده از ! چون قبلاً چک کردیم user null نیست
       final providers = await DatabaseHelper.instance.getProviders();
 
       print('📦 [DEBUG] Loaded ${providers.length} providers from database');
@@ -76,7 +69,6 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
         setState(() {
           _digitalProviders = providers;
 
-          // تنظیم پروایدر پیش‌فرض
           if (providers.isNotEmpty && _selectedProvider.isEmpty) {
             _selectedProvider = providers.first['name']?.toString() ?? '';
             print('🎯 [DEBUG] Set default provider to: $_selectedProvider');
@@ -87,7 +79,6 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
       print('❌ [ERROR] خطا در بارگذاری لیست پروایدرها: $e');
       print('📝 [STACK TRACE] $stackTrace');
 
-      // در صورت خطا، لیست پیش‌فرض
       if (mounted) {
         setState(() {
           _digitalProviders = [
@@ -108,37 +99,36 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
         });
       }
     }
-  } @override
+  }
+
+  @override
   void initState() {
     super.initState();
     _initializeControllers();
     _loadUnitRates();
-    _loadDigitalProviders(); // ← اضافه کردن این خط
+    _loadDigitalProviders();
     _calculateTotal();
   }
 
-  // متد جدید: بارگذاری unit buy_price و sell_price
   Future<void> _loadUnitRates() async {
     setState(() => _isLoadingUnitRates = true);
-    final user = ref.read(currentUserProvider); // دریافت کاربر
+    final user = ref.read(currentUserProvider);
     if (user == null) return;
     try {
       final unit = await DatabaseHelper.instance.getSingleUnit(user.shopId);
       if (mounted) {
         setState(() {
-          unitBuyPrice = unit['buy_price'] ?? 0.95; // پیش‌فرض 0.95
-          unitSellPrice = unit['sell_price'] ?? 0.96; // پیش‌فرض 0.96
+          unitBuyPrice = unit['buy_price'] ?? 0.95;
+          unitSellPrice = unit['sell_price'] ?? 0.96;
 
-          // تنظیم پیش‌فرض برای قیمت فی واحد در کریدیت دیجیتال
           if (_selectedType == PurchaseType.sentCredit) {
             _costPerUnitController.text = unitBuyPrice.toStringAsFixed(2);
-            _calculateTotal(); // محاسبه مجدد با نرخ جدید
+            _calculateTotal();
           }
         });
       }
     } catch (e) {
       print('خطا در بارگذاری نرخ‌ها: $e');
-      // در صورت خطا، مقادیر پیش‌فرض
       setState(() {
         unitBuyPrice = 0.95;
         unitSellPrice = 0.96;
@@ -150,32 +140,30 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
 
   PurchaseType _selectedType = PurchaseType.sentCredit;
 
-   final List<String> _providers = [
+  final List<String> _providers = [
     'ستارگان متحد',
     'اکتیو سرویس',
     'افغان پی',
     'شاهی ایزیلود',
   ];
 
-  // Selected values
-  String _selectedOperator = 'روشن'; // برای نمایش در UI
-  String _selectedOperatorValue = 'roshan'; // برای ذخیره در دیتابیس <- این باید اضافه شود
+  String _selectedOperator = 'روشن';
+  String _selectedOperatorValue = 'roshan';
   String _selectedProvider = 'ستارگان متحد';
   int _selectedFaceValue = 100;
 
-  // Controllers
   final TextEditingController _quantityController = TextEditingController(text: '1');
   final TextEditingController _costPerUnitController = TextEditingController();
   final TextEditingController _totalPaidController = TextEditingController();
   final TextEditingController _totalCreditController = TextEditingController(text: '10000');
-
-  // Additional controllers for PurchaseScreen UI
   final TextEditingController _unitPriceController = TextEditingController(text: '0.91');
   final TextEditingController _cardAmountController = TextEditingController(text: '100');
   final TextEditingController _cardPriceController = TextEditingController(text: '92');
   final TextEditingController _supplierNameController = TextEditingController();
+  final TextEditingController _actualPaidController = TextEditingController();
 
-  // Operator images (for PurchaseScreen UI)
+  String _paymentStatus = 'FULL';
+
   final List<Map<String, dynamic>> _paperCardOperators = [
     {
       'title': 'افغان بیسیم',
@@ -209,81 +197,76 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
     },
   ];
 
-  // لیست مقادیر کارت از paper_card_screen.dart
   final List<int> _cardDenominations = [50, 100, 150, 200, 250, 500];
 
-
   void _initializeControllers() {
-    // Set initial values
     _costPerUnitController.text = '92';
     _supplierNameController.text = _selectedProvider;
     _totalPaidController.text = '0';
+
+    _actualPaidController.addListener(() {
+      _updatePaymentStatus();
+    });
   }
 
-  // Logic from PurchasePage
-  // void _calculateTotal() {
-  //   double unitPrice = double.tryParse(_costPerUnitController.text) ?? 0;
-  //
-  //   if (_selectedType == PurchaseType.paperCard) {
-  //     int qty = int.tryParse(_quantityController.text) ?? 0;
-  //     _totalPaidController.text = (qty * unitPrice).toStringAsFixed(0);
-  //     _cardPriceController.text = unitPrice.toStringAsFixed(0);
-  //   } else {
-  //     double credit = double.tryParse(_totalCreditController.text) ?? 0;
-  //     _totalPaidController.text = (credit * unitPrice).toStringAsFixed(0);
-  //     _unitPriceController.text = unitPrice.toStringAsFixed(2);
-  //   }
-  //
-  //   setState(() {});
-  // }
+  void _updatePaymentStatus() {
+    double nominal = double.tryParse(_totalPaidController.text) ?? 0;
+    double actual = double.tryParse(_actualPaidController.text) ?? 0;
+
+    setState(() {
+      if (actual == 0) {
+        _paymentStatus = 'PENDING';
+      } else if (actual < nominal) {
+        _paymentStatus = 'PARTIAL';
+      } else if (actual == nominal) {
+        _paymentStatus = 'FULL';
+      } else {
+        _paymentStatus = 'OVERPAID';
+      }
+    });
+  }
+
   void _calculateTotal() {
     if (_isLoadingUnitRates) return;
 
     if (_selectedType == PurchaseType.paperCard) {
-      // محاسبات کارت کاغذی (بدون تغییر)
       double unitPrice = double.tryParse(_costPerUnitController.text) ?? 0;
-      int qty = int.tryParse(_quantityController.text) ?? 0; 
+      int qty = int.tryParse(_quantityController.text) ?? 0;
       _totalPaidController.text = (qty * unitPrice).toStringAsFixed(0);
       _cardPriceController.text = unitPrice.toStringAsFixed(0);
     } else {
-      // محاسبات کریدیت دیجیتال با unit buy_price
       double credit = double.tryParse(_totalCreditController.text) ?? 0;
-
-      // استفاده از unitBuyPrice به جای ورودی کاربر
       double buyPricePerUnit = unitBuyPrice;
-
-      // مبلغ پرداختی = مقدار کریدیت × unit buy_price
       double totalPaid = credit * buyPricePerUnit;
 
-      // به‌روزرسانی کنترلرها
       _totalPaidController.text = totalPaid.toStringAsFixed(0);
       _costPerUnitController.text = buyPricePerUnit.toStringAsFixed(2);
       _unitPriceController.text = buyPricePerUnit.toStringAsFixed(2);
 
-      // نمایش اطلاعات نرخ
       print('unitBuyPrice: $unitBuyPrice, unitSellPrice: $unitSellPrice');
       print('مقدار کریدیت: $credit, مبلغ پرداختی: $totalPaid');
     }
 
     setState(() {});
   }
+
   void _selectOperator(int index) {
     if (index < 0 || index >= _paperCardOperators.length) return;
 
     setState(() {
       _selectedOperator = _paperCardOperators[index]['title'] as String;
-      _selectedOperatorValue = _paperCardOperators[index]['value'] as String; // ذخیره value
-
-      // برای دیباگ
+      _selectedOperatorValue = _paperCardOperators[index]['value'] as String;
       print('اپراتور انتخاب شد: title=$_selectedOperator, value=$_selectedOperatorValue');
     });
   }
+
   void _selectFaceValue(int value) {
     setState(() {
       _selectedFaceValue = value;
       _calculateTotal();
     });
   }
+
   double _getTotalAmount() {
     if (_selectedType == PurchaseType.paperCard) {
       final cardCount = int.tryParse(_quantityController.text) ?? 0;
@@ -304,84 +287,80 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
       builder: (context) => Directionality(
         textDirection: TextDirection.rtl,
         child: Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24.r)), // ریسپانسیو
           child: Container(
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.all(24.r), // ریسپانسیو
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(24.r), // ریسپانسیو
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // آیکون و عنوان
-                const Icon(Icons.shopping_basket_outlined, size: 48, color: Color(0xFFEA2A33)),
-                const SizedBox(height: 16),
-                const Text(
+                Icon(Icons.shopping_basket_outlined, size: 48.sp, color: const Color(0xFFEA2A33)), // ریسپانسیو
+                SizedBox(height: 16.h), // ریسپانسیو
+                Text(
                   'بررسی نهایی خرید',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: 20.sp, fontWeight: FontWeight.bold), // ریسپانسیو
                 ),
-                const SizedBox(height: 24),
+                SizedBox(height: 24.h), // ریسپانسیو
 
-                // بخش جزئیات محصول در یک باکس خاکستری
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(16.r), // ریسپانسیو
                   decoration: BoxDecoration(
                     color: const Color(0xFFF8F9FA),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(16.r), // ریسپانسیو
                   ),
                   child: Column(
                     children: [
                       _buildDialogRow('نوع محصول:', _selectedType == PurchaseType.paperCard ? 'کارت کاغذی' : 'کریدیت ارسالی'),
-                      const Divider(height: 20),
+                      Divider(height: 20.h), // ریسپانسیو
                       if (_selectedType == PurchaseType.paperCard) ...[
                         _buildDialogRow('اپراتور:', _selectedOperator),
-                        _buildDialogRow('ارزش کارت:', '$_selectedFaceValue AFN'),
+                        _buildDialogRow('ارزش کارت:', '$_selectedFaceValue ؋ '),
                         _buildDialogRow('تعداد:', '${_quantityController.text} عدد'),
                       ] else ...[
                         _buildDialogRow('تأمین‌کننده:', _selectedProvider),
-                        _buildDialogRow('مقدار کریدیت:', '${_totalCreditController.text} AFN'),
+                        _buildDialogRow('مقدار کریدیت:', '${_totalCreditController.text} ؋ '),
                       ],
-                      const Divider(height: 20),
-                      _buildDialogRow('قیمت خرید (فی):', '${_costPerUnitController.text} AFN'),
+                      Divider(height: 20.h), // ریسپانسیو
+                      _buildDialogRow('قیمت خرید (فی):', '${_costPerUnitController.text} ؋ '),
                     ],
                   ),
                 ),
 
-                const SizedBox(height: 20),
+                SizedBox(height: 20.h), // ریسپانسیو
 
-                // بخش قیمت کل
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('مجموع قابل پرداخت:', style: TextStyle(fontWeight: FontWeight.bold)),
+                    Text('مجموع قابل پرداخت:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.sp)), // ریسپانسیو
                     Text(
-                      '${total.toStringAsFixed(0)} AFN',
-                      style: const TextStyle(
-                        fontSize: 22,
+                      '${total.toStringAsFixed(0)}؋',
+                      style: TextStyle(
+                        fontSize: 22.sp, // ریسپانسیو
                         fontWeight: FontWeight.w900,
-                        color: Color(0xFFEA2A33),
+                        color: const Color(0xFFEA2A33),
                       ),
                     ),
                   ],
                 ),
 
-                const SizedBox(height: 32),
+                SizedBox(height: 32.h), // ریسپانسیو
 
-                // دکمه‌های عملیاتی
                 Row(
                   children: [
                     Expanded(
                       child: TextButton(
                         onPressed: () => Navigator.pop(context),
                         style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          padding: EdgeInsets.symmetric(vertical: 14.h), // ریسپانسیو
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)), // ریسپانسیو
                         ),
-                        child: const Text('اصلاح اطلاعات', style: TextStyle(color: Colors.grey)),
+                        child: Text('اصلاح اطلاعات', style: TextStyle(color: Colors.grey, fontSize: 14.sp)), // ریسپانسیو
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: 12.w), // ریسپانسیو
                     Expanded(
                       child: ElevatedButton(
                         onPressed: () {
@@ -390,11 +369,11 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFEA2A33),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          padding: EdgeInsets.symmetric(vertical: 14.h), // ریسپانسیو
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)), // ریسپانسیو
                           elevation: 0,
                         ),
-                        child: const Text('تأیید و ثبت', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        child: Text('تأیید و ثبت', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14.sp)), // ریسپانسیو
                       ),
                     ),
                   ],
@@ -407,52 +386,45 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
     );
   }
 
-// ویجت کمکی برای ردیف‌های دیالوگ
   Widget _buildDialogRow(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: EdgeInsets.symmetric(vertical: 4.h), // ریسپانسیو
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(color: Colors.blueGrey, fontSize: 13)),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+          Text(label, style: TextStyle(color: Colors.blueGrey, fontSize: 13.sp)), // ریسپانسیو
+          Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.sp)), // ریسپانسیو
         ],
       ),
     );
   }
 
-  // Save logic from PurchasePage
   Future<void> _savePurchase() async {
     try {
-      // ۱. دریافت اطلاعات کاربر و بررسی لاگین
       final user = ref.read(currentUserProvider);
       if (user == null) {
         throw Exception("کاربر یافت نشد. لطفاً دوباره وارد شوید.");
       }
 
-      // ۲. آماده‌سازی دیتای پایه خرید
       Map<String, dynamic> purchaseData = {
         'type': _selectedType == PurchaseType.paperCard ? 'PAPER' : 'DIGITAL',
         'provider_name': _selectedProvider,
         'payment_status': _paymentStatus,
         'payment_date': _paymentStatus == 'PENDING' ? null : DateTime.now().toIso8601String(),
         'created_at': DateTime.now().toIso8601String(),
-        'shop_id': user.shopId, // اضافه کردن شناسنامه دکان
+        'shop_id': user.shopId,
       };
 
-      // ۳. به‌روزرسانی موجودی انبار یا کیف پول شرکت (Wallet)
       if (_selectedType == PurchaseType.paperCard) {
-        // حالت کارت کاغذی
         int quantity = int.tryParse(_quantityController.text) ?? 0;
 
         await DatabaseHelper.instance.increasePaperStock(
             _selectedOperatorValue,
             _selectedFaceValue,
             quantity,
-            user.shopId // آرگومان چهارم برای تفکیک دکان
+            user.shopId
         );
 
-        // تکمیل اطلاعات خرید کارت
         double unitPrice = double.tryParse(_costPerUnitController.text) ?? 0;
         double nominalPrice = unitPrice * quantity;
         double actualPaid = double.tryParse(_actualPaidController.text) ?? nominalPrice;
@@ -468,17 +440,14 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
         });
 
       } else {
-        // حالت کریدیت دیجیتال
         double creditAmount = double.tryParse(_totalCreditController.text) ?? 0;
 
-        // اصلاح خطای ۳ آرگومان: اضافه شدن user.shopId
         await DatabaseHelper.instance.increaseProviderBalance(
-            _selectedProvider!,
+            _selectedProvider,
             creditAmount,
             user.shopId
         );
 
-        // تکمیل اطلاعات خرید دیجیتال
         double nominalPrice = creditAmount * unitBuyPrice;
         double actualPaid = double.tryParse(_actualPaidController.text) ?? nominalPrice;
 
@@ -491,11 +460,8 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
         });
       }
 
-      // ۴. ذخیره نهایی رکورد خرید در دیتابیس (ارسال کل شیء user)
-      // نکته: کست اشتباه (as UserModel) حذف شد
       await DatabaseHelper.instance.insertPurchase(purchaseData, user);
 
-      // ۵. نمایش موفقیت
       if (mounted) {
         _showSuccessMessage(purchaseData);
       }
@@ -511,98 +477,94 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
       }
     }
   }
+
   void _showSuccessMessage(Map<String, dynamic> data) {
     showDialog(
       context: context,
-      barrierDismissible: false, // کاربر حتما باید دکمه تایید را بزند
+      barrierDismissible: false,
       builder: (context) => Directionality(
         textDirection: TextDirection.rtl,
-        child: Dialog(backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        child: Dialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28.r)), // ریسپانسیو
           child: Container(
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.all(24.r), // ریسپانسیو
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // آیکون تایید با پس‌زمینه دایره‌ای سبز
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(16.r), // ریسپانسیو
                   decoration: BoxDecoration(
                     color: Colors.green.shade50,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.check_circle_rounded, size: 60, color: Colors.green),
+                  child: Icon(Icons.check_circle_rounded, size: 60.sp, color: Colors.green), // ریسپانسیو
                 ),
-                const SizedBox(height: 20),
-                const Text(
+                SizedBox(height: 20.h), // ریسپانسیو
+                Text(
                   'خرید با موفقیت ثبت شد',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.black87),
+                  style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.w900, color: Colors.black87), // ریسپانسیو
                 ),
-                const SizedBox(height: 8),
-                const Text(
+                SizedBox(height: 8.h), // ریسپانسیو
+                Text(
                   'اطلاعات خرید در انبار و سوابق ذخیره گردید.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                  style: TextStyle(fontSize: 12.sp, color: Colors.grey), // ریسپانسیو
                 ),
-                const SizedBox(height: 24),
+                SizedBox(height: 24.h), // ریسپانسیو
 
-                // بخش رسید (Receipt Detail)
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(16.r), // ریسپانسیو
                   decoration: BoxDecoration(
                     color: const Color(0xFFF8F9FA),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(16.r), // ریسپانسیو
                     border: Border.all(color: Colors.grey.shade200),
                   ),
                   child: Column(
                     children: [
                       if (data['type'] == 'DIGITAL') ...[
-                        _buildSuccessRow('مقدار کریدیت:', '${data['total_credit']} AFN'),
-                        _buildSuccessRow('مبلغ اسمی:', '${data['nominal_price']} AFN'),
-                        const Divider(height: 20),
-                        _buildSuccessRow('مبلغ پرداختی:', '${data['actual_paid']} AFN', isBold: true),
+                        _buildSuccessRow('مقدار کریدیت:', '${data['total_credit']}؋'),
+                        _buildSuccessRow('مبلغ اسمی:', '${data['nominal_price']} ؋'),
+                        Divider(height: 20.h), // ریسپانسیو
+                        _buildSuccessRow('مبلغ پرداختی:', '${data['actual_paid']} ؋', isBold: true),
                       ] else ...[
-                        // برای حالت کارت کاغذی (در صورت نیاز)
-                        _buildSuccessRow('اپراتور:', _selectedOperator ?? '-'),
+                        _buildSuccessRow('اپراتور:', _selectedOperator),
                         _buildSuccessRow('تعداد:', '${data['quantity']} عدد'),
-                        const Divider(height: 20),
-                        _buildSuccessRow('مجموع پرداخت:', '${data['actual_paid']} AFN', isBold: true),
+                        Divider(height: 20.h), // ریسپانسیو
+                        _buildSuccessRow('مجموع پرداخت:', '${data['actual_paid']} ؋', isBold: true),
                       ],
 
-                      // نمایش تخفیف به صورت سبز و متمایز
                       if (data['discount_amount'] != null && data['discount_amount'] > 0)
                         Padding(
-                          padding: const EdgeInsets.only(top:8.0),
+                          padding: EdgeInsets.only(top: 8.h), // ریسپانسیو
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text('تخفیف دریافتی:', style: TextStyle(color: Colors.green, fontSize: 13)),
-                              Text('${data['discount_amount']} AFN',
-                                  style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 14)),
+                              Text('تخفیف دریافتی:', style: TextStyle(color: Colors.green, fontSize: 13.sp)), // ریسپانسیو
+                              Text('${data['discount_amount']} ؋',
+                                  style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 14.sp)), // ریسپانسیو
                             ],
                           ),
                         ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 30),
+                SizedBox(height: 30.h), // ریسپانسیو
 
-                // دکمه خروج
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () {
-
-                      Navigator.pop(context); // بازگشت به صفحه قبل (اختیاری)
+                      Navigator.pop(context);
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: kPrimaryColor,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      padding: EdgeInsets.symmetric(vertical: 16.h), // ریسپانسیو
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14.r)), // ریسپانسیو
                       elevation: 0,
                     ),
-                    child: const Text('متوجه شدم', style: TextStyle(fontWeight: FontWeight.bold)),
+                    child: Text('متوجه شدم', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.sp)), // ریسپانسیو
                   ),
                 ),
               ],
@@ -613,19 +575,18 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
     );
   }
 
-// ویجت کمکی برای ردیف‌های رسید
   Widget _buildSuccessRow(String label, String value, {bool isBold = false}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: EdgeInsets.symmetric(vertical: 4.h), // ریسپانسیو
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(color: Colors.blueGrey, fontSize: 13)),
+          Text(label, style: TextStyle(color: Colors.blueGrey, fontSize: 13.sp)), // ریسپانسیو
           Text(
               value,
               style: TextStyle(
                 fontWeight: isBold ? FontWeight.w900 : FontWeight.bold,
-                fontSize: isBold ? 16 : 14,
+                fontSize: isBold ? 16.sp : 14.sp, // ریسپانسیو
                 color: isBold ? Colors.black : Colors.black87,
               )
           ),
@@ -633,34 +594,12 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
       ),
     );
   }
-  final TextEditingController _actualPaidController = TextEditingController();
 
-  // وضعیت پرداخت
-  String _paymentStatus = 'FULL'; // FULL, PARTIAL, PENDING
-  void _initializeControllers1() {
-    // مقدار پیش‌فرض برای پرداخت واقعی (در ابتدا برابر مبلغ اسمی)
-    _actualPaidController.addListener(() {
-      _updatePaymentStatus();
-    });
-  }
-  void _updatePaymentStatus() {
-    double nominal = double.tryParse(_totalPaidController.text) ?? 0;
-    double actual = double.tryParse(_actualPaidController.text) ?? 0;
-
-    setState(() {
-      if (actual == 0) {
-        _paymentStatus = 'PENDING';
-      } else if (actual < nominal) {
-        _paymentStatus = 'PARTIAL';
-      } else if (actual == nominal) {
-        _paymentStatus = 'FULL';
-      } else {
-        _paymentStatus = 'OVERPAID';
-      }
-    });
-  }
   @override
   Widget build(BuildContext context) {
+    // مقداردهی اولیه ScreenUtil
+    ScreenUtil.init(context, designSize: const Size(360, 800));
+
     final totalAmount = _getTotalAmount();
     final nominalValue = _selectedType == PurchaseType.paperCard
         ? (_selectedFaceValue * (int.tryParse(_quantityController.text) ?? 0))
@@ -671,36 +610,31 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
       appBar: AppBar(
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back),
+          icon: Icon(Icons.arrow_back, size: 24.sp), // ریسپانسیو
         ),
-        title: const Text('ثبت خرید'),
+        title: Text(
+          'ثبت خرید',
+          style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold), // ریسپانسیو
+        ),
         centerTitle: true,
         backgroundColor: const Color(0xFFFCF8F8),
         elevation: 0,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(16.r), // ریسپانسیو
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Purchase Type Toggle
             _buildTypeToggle(),
-            const SizedBox(height: 24),
+            SizedBox(height: 24.h), // ریسپانسیو
 
-            // Dynamic Content based on selected type
             if (_selectedType == PurchaseType.paperCard) ...[
-              // Operator Selection (PurchaseScreen style)
               _buildOperatorSelection(),
-              const SizedBox(height: 24),
-
-              // Card Denominations
+              SizedBox(height: 24.h), // ریسپانسیو
               _buildCardDenominations(),
-              const SizedBox(height: 24),
-
-              // Quantity and Price
+              SizedBox(height: 24.h), // ریسپانسیو
               Row(
                 children: [
-                  // Quantity
                   Expanded(
                     child: _buildTextField(
                       'تعداد کارت',
@@ -709,9 +643,7 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
                       isNumber: true,
                     ),
                   ),
-                  const SizedBox(width: 16),
-
-                  // Price per unit
+                  SizedBox(width: 16.w), // ریسپانسیو
                   Expanded(
                     child: _buildTextField(
                       'قیمت فی کارت',
@@ -723,7 +655,6 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
                 ],
               ),
             ] else ...[
-              // Supplier Dropdown (PurchasePage style)
               _buildDropdown(
                 'شرکت تأمین‌کننده',
                 _providers,
@@ -735,250 +666,25 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
                   });
                 },
               ),
-              const SizedBox(height: 16),
-
-              // Credit Amount
+              SizedBox(height: 16.h), // ریسپانسیو
               _buildTextField(
                 'مقدار کریدیت',
                 _totalCreditController,
                 onChanged: (_) => _calculateTotal(),
                 isNumber: true,
               ),
-              const SizedBox(height: 16),
-
-              // Unit Price
-              // _buildTextField(
-              //   'قیمت فی واحد',
-              //   _costPerUnitController,
-              //   onChanged: (_) => _calculateTotal(),
-              //   isNumber: true,
-              // ),
+              SizedBox(height: 16.h), // ریسپانسیو
             ],
 
-            const SizedBox(height: 24),
+            SizedBox(height: 24.h), // ریسپانسیو
 
-            // Total Calculation Card (Combined style)
-            // Container(
-            //   padding: const EdgeInsets.all(20),
-            //   decoration: BoxDecoration(
-            //     color: Colors.white,
-            //     borderRadius: BorderRadius.circular(16),
-            //     border: Border.all(color: const Color(0xFFE7D0D1)),
-            //     boxShadow: [
-            //       BoxShadow(
-            //         color: Colors.black.withOpacity(0.05),
-            //         blurRadius: 10,
-            //         offset: const Offset(0, 4),
-            //       ),
-            //     ],
-            //   ),
-            //   child: Column(
-            //     children: [
-            //       Row(
-            //         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            //         children: [
-            //           Text(
-            //             _selectedType == PurchaseType.paperCard ? 'ارزش اسمی:' : 'کل کریدیت:',
-            //             style: const TextStyle(
-            //               color: Color(0xFF994D51),
-            //               fontSize: 14,
-            //             ),
-            //           ),
-            //           Text(
-            //             '${nominalValue.toStringAsFixed(0)} ${_selectedType == PurchaseType.paperCard ? 'افغانی' : 'AFN'}',
-            //             style: const TextStyle(
-            //               fontWeight: FontWeight.bold,
-            //               fontSize: 14,
-            //             ),
-            //           ),
-            //         ],
-            //       ),
-            //       const SizedBox(height: 12),
-            //
-            //       Row(
-            //         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            //         children: [
-            //           Text(
-            //             _selectedType == PurchaseType.paperCard ? 'تعداد کل:' : 'نرخ خرید:',
-            //             style: const TextStyle(
-            //               color: Color(0xFF994D51),
-            //               fontSize: 14,
-            //             ),
-            //           ),
-            //           Text(
-            //             _selectedType == PurchaseType.paperCard
-            //                 ? '${_quantityController.text} عدد'
-            //                 : '${((double.tryParse(_costPerUnitController.text) ?? 0) * 100).toStringAsFixed(0)}% (${_costPerUnitController.text})',
-            //             style: const TextStyle(
-            //               fontWeight: FontWeight.w500,
-            //               fontSize: 14,
-            //             ),
-            //           ),
-            //         ],
-            //       ),
-            //
-            //       const SizedBox(height: 16),
-            //       const Divider(height: 1, color: Color(0xFFE7D0D1)),
-            //       const SizedBox(height: 16),
-            //
-            //       Row(
-            //         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            //         children: [
-            //           const Text(
-            //             'مجموعه پرداختی',
-            //             style: TextStyle(
-            //               fontWeight: FontWeight.bold,
-            //               fontSize: 16,
-            //             ),
-            //           ),
-            //           Column(
-            //             crossAxisAlignment: CrossAxisAlignment.end,
-            //             children: [
-            //               Text(
-            //                 totalAmount.toStringAsFixed(0),
-            //                 style: const TextStyle(
-            //                   fontSize: 28,
-            //                   fontWeight: FontWeight.w900,
-            //                   color: Color(0xFFEA2A33),
-            //                 ),
-            //               ),
-            //               const SizedBox(height: 4),
-            //               const Text(
-            //                 'افغانی',
-            //                 style: TextStyle(
-            //                   fontSize: 12,
-            //                   fontWeight: FontWeight.bold,
-            //                   color: Color(0xFF994D51),
-            //                 ),
-            //               ),
-            //             ],
-            //           ),
-            //         ],
-            //       ),
-            //       SizedBox(height: 16),
-            //
-            //       // فیلد جدید: مبلغ واقعی پرداختی
-            //       Container(
-            //         padding: EdgeInsets.all(16),
-            //         decoration: BoxDecoration(
-            //           color: Colors.white,
-            //           borderRadius: BorderRadius.circular(12),
-            //           border: Border.all(color: Color(0xFFE7D0D1)),
-            //           boxShadow: [
-            //             BoxShadow(
-            //               color: Colors.black.withOpacity(0.05),
-            //               blurRadius: 10,
-            //               offset: Offset(0, 4),
-            //             ),
-            //           ],
-            //         ),
-            //         child: Column(
-            //           crossAxisAlignment: CrossAxisAlignment.start,
-            //           children: [
-            //             Row(
-            //               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            //               children: [
-            //                 Text(
-            //                   '💰 اطلاعات پرداخت',
-            //                   style: TextStyle(
-            //                     fontSize: 16,
-            //                     fontWeight: FontWeight.bold,
-            //                     color: Colors.blue.shade800,
-            //                   ),
-            //                 ),
-            //                 Container(
-            //                   padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            //                   decoration: BoxDecoration(
-            //                     color: _getStatusColor(_paymentStatus),
-            //                     borderRadius: BorderRadius.circular(20),
-            //                   ),
-            //                   child: Text(
-            //                     _getStatusText(_paymentStatus),
-            //                     style: TextStyle(
-            //                       fontSize: 12,
-            //                       fontWeight: FontWeight.bold,
-            //                       color: Colors.white,
-            //                     ),
-            //                   ),
-            //                 ),
-            //               ],
-            //             ),
-            //
-            //             SizedBox(height: 12),
-            //
-            //             // مبلغ اسمی (محاسبه شده)
-            //             Row(
-            //               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            //               children: [
-            //                 Text('مبلغ اسمی:', style: TextStyle(color: Colors.grey)),
-            //                 Text(
-            //                   '${_totalPaidController.text} AFN',
-            //                   style: TextStyle(fontWeight: FontWeight.bold),
-            //                 ),
-            //               ],
-            //             ),
-            //
-            //             SizedBox(height: 8),
-            //
-            //             // مبلغ واقعی پرداختی
-            //             TextField(
-            //               controller: _actualPaidController,
-            //               keyboardType: TextInputType.number,
-            //               decoration: InputDecoration(
-            //                 labelText: 'مبلغ واقعی پرداختی',
-            //                 hintText: 'مبلغی که پرداخت کردید',
-            //                 prefixIcon: Icon(Icons.payments, color: Colors.green),
-            //                 suffixText: 'AFN',
-            //                 border: OutlineInputBorder(
-            //                   borderRadius: BorderRadius.circular(8),
-            //                 ),
-            //                 filled: true,
-            //                 fillColor: Colors.grey[50],
-            //               ),
-            //               onChanged: (value) {
-            //                 _calculateDiscount();
-            //               },
-            //             ),
-            //
-            //             SizedBox(height: 8),
-            //
-            //             // نمایش تخفیف
-            //             if (_paymentStatus == 'PARTIAL')
-            //               Container(
-            //                 padding: EdgeInsets.all(8),
-            //                 decoration: BoxDecoration(
-            //                   color: Colors.green[50],
-            //                   borderRadius: BorderRadius.circular(8),
-            //                 ),
-            //                 child: Row(
-            //                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            //                   children: [
-            //                     Text('🎉 تخفیف دریافتی:', style: TextStyle(color: Colors.green)),
-            //                     Text(
-            //                       '${_calculateDiscountAmount()} AFN',
-            //                       style: TextStyle(
-            //                         fontWeight: FontWeight.bold,
-            //                         color: Colors.green,
-            //                       ),
-            //                     ),
-            //                   ],
-            //                 ),
-            //               ),
-            //           ],
-            //         ),
-            //       ),
-            //
-            //     ],
-            //   ),
-            // ),
             Column(
               children: [
-                // --- بخش اول: کارت خلاصه فاکتور (Summary Card) ---
                 Container(
-                  padding: const EdgeInsets.all(20),
+                  padding: EdgeInsets.all(20.r), // ریسپانسیو
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(20.r), // ریسپانسیو
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withOpacity(0.04),
@@ -991,41 +697,41 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
                     children: [
                       _buildSummaryRow(
                         _selectedType == PurchaseType.paperCard ? 'ارزش اسمی واحد:' : 'کل کریدیت:',
-                        '${nominalValue.toStringAsFixed(0)} AFN',
+                        '${nominalValue.toStringAsFixed(0)} ؋ ',
                       ),
-                      const SizedBox(height: 12),
+                      SizedBox(height: 12.h), // ریسپانسیو
                       _buildSummaryRow(
                         _selectedType == PurchaseType.paperCard ? 'تعداد کل:' : 'نرخ خرید:',
                         _selectedType == PurchaseType.paperCard
                             ? '${_quantityController.text} عدد'
                             : '${((double.tryParse(_costPerUnitController.text) ?? 0) * 100).toStringAsFixed(0)}% (${_costPerUnitController.text})',
                       ),
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 16),
-                        child: Divider(height: 1, color: Color(0xFFF1F1F1)),
+                      Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16.h), // ریسپانسیو
+                        child: Divider(height: 1, color: const Color(0xFFF1F1F1)),
                       ),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
+                          Text(
                             'مجموعه پرداختی نهایی',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.black87),
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15.sp, color: Colors.black87), // ریسپانسیو
                           ),
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
                               Text(
                                 totalAmount.toStringAsFixed(0),
-                                style: const TextStyle(
-                                  fontSize: 32,
+                                style: TextStyle(
+                                  fontSize: 32.sp, // ریسپانسیو
                                   fontWeight: FontWeight.w900,
-                                  color: Color(0xFFEA2A33), // قرمز اصلی
+                                  color: const Color(0xFFEA2A33),
                                   letterSpacing: -1,
                                 ),
                               ),
-                              const Text(
+                              Text(
                                 'AFN (افغانی)',
-                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey),
+                                style: TextStyle(fontSize: 10.sp, fontWeight: FontWeight.bold, color: Colors.grey), // ریسپانسیو
                               ),
                             ],
                           ),
@@ -1035,14 +741,13 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
                   ),
                 ),
 
-                const SizedBox(height: 20),
+                SizedBox(height: 20.h), // ریسپانسیو
 
-                // --- بخش دوم: کارت عملیات پرداخت (Payment Action) ---
                 Container(
-                  padding: const EdgeInsets.all(20),
+                  padding: EdgeInsets.all(20.r), // ریسپانسیو
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(20.r), // ریسپانسیو
                     border: Border.all(color: Colors.white),
                     boxShadow: [
                       BoxShadow(
@@ -1058,27 +763,26 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Row(
+                          Row(
                             children: [
-                              Icon(Icons.account_balance_wallet_outlined, size: 20, color: Colors.blueGrey),
-                              SizedBox(width: 8),
+                              Icon(Icons.account_balance_wallet_outlined, size: 20.sp, color: Colors.blueGrey), // ریسپانسیو
+                              SizedBox(width: 8.w), // ریسپانسیو
                               Text(
                                 'جزئیات پرداخت',
-                                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                                style: TextStyle(fontSize: 15.sp, fontWeight: FontWeight.bold), // ریسپانسیو
                               ),
                             ],
                           ),
-                          // استایل وضعیت پرداخت مشابه Badge‌های صفحه فروش
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h), // ریسپانسیو
                             decoration: BoxDecoration(
                               color: _getStatusColor(_paymentStatus).withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(8.r), // ریسپانسیو
                             ),
                             child: Text(
                               _getStatusText(_paymentStatus),
                               style: TextStyle(
-                                fontSize: 11,
+                                fontSize: 11.sp, // ریسپانسیو
                                 fontWeight: FontWeight.bold,
                                 color: _getStatusColor(_paymentStatus),
                               ),
@@ -1086,53 +790,52 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
                           ),
                         ],
                       ),
-                      const SizedBox(height: 16),
+                      SizedBox(height: 16.h), // ریسپانسیو
 
-                      // فیلد مبلغ واقعی با استایل جدید
                       TextFormField(
                         controller: _actualPaidController,
                         keyboardType: TextInputType.number,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18.sp), // ریسپانسیو
                         decoration: InputDecoration(
                           labelText: 'مبلغ نقد پرداختی',
-                          labelStyle: const TextStyle(fontSize: 13, color: Colors.grey),
-                          hintText: 'مثلاً: 4500',
-                          prefixIcon: const Icon(Icons.payments_rounded, color: Color(0xFFEA2A33)),
-                          suffixText: 'AFN',
+                          labelStyle: TextStyle(fontSize: 12.sp, color: Colors.grey), // ریسپانسیو
+                          hintText: '',
+                          prefixIcon: Icon(Icons.payments_rounded, color: const Color(0xFFEA2A33), size: 20.sp), // ریسپانسیو
+                          suffixText: '؋',
+                          suffixStyle: TextStyle(fontSize: 14.sp), // ریسپانسیو
                           filled: true,
                           fillColor: const Color(0xFFF8F9FA),
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(15),
+                            borderRadius: BorderRadius.circular(15.r), // ریسپانسیو
                             borderSide: BorderSide.none,
                           ),
                           focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(15),
+                            borderRadius: BorderRadius.circular(15.r), // ریسپانسیو
                             borderSide: const BorderSide(color: Color(0xFFEA2A33), width: 1),
                           ),
                         ),
                         onChanged: (value) => _calculateDiscount(),
                       ),
 
-                      // بخش نمایش تخفیف دریافتی (فقط در صورت وجود)
                       if (_paymentStatus == 'PARTIAL' || (_calculateDiscountAmount() > 0))
                         Padding(
-                          padding: const EdgeInsets.only(top: 16),
+                          padding: EdgeInsets.only(top: 16.h), // ریسپانسیو
                           child: Container(
-                            padding: const EdgeInsets.all(12),
+                            padding: EdgeInsets.all(12.r), // ریسپانسیو
                             decoration: BoxDecoration(
                               color: Colors.green.shade50,
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(12.r), // ریسپانسیو
                               border: Border.all(color: Colors.green.shade100),
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.celebration_outlined, size: 18, color: Colors.green),
-                                const SizedBox(width: 8),
-                                const Text('تخفیف خرید شما:', style: TextStyle(fontSize: 12, color: Colors.green)),
+                                Icon(Icons.celebration_outlined, size: 18.sp, color: Colors.green), // ریسپانسیو
+                                SizedBox(width: 8.w), // ریسپانسیو
+                                Text('تخفیف خرید شما:', style: TextStyle(fontSize: 12.sp, color: Colors.green)), // ریسپانسیو
                                 const Spacer(),
                                 Text(
-                                  '${_calculateDiscountAmount()} AFN',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 14),
+                                  '${_calculateDiscountAmount()} ؋',
+                                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 14.sp), // ریسپانسیو
                                 ),
                               ],
                             ),
@@ -1147,9 +850,8 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
         ),
       ),
 
-      // Bottom Button
       bottomNavigationBar: Container(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(16.r), // ریسپانسیو
         decoration: BoxDecoration(
           color: const Color(0xFFFCF8F8),
           border: const Border(
@@ -1168,22 +870,22 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFFEA2A33),
             foregroundColor: Colors.white,
-            minimumSize: const Size(double.infinity, 56),
+            minimumSize: Size(double.infinity, 56.h), // ریسپانسیو
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(12.r), // ریسپانسیو
             ),
             elevation: 4,
             shadowColor: const Color(0xFFEA2A33).withOpacity(0.2),
           ),
-          child: const Row(
+          child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.check_circle, size: 24),
-              SizedBox(width: 8),
+              Icon(Icons.check_circle, size: 24.sp), // ریسپانسیو
+              SizedBox(width: 8.w), // ریسپانسیو
               Text(
                 'ثبت خرید',
                 style: TextStyle(
-                  fontSize: 18,
+                  fontSize: 18.sp, // ریسپانسیو
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -1193,21 +895,23 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
       ),
     );
   }
+
   Widget _buildSummaryRow(String label, String value) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 13)),
-        Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87)),
+        Text(label, style: TextStyle(color: Colors.grey, fontSize: 13.sp)), // ریسپانسیو
+        Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.sp, color: Colors.black87)), // ریسپانسیو
       ],
     );
   }
+
   Widget _buildTypeToggle() {
     return Container(
-      padding: const EdgeInsets.all(4),
+      padding: EdgeInsets.all(4.r), // ریسپانسیو
       decoration: BoxDecoration(
         color: const Color(0xFFF0E4E5),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(12.r), // ریسپانسیو
       ),
       child: Row(
         children: [
@@ -1220,12 +924,12 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
                 });
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 16.w), // ریسپانسیو
                 decoration: BoxDecoration(
                   color: _selectedType == PurchaseType.paperCard
                       ? Colors.white
                       : Colors.transparent,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(8.r), // ریسپانسیو
                   boxShadow: _selectedType == PurchaseType.paperCard
                       ? [
                     BoxShadow(
@@ -1240,7 +944,7 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
                   'کارت کاغذی',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 14.sp, // ریسپانسیو
                     fontWeight: FontWeight.bold,
                     color: _selectedType == PurchaseType.paperCard
                         ? const Color(0xFFEA2A33)
@@ -1259,12 +963,12 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
                 });
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 16.w), // ریسپانسیو
                 decoration: BoxDecoration(
                   color: _selectedType == PurchaseType.sentCredit
                       ? Colors.white
                       : Colors.transparent,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(8.r), // ریسپانسیو
                   boxShadow: _selectedType == PurchaseType.sentCredit
                       ? [
                     BoxShadow(
@@ -1279,7 +983,7 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
                   'کریدیت ارسالی',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 14.sp, // ریسپانسیو
                     fontWeight: FontWeight.w500,
                     color: _selectedType == PurchaseType.sentCredit
                         ? const Color(0xFFEA2A33)
@@ -1298,17 +1002,17 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'انتخاب شبکه',
           style: TextStyle(
-            fontSize: 16,
+            fontSize: 16.sp, // ریسپانسیو
             fontWeight: FontWeight.bold,
-            color: Color(0xFF1B0E0E),
+            color: const Color(0xFF1B0E0E),
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12.h), // ریسپانسیو
         SizedBox(
-          height: 100,
+          height: 100.h, // ریسپانسیو
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             itemCount: _paperCardOperators.length,
@@ -1319,15 +1023,15 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
               return GestureDetector(
                 onTap: () => _selectOperator(index),
                 child: Container(
-                  margin: const EdgeInsets.only(left: 16),
+                  margin: EdgeInsets.only(left: 16.w), // ریسپانسیو
                   child: Column(
                     children: [
                       Container(
-                        width: 64,
-                        height: 64,
+                        width: 64.w, // ریسپانسیو
+                        height: 64.h, // ریسپانسیو
                         padding: isSelected
-                            ? const EdgeInsets.all(4)
-                            : const EdgeInsets.all(2),
+                            ? EdgeInsets.all(4.r) // ریسپانسیو
+                            : EdgeInsets.all(2.r), // ریسپانسیو
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: Colors.white,
@@ -1359,11 +1063,11 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
                           ),
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      SizedBox(height: 8.h), // ریسپانسیو
                       Text(
                         operator['title'] as String,
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 12.sp, // ریسپانسیو
                           fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                           color: isSelected
                               ? const Color(0xFFEA2A33)
@@ -1385,22 +1089,22 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'مقدار کارت (افغانی)',
           style: TextStyle(
-            fontSize: 16,
+            fontSize: 16.sp, // ریسپانسیو
             fontWeight: FontWeight.bold,
-            color: Color(0xFF1B0E0E),
+            color: const Color(0xFF1B0E0E),
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12.h), // ریسپانسیو
         GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 4,
-            crossAxisSpacing: 8,
-            mainAxisSpacing: 8,
+            crossAxisSpacing: 8.w, // ریسپانسیو
+            mainAxisSpacing: 8.h, // ریسپانسیو
             childAspectRatio: 1.5,
           ),
           itemCount: _cardDenominations.length,
@@ -1413,7 +1117,7 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
               child: Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(8.r), // ریسپانسیو
                   border: Border.all(
                     color: isSelected
                         ? const Color(0xFFEA2A33)
@@ -1434,7 +1138,7 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
                   child: Text(
                     value.toString(),
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: 16.sp, // ریسپانسیو
                       fontWeight: FontWeight.bold,
                       color: isSelected
                           ? const Color(0xFFEA2A33)
@@ -1450,13 +1154,12 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
     );
   }
 
-  // در قسمت کریدیت ارسالی، فیلد قیمت فی واحد را اصلاح کنید
   Widget _buildTextField(
       String label,
       TextEditingController controller, {
         Function(String)? onChanged,
         bool isNumber = false,
-        bool isReadOnly = false, // پارامتر جدید
+        bool isReadOnly = false,
       }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1464,34 +1167,34 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
         Text(
           label,
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 14.sp, // ریسپانسیو
             fontWeight: FontWeight.bold,
-            color: Color(0xFF1B0E0E),
+            color: const Color(0xFF1B0E0E),
           ),
         ),
-        SizedBox(height: 8),
+        SizedBox(height: 8.h), // ریسپانسیو
         Container(
-          height: 56,
+          height: 56.h, // ریسپانسیو
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Color(0xFFE7D0D1)),
+            borderRadius: BorderRadius.circular(12.r), // ریسپانسیو
+            border: Border.all(color: const Color(0xFFE7D0D1)),
           ),
           child: Row(
             children: [
               Container(
-                margin: EdgeInsets.only(left: 16),
-                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                margin: EdgeInsets.only(left: 16.w), // ریسپانسیو
+                padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h), // ریسپانسیو
                 decoration: BoxDecoration(
-                  color: Color(0xFFFCF8F8),
-                  borderRadius: BorderRadius.circular(4),
+                  color: const Color(0xFFFCF8F8),
+                  borderRadius: BorderRadius.circular(4.r), // ریسپانسیو
                 ),
                 child: Text(
-                  'AFN',
+                  '؋',
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 12.sp, // ریسپانسیو
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF994D51),
+                    color: const Color(0xFF994D51),
                   ),
                 ),
               ),
@@ -1500,7 +1203,6 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
                   controller: controller,
                   readOnly: label.contains('قیمت فی واحد') &&
                       _selectedType == PurchaseType.sentCredit,
-                  // برای کریدیت دیجیتال، قیمت فی واحد فقط خواندنی است
                   keyboardType: isNumber
                       ? TextInputType.numberWithOptions(decimal: true)
                       : TextInputType.text,
@@ -1512,14 +1214,14 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
                         ? unitBuyPrice.toStringAsFixed(2)
                         : '0',
                     border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(horizontal: 16),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 16.w), // ریسپانسیو
                     suffixIcon: label.contains('قیمت فی واحد') &&
                         _selectedType == PurchaseType.sentCredit
-                        ? Icon(Icons.lock, size: 16, color: Colors.grey)
+                        ? Icon(Icons.lock, size: 16.sp, color: Colors.grey) // ریسپانسیو
                         : null,
                   ),
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 16.sp, // ریسپانسیو
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -1527,16 +1229,15 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
             ],
           ),
         ),
-        // نمایش توضیح برای قیمت فی واحد در کریدیت دیجیتال
         if (label.contains('قیمت فی واحد') &&
             _selectedType == PurchaseType.sentCredit)
           Padding(
-            padding: EdgeInsets.only(top: 4, right: 8),
+            padding: EdgeInsets.only(top: 4.h, right: 8.w), // ریسپانسیو
             child: Text(
               'قیمت خرید از تنظیمات سیستم (قابل ویرایش نیست)',
               style: TextStyle(
-                fontSize: 10,
-                color: Color(0xFF994D51),
+                fontSize: 10.sp, // ریسپانسیو
+                color: const Color(0xFF994D51),
               ),
             ),
           ),
@@ -1555,22 +1256,22 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
       children: [
         Text(
           label,
-          style: const TextStyle(
-            fontSize: 14,
+          style: TextStyle(
+            fontSize: 14.sp, // ریسپانسیو
             fontWeight: FontWeight.bold,
-            color: Color(0xFF1B0E0E),
+            color: const Color(0xFF1B0E0E),
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8.h), // ریسپانسیو
         Container(
-          height: 56,
+          height: 56.h, // ریسپانسیو
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(12.r), // ریسپانسیو
             border: Border.all(color: const Color(0xFFE7D0D1)),
           ),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: EdgeInsets.symmetric(horizontal: 16.w), // ریسپانسیو
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
                 value: value,
@@ -1580,8 +1281,8 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
                   value: e,
                   child: Text(
                     e,
-                    style: const TextStyle(
-                      fontSize: 16,
+                    style: TextStyle(
+                      fontSize: 16.sp, // ریسپانسیو
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -1595,7 +1296,7 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
       ],
     );
   }
-  // رنگ وضعیت پرداخت
+
   Color _getStatusColor(String status) {
     switch (status) {
       case 'FULL': return Colors.green;
@@ -1606,7 +1307,6 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
     }
   }
 
-// متن وضعیت پرداخت
   String _getStatusText(String status) {
     switch (status) {
       case 'FULL': return 'پرداخت کامل';
@@ -1617,7 +1317,6 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
     }
   }
 
-// محاسبه تخفیف
   double _calculateDiscountAmount() {
     double nominal = double.tryParse(_totalPaidController.text) ?? 0;
     double actual = double.tryParse(_actualPaidController.text) ?? 0;
@@ -1627,7 +1326,7 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> { // تغییر
   void _calculateDiscount() {
     double discount = _calculateDiscountAmount();
     if (discount > 0) {
-      print('تخفیف: $discount AFN');
+      print('تخفیف: $discount ؋ ');
     }
   }
 

@@ -182,7 +182,7 @@ class TransactionHistoryPage extends ConsumerWidget {
               data: (value) => _summaryBox(
                   "سود خالص امروز",
                   value.toString(),
-                  "افغانی",
+                  "؋",
                   const Color(0xFF1E1E1E),
                   textColor: Colors.white,
                   subTextColor: Colors.white
@@ -281,14 +281,18 @@ class TransactionHistoryPage extends ConsumerWidget {
     String identityValue;
     IconData identityIcon;
 
+    String cleanPhone(String s) => s.replaceAll(RegExp(r'[^0-9]'), '');
+
     if (t.customerType == 'bulk') {
       identityValue = t.companyCode.isNotEmpty ? t.companyCode : '---';
       identityIcon = Icons.business;
     } else {
-      identityValue = t.phoneNumber;
+      // 🔥 اینجا اصلاح شد: اگر کاراکتر اضافه دارد، تمیزش کن
+      identityValue = t.phoneNumber.contains('{')
+          ? cleanPhone(t.phoneNumber)
+          : t.phoneNumber;
       identityIcon = Icons.smartphone;
     }
-
     return _buildTransactionCard(
       context,
       name: t.customerName,

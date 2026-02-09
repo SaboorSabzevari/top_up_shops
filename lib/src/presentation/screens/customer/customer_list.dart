@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../data/local/app_database.dart';
 import '../../../providers/customer_provider.dart';
 import '../../../providers/session_provider.dart'; // اضافه شد
@@ -15,7 +16,6 @@ class CustomerListPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // ۱. دریافت اطلاعات کاربر برای دسترسی به shopId
     final user = ref.watch(currentUserProvider);
     final customersAsync = ref.watch(customerSearchResults);
     final activeFilter = ref.watch(customerFilterProvider);
@@ -37,7 +37,7 @@ class CustomerListPage extends ConsumerWidget {
           Column(
             children: [
               _searchBar(ref),
-              _filterChips(ref),
+              _filterChips(context,ref,false),
               Expanded(
                 child: customersAsync.when(
                   data: (customers) {
@@ -90,11 +90,12 @@ class CustomerListPage extends ConsumerWidget {
       separatorBuilder: (_, __) => const Divider(),
       itemBuilder: (context, index) {
         final customer = customers[index];
+
+        // دریافت مسیر عکس مشتری
+        final profileImage = customer['profile_image']?.toString();
+
         return ListTile(
-          leading: CircleAvatar(
-            backgroundColor: primary.withOpacity(0.1),
-            child: Text(customer['name'][0], style: const TextStyle(color: primary)),
-          ),
+          leading: _buildCustomerAvatar(customer['name'], profileImage),
           title: Text(
             customer['name'],
             style: const TextStyle(fontWeight: FontWeight.bold),
@@ -122,7 +123,31 @@ class CustomerListPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildAddButton(BuildContext context) {
+  Widget _buildCustomerAvatar(String name, String? profileImagePath) {
+    if (profileImagePath != null && profileImagePath.isNotEmpty) {
+      try {
+        final file = File(profileImagePath);
+        if (file.existsSync()) {
+          return CircleAvatar(
+            backgroundImage: FileImage(file),
+            radius: 20,
+          );
+        }
+      } catch (e) {
+        // اگر خطایی در خواندن فایل رخ داد، حرف اول را نمایش بده
+      }
+    }
+
+    // اگر عکس وجود نداشت، حرف اول نام را نمایش بده
+    final firstChar = name.isNotEmpty ? name[0] : '?';
+    return CircleAvatar(
+      backgroundColor: primary.withOpacity(0.1),
+      child: Text(
+        firstChar,
+        style: const TextStyle(color: primary),
+      ),
+    );
+  }  Widget _buildAddButton(BuildContext context) {
     return Positioned(
       left: 16,
       right: 16,
@@ -143,29 +168,66 @@ class CustomerListPage extends ConsumerWidget {
   }
 
   // متد فیلترها (فرض بر این است که منطق آن در customerFilterProvider است)
-  Widget _filterChips(WidgetRef ref) {
+  Widget _filterChips(
+      BuildContext context,
+      WidgetRef ref,
+      bool isDark,
+      ) {
     final activeFilter = ref.watch(customerFilterProvider);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+    const Color brandRed = Color(0xFFEA2A33);
+
+    Widget buildChip(String label, String? value) {
+      final bool isSelected = activeFilter == value;
+
+      return Padding(
+        padding: EdgeInsets.only(left: 8.w),
+        child: FilterChip(
+          label: Text(
+            label,
+            style: TextStyle(fontSize: 12.sp),
+          ),
+          selected: isSelected,
+          onSelected: (_) =>
+          ref.read(customerFilterProvider.notifier).state = value,
+          labelStyle: TextStyle(
+            color: isSelected
+                ? Colors.white
+                : (isDark ? Colors.white70 : Colors.black87),
+            fontSize: 12.sp,
+          ),
+          selectedColor: brandRed,
+          backgroundColor: isDark
+              ? Colors.white.withOpacity(0.05)
+              : Colors.grey.shade100,
+          showCheckmark: false,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8.r),
+            side: BorderSide(
+              color: isSelected ? brandRed : Colors.transparent,
+              width: 1.w,
+            ),
+          ),
+          padding: EdgeInsets.symmetric(
+            horizontal: 12.w,
+            vertical: 4.h,
+          ),
+          labelPadding: EdgeInsets.symmetric(horizontal: 4.w),
+        ),
+      );
+    }
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: EdgeInsets.symmetric(
+        horizontal: 16.w,
+        vertical: 8.h,
+      ),
       child: Row(
         children: [
-          FilterChip(
-            label: const Text("همه"),
-            selected: activeFilter == null,
-            onSelected: (_) => ref.read(customerFilterProvider.notifier).state = null,
-          ),
-          const SizedBox(width: 8),
-          FilterChip(
-            label: const Text("عمده"),
-            selected: activeFilter == 'WHOLESALE',
-            onSelected: (_) => ref.read(customerFilterProvider.notifier).state = 'WHOLESALE',
-          ),const SizedBox(width: 8),
-          FilterChip(
-            label: const Text("عادی"),
-            selected: activeFilter == 'ORDINARY',
-            onSelected: (_) => ref.read(customerFilterProvider.notifier).state = 'ORDINARY',
-          ),
-          // سایر فیلترها...
+          buildChip("همه", null),
+
+          buildChip("عادی", 'ORDINARY'),  buildChip("عمده", 'WHOLESALE'),
+          SizedBox(width: 8.w),
         ],
       ),
     );

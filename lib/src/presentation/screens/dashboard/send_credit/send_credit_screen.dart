@@ -545,6 +545,8 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
     );
   }
 
+  // در فایل send_credit_screen.dart
+
   Future<void> _selectCustomer(Map<String, dynamic> customer) async {
     _removeOverlay();
     FocusScope.of(context).unfocus();
@@ -559,14 +561,10 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
       customerCodeCtrl.text = customer['customer_code']?.toString() ?? '';
       customerType = (customer['type'] == 'WHOLESALE') ? 'bulk' : 'normal';
       isCompanySelectionLocked = false;
-
-      // اصلاح بخش خواندن wholesale_codes
       _currentCustomerWholesaleCodes = fullDetails['wholesale_codes'] ?? [];
 
       _selectedNormalProviderCode = null;
       _selectedBulkProviderCode = null;
-
-      // اصلاح بخش خواندن تلفن‌ها
       _normalCustomerPhones = [];
       _selectedPhone = null;
       _bulkCustomerPhones = [];
@@ -577,30 +575,57 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
       companyCodeCtrl.clear();
       selectedOperator = '';
 
-      // خواندن تلفن‌ها از JSON
+      // --- تغییرات اصلی اینجاست ---
       if (fullDetails['phones'] is List) {
         final phonesList = fullDetails['phones'] as List;
+
+        // تابع کمکی برای تمیز کردن شماره
+        String cleanPhone(dynamic p) {
+          if (p is Map) {
+            // اگر فرمت {"phone_number": "..."} باشد
+            return p['phone_number']?.toString() ?? p.values.first.toString();
+          } else {
+            String str = p.toString();
+            // اگر استرینگ کثیف مثل "{phone_number: 078...}" باشد
+            if (str.contains('{') || str.contains('phone_number')) {
+              // فقط اعداد را نگه دار
+              return str.replaceAll(RegExp(r'[^0-9]'), '');
+            }
+            return str;
+          }
+        }
+
         if (customerType == 'normal') {
-          _normalCustomerPhones = phonesList.map((p) => p.toString()).toList();
+          _normalCustomerPhones = phonesList.map((p) => cleanPhone(p)).toList();
+
+          if (_normalCustomerPhones.isNotEmpty) {
+            // حذف شماره‌های تکراری یا خالی
+            _normalCustomerPhones = _normalCustomerPhones.where((e) => e.isNotEmpty).toSet().toList();
+          }
+
           if (_normalCustomerPhones.length == 1) {
             _selectedPhone = _normalCustomerPhones[0];
             phoneCtrl.text = _selectedPhone!;
           }
         } else {
-          _bulkCustomerPhones = phonesList.map((p) => p.toString()).toList();
+          // برای مشتریان عمده
+          _bulkCustomerPhones = phonesList.map((p) => cleanPhone(p)).toList();
+          if (_bulkCustomerPhones.isNotEmpty) {
+            _bulkCustomerPhones = _bulkCustomerPhones.where((e) => e.isNotEmpty).toSet().toList();
+          }
           if (_bulkCustomerPhones.length == 1) {
             _selectedBulkPhone = _bulkCustomerPhones[0];
             wholesalePhoneCtrl.text = _selectedBulkPhone!;
           }
         }
       }
+      // --- پایان تغییرات ---
     });
 
     if (customerType == 'bulk') {
       _prepareFilteredProviders();
     }
-  }
-  void _prepareFilteredProviders() {
+  } void _prepareFilteredProviders() {
     // استفاده از ref.read برای دریافت وضعیت فعلی لیست شرکت‌ها
     final providersAsync = ref.read(providersListProvider);
 

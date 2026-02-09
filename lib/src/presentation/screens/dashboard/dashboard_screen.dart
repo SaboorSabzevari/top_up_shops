@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:path/path.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:top_up_shops/src/presentation/screens/dashboard/invetory.dart';
@@ -18,7 +17,6 @@ import '../../../services/internet_chek.dart';
 import '../../../services/sync_service.dart';
 import '../transactions/transaction_screen.dart';
 import 'buy_credit/buy_credit_screen.dart';
-import 'database_view.dart';
 
 final profileInfoProvider = FutureProvider<Map<String, String>>((ref) async {
   final prefs = await SharedPreferences.getInstance();
@@ -32,8 +30,7 @@ final isSyncingProvider = StateProvider<bool>((ref) => false);
 class DashboardScreen extends ConsumerWidget {
    DashboardScreen({super.key});
 
-// در صفحه Home یا Settings
-  // در فایل dashboard_screen.dart
+
   Future<void> _handleSync(BuildContext context, WidgetRef ref) async {
     final user = ref.read(currentUserProvider);
     if (user == null) return;
@@ -46,7 +43,6 @@ class DashboardScreen extends ConsumerWidget {
       if (hasInternet) {
         final syncService = SyncService();
 
-        // ✅ اصلاح اصلی: به جای دو خط قبلی، فقط این خط را بنویسید
         await syncService.syncAll(user.shopId);
         ref.invalidate(transactionsProvider);
         ref.invalidate(todaySalesProvider);
@@ -92,7 +88,9 @@ class DashboardScreen extends ConsumerWidget {
       backgroundColor: bgColor,
       appBar: _buildAppBar(context,isDark, brandRed,profileAsync),
       body: SafeArea(
-        child: RefreshIndicator(
+        child: RefreshIndicator(backgroundColor: bgColor,
+          color: kPrimaryColor,
+
           onRefresh: () async {
             ref.invalidate(transactionsProvider);
             ref.invalidate(todaySalesProvider);
@@ -108,45 +106,7 @@ class DashboardScreen extends ConsumerWidget {
 
                 Row(
                   children: [
-                    // IconButton(
-                    //   onPressed: syncState.isSyncing ? null : () => syncNotifier.syncNow(),
-                    //   icon: Stack(
-                    //     alignment: Alignment.center,
-                    //     children: [
-                    //       // آیکون اصلی (اگر در حال سینک باشد می‌چرخد)
-                    //       syncState.isSyncing
-                    //           ? const SizedBox(
-                    //         width: 20,
-                    //         height: 20,
-                    //         child: CircularProgressIndicator(
-                    //           strokeWidth: 2,
-                    //           valueColor: AlwaysStoppedAnimation<Color>(brandRed),
-                    //         ),
-                    //       )
-                    //           : const Icon(Icons.sync, color: Colors.grey),
-                    //
-                    //       // نمایش عدد تسک‌های باقی‌مانده (Badge)
-                    //       if (syncState.pendingOps > 0 && !syncState.isSyncing)
-                    //         Positioned(
-                    //           right: 0,
-                    //           top: 0,
-                    //           child: Container(
-                    //             padding: const EdgeInsets.all(2),
-                    //             decoration: BoxDecoration(
-                    //               color: brandRed,
-                    //               borderRadius: BorderRadius.circular(10),
-                    //             ),
-                    //             constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
-                    //             child: Text(
-                    //               '${syncState.pendingOps}',
-                    //               style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
-                    //               textAlign: TextAlign.center,
-                    //             ),
-                    //           ),
-                    //         ),
-                    //     ],
-                    //   ),
-                    // ),
+
                     IconButton(
                       onPressed: isSyncing ? null : () => _handleSync(context, ref),
                       icon: isSyncing
@@ -343,7 +303,7 @@ Widget _buildMiniCard1(String title, String val, String unit, bool isDark, Color
         children: [
           const Text("کل فروش امروز", style: TextStyle(color: Colors.grey, fontSize: 14)),
           const SizedBox(height: 10),
-          Text("$total افغانی", style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900)),
+          Text("$total ؋ ", style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900)),
           const SizedBox(height: 15),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -462,7 +422,7 @@ Widget _buildMiniCard1(String title, String val, String unit, bool isDark, Color
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)
                 ),
                 Text(
-                    t.phoneNumber,
+                    _cleanPhoneNumberDisplay(t.phoneNumber),
                     style: const TextStyle(fontSize: 11, color: Colors.grey)
                 ),
               ],
@@ -529,6 +489,13 @@ Widget _buildMiniCard1(String title, String val, String unit, bool isDark, Color
             child: Text("مشاهده همه", style: TextStyle(color: red, fontSize: 12, fontWeight: FontWeight.bold))),
       ],
     );
+  }
+  String _cleanPhoneNumberDisplay(String rawPhone) {
+    if (rawPhone.contains('{') || rawPhone.contains('phone_number')) {
+      // حذف تمام کاراکترهای غیر عددی
+      return rawPhone.replaceAll(RegExp(r'[^0-9]'), '');
+    }
+    return rawPhone;
   }
   
   }

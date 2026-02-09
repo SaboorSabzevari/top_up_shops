@@ -192,7 +192,7 @@ class InventoryScreen extends StatelessWidget {
                     children: [
                       Text("${card['face_value']}",
                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      const Text("افغانی", style: TextStyle(fontSize: 9, color: Colors.grey)),
+                      const Text("؋ ", style: TextStyle(fontSize: 9, color: Colors.grey)),
                       const SizedBox(height: 4),
                       Text("$qty عدد",
                           style: TextStyle(

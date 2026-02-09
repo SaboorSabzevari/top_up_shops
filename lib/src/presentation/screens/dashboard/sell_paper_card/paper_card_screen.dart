@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart'; // اضافه کردن این خط
 import 'dart:async';
 import '../../../../data/local/app_database.dart';
 import '../../../../providers/session_provider.dart';
@@ -13,7 +14,8 @@ class PaperTopupSalePage extends ConsumerStatefulWidget {
   ConsumerState<PaperTopupSalePage> createState() => _PaperTopupSalePageState();
 }
 
-class _PaperTopupSalePageState extends ConsumerState<PaperTopupSalePage> {  int quantity = 1;
+class _PaperTopupSalePageState extends ConsumerState<PaperTopupSalePage> {
+  int quantity = 1;
   late TextEditingController quantityController = TextEditingController(text: quantity.toString());
   String operator = 'awcc';
   int amount = 100;
@@ -53,180 +55,108 @@ class _PaperTopupSalePageState extends ConsumerState<PaperTopupSalePage> {  int 
     _searchController.dispose();
     super.dispose();
   }
-  // Future<void> _processPaperSale() async {
-  //   // ۱. ورودی‌ها (این مقادیر از فیلدهای صفحه گرفته می‌شوند)
-  //   // quantity: تعداد کارت (مثلاً ۱۰)
-  //   // price: قیمت فروش فی کارت (مثلاً ۴۸)
-  //   // amount: مقدار کریدیت کارت (مثلاً ۵۰)
-  //
-  //   // ۲. قیمت خرید فی کارت (این را می‌توانید از یک فیلد جدید یا دیتابیس بگیرید)
-  //   // فعلاً فرض می‌کنیم ۴۵ افغانی است
-  //   double unitCostPrice = 45.0;
-  //
-  //   // ۳. محاسبات مالی
-  //   double totalSellingPrice = (quantity * price).toDouble(); // ۴۸۰ افغانی
-  //   double totalCostPrice = (quantity * unitCostPrice).toDouble(); // ۴۵۰ افغانی
-  //   double totalProfit = totalSellingPrice - totalCostPrice; // ۳۰ افغانی سود
-  //
-  //   // ۴. وضعیت پرداخت و بدهی
-  //   // اگر مشتری دائمی باشد، ممکن است بعداً پول بدهد. اگر متفرقه باشد، نقد حساب می‌شود.
-  //   double paidAmount = _selectedCustomerId != null ? 0.0 : totalSellingPrice;
-  //   double remainingAmount = totalSellingPrice - paidAmount;
-  //
-  //   Map<String, dynamic> transactionData = {
-  //     'customer_id': _selectedCustomerId, // اگر null باشد یعنی متفرقه است
-  //     'customer_name': _selectedCustomerId != null ? _selectedCustomerName : "مشتری متفرقه ($operator)",
-  //     'customer_type': _selectedCustomerId != null ? 'REGISTERED' : 'WALK_IN',
-  //     'operator_name': operator.toUpperCase(),
-  //     'phone_number': null, // برای کارت فیزیکی شماره موبایل نداریم
-  //     'sent_amount': amount.toDouble(), // مقدار اسمی کارت (مثلاً ۵۰)
-  //     'total_price': totalSellingPrice, // مبلغ کل قابل پرداخت (مثلاً ۴۸۰)
-  //     'paid_amount': paidAmount,
-  //     'remaining_amount': remainingAmount,
-  //     'cost_price': totalCostPrice, // قیمت تمام شده برای شما (مثلاً ۴۵۰)
-  //     'profit': totalProfit, // سود خالص (مثلاً ۳۰)
-  //     'ussd_command': 'PAPER_CARD',
-  //     'created_at': DateTime.now().toIso8601String(),
-  //   };
-  //
-  //   try {
-  //     await DatabaseHelper.instance.saveDetailedTransaction(transactionData);
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       SnackBar(
-  //         content: Text(_selectedCustomerId != null
-  //             ? 'فروش برای $_selectedCustomerName ثبت و به حساب اضافه شد'
-  //             : 'فروش نقدی موفقانه ثبت شد'),
-  //         backgroundColor: Colors.green,
-  //       ),
-  //     );
-  //
-  //     // ریست کردن فرم بعد از ثبت
-  //     setState(() {
-  //       _selectedCustomerId = null;
-  //       _selectedCustomerName = null;
-  //       _searchController.clear();
-  //     });
-  //   } catch (e) {
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       const SnackBar(content: Text('خطا در ثبت تراکنش'), backgroundColor: Colors.red),
-  //     );
-  //   }
-  // }
-void _showErrorDialog(String msg) {
-  showDialog(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: Row(
-        children: const [
-          Icon(Icons.error_outline, color: Colors.red),
-          SizedBox(width: 8),
-          Text("خطا"),
-        ],
-      ),
-      content: Text(
-        msg,
-        style: const TextStyle(fontSize: 14, height: 1.5),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(ctx),
-          child: const Text("متوجه شدم", style: TextStyle(color: Colors.red)),
-        )
-      ],
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-    ),
-  );
-}
-Future<void> _processPaperSale() async {
-  // ۰. بررسی موجودی کارت در انبار (بخش جدید)
-  String currentOperator = operator; // این باید 'awcc' یا 'roshan' و غیره باشد، نه 'افغان بیسیم'
 
-  // برای دیباگ
-  print('بررسی موجودی برای: operator=$currentOperator, amount=$amount, quantity=$quantity');
-  final user = ref.read(currentUserProvider);
-  int currentStock = await DatabaseHelper.instance.getPaperStockCount(currentOperator, amount,user!.shopId);
-  if (currentStock < quantity) {
-    _showErrorDialog("موجودی کافی نیست! موجودی فعلی کارت $amount افغانی $currentOperator: $currentStock عدد");
-    return;
-  }
-
-  // ۱. محاسبات پایه
-  double totalPrice = (price * quantity).toDouble();
-
-  // ۲. منطق مبلغ دریافتی
-  double cashReceived = double.tryParse(paidCtrl.text) ??
-      (_selectedCustomerId == null ? totalPrice : 0.0);
-
-  // ۳. محاسبه بدهی (مانده)
-  double remaining = totalPrice - cashReceived;
-
-  // ۴. محاسبه سود
-  // نکته: اگر قیمت خرید دقیق را در دیتابیس دارید بهتر است از آن استفاده کنید
-  // فعلاً طبق فرمول شما (۹۵٪ ارزش اسمی) محاسبه می‌شود
-  double costPerUnit = amount * 0.95;
-  double totalCost = costPerUnit * quantity;
-  double profit = totalPrice - totalCost;
-
-  if (user == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("خطا: کاربر وارد نشده است")),
-    );
-    return;
-  }
-  final transactionData = {
-    'customer_id': _selectedCustomerId,
-    'customer_name': _selectedCustomerId != null ? _selectedCustomerName : "مشتری متفرقه (کارت $operator)",
-    'customer_type': _selectedCustomerId != null ? 'REGISTERED' : 'WALK_IN',
-    'transaction_type': 'PAPER',
-    'operator_name': operator.toUpperCase(),
-    'sent_amount': amount.toDouble(),
-    'quantity': quantity,
-
-    // بخش مالی
-    'total_price': totalPrice,
-    'paid_amount': cashReceived,
-    'remaining_amount': remaining,
-    'received_amount': cashReceived,
-    'cost_price': totalCost,
-    'profit': profit,
-
-    // سایر فیلدها
-    'company_code': '',
-    'phone_number': '',
-    'ussd_command': 'PAPER_SALE',
-    'created_at': DateTime.now().toIso8601String(),
-  };
-  print("Debug: Searching for Operator: ${operator.toLowerCase()} with Value: $amount");
-  try {
-    // ۵. ذخیره تراکنش
-    await DatabaseHelper.instance.saveDetailedTransaction(transactionData,user);
-
-    // ۶. کسر از موجودی انبار (بخش جدید)
-    await DatabaseHelper.instance.decreasePaperStock(currentOperator, amount, quantity,user.shopId);
-    // ۷. بروزرسانی UI و Riverpod
-    ref.invalidate(transactionsProvider);
-    ref.invalidate(todayProfitProvider);
-    ref.invalidate(todayCountProvider);
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(remaining > 0
-              ? 'فروش ثبت شد. مانده بدهی: ${remaining.toStringAsFixed(0)}'
-              : 'فروش نقدی با موفقیت ثبت شد'),
-          backgroundColor: Colors.green,
+  void _showErrorDialog(String msg) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.error_outline, color: Colors.red, size: 24.sp), // ریسپانسیو
+            SizedBox(width: 8.w), // ریسپانسیو
+            Text("خطا", style: TextStyle(fontSize: 18.sp)), // ریسپانسیو
+          ],
         ),
-      );
-
-      // پاک کردن فرم
-      paidCtrl.clear();
-      _searchController.clear();
-      setState(() { _selectedCustomerId = null; });
-    }
-  } catch (e) {
-    _showErrorDialog('خطا در ثبت فروش: $e');
+        content: Text(
+          msg,
+          style: TextStyle(fontSize: 14.sp, height: 1.5), // ریسپانسیو
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              "متوجه شدم",
+              style: TextStyle(color: Colors.red, fontSize: 14.sp), // ریسپانسیو
+            ),
+          )
+        ],
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)), // ریسپانسیو
+      ),
+    );
   }
-}
+
+  Future<void> _processPaperSale() async {
+    String currentOperator = operator;
+    print('بررسی موجودی برای: operator=$currentOperator, amount=$amount, quantity=$quantity');
+    final user = ref.read(currentUserProvider);
+    int currentStock = await DatabaseHelper.instance.getPaperStockCount(currentOperator, amount,user!.shopId);
+    if (currentStock < quantity) {
+      _showErrorDialog("موجودی کافی نیست! موجودی فعلی کارت $amount ؋ $currentOperator: $currentStock عدد");
+      return;
+    }
+
+    double totalPrice = (price * quantity).toDouble();
+    double cashReceived = double.tryParse(paidCtrl.text) ??
+        (_selectedCustomerId == null ? totalPrice : 0.0);
+    double remaining = totalPrice - cashReceived;
+    double costPerUnit = amount * 0.95;
+    double totalCost = costPerUnit * quantity;
+    double profit = totalPrice - totalCost;
+
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("خطا: کاربر وارد نشده است")),
+      );
+      return;
+    }
+
+    final transactionData = {
+      'customer_id': _selectedCustomerId,
+      'customer_name': _selectedCustomerId != null ? _selectedCustomerName : "مشتری متفرقه (کارت $operator)",
+      'customer_type': _selectedCustomerId != null ? 'REGISTERED' : 'WALK_IN',
+      'transaction_type': 'PAPER',
+      'operator_name': operator.toUpperCase(),
+      'sent_amount': amount.toDouble(),
+      'quantity': quantity,
+      'total_price': totalPrice,
+      'paid_amount': cashReceived,
+      'remaining_amount': remaining,
+      'received_amount': cashReceived,
+      'cost_price': totalCost,
+      'profit': profit,
+      'company_code': '',
+      'phone_number': '',
+      'ussd_command': 'PAPER_SALE',
+      'created_at': DateTime.now().toIso8601String(),
+    };
+
+    print("Debug: Searching for Operator: ${operator.toLowerCase()} with Value: $amount");
+    try {
+      await DatabaseHelper.instance.saveDetailedTransaction(transactionData,user);
+      await DatabaseHelper.instance.decreasePaperStock(currentOperator, amount, quantity,user.shopId);
+      ref.invalidate(transactionsProvider);
+      ref.invalidate(todayProfitProvider);
+      ref.invalidate(todayCountProvider);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(remaining > 0
+                ? 'فروش ثبت شد. مانده بدهی: ${remaining.toStringAsFixed(0)}'
+                : 'فروش نقدی با موفقیت ثبت شد'),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        paidCtrl.clear();
+        _searchController.clear();
+        setState(() { _selectedCustomerId = null; });
+      }
+    } catch (e) {
+      _showErrorDialog('خطا در ثبت فروش: $e');
+    }
+  }
+
   // ---------- متدهای جستجوی مشتری ----------
   void _onSearchChanged(String query) {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
@@ -252,19 +182,16 @@ Future<void> _processPaperSale() async {
 
         List<Map<String, dynamic>> results = [];
 
-        // استفاده از متد searchCustomers
         try {
           results = await DatabaseHelper.instance.searchCustomers(query,user!.shopId);
           print('تعداد نتایج: ${results.length}');
 
-          // برای debug: نمایش اولین نتیجه
           if (results.isNotEmpty) {
             print('اولین نتیجه: ${results.first}');
           }
         } catch (e) {
           print('خطا در searchCustomers: $e');
 
-          // روش جایگزین
           try {
             final db = await DatabaseHelper.instance.database;
             results = await db.query(
@@ -308,7 +235,6 @@ Future<void> _processPaperSale() async {
   void _showOverlay() {
     _removeOverlay();
 
-    // استفاده از GlobalKey برای موقعیت‌یابی صحیح
     final renderBox = _searchBoxKey.currentContext?.findRenderObject() as RenderBox?;
 
     if (renderBox == null) {
@@ -329,14 +255,14 @@ Future<void> _processPaperSale() async {
           width: size.width,
           child: Material(
             elevation: 8,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(12.r), // ریسپانسیو
             color: Colors.white,
             child: Container(
               constraints: BoxConstraints(
                 maxHeight: MediaQuery.of(context).size.height * 0.4,
               ),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(12.r), // ریسپانسیو
                 border: Border.all(color: Colors.grey.shade300),
                 boxShadow: [
                   BoxShadow(
@@ -350,28 +276,29 @@ Future<void> _processPaperSale() async {
                 children: [
                   // هدر
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: EdgeInsets.all(12.r), // ریسپانسیو
                     decoration: BoxDecoration(
                       color: Colors.red.shade50,
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(12),
-                        topRight: Radius.circular(12),
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(12.r), // ریسپانسیو
+                        topRight: Radius.circular(12.r), // ریسپانسیو
                       ),
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.person_search, color: Colors.red, size: 20),
-                        SizedBox(width: 8),
+                        Icon(Icons.person_search, color: Colors.red, size: 20.sp), // ریسپانسیو
+                        SizedBox(width: 8.w), // ریسپانسیو
                         Text(
                           '${_searchResults.length} مشتری یافت شد',
                           style: TextStyle(
                             color: Colors.red.shade800,
                             fontWeight: FontWeight.bold,
+                            fontSize: 14.sp, // ریسپانسیو
                           ),
                         ),
                         Spacer(),
                         IconButton(
-                          icon: Icon(Icons.close, size: 18),
+                          icon: Icon(Icons.close, size: 18.sp), // ریسپانسیو
                           onPressed: _removeOverlay,
                         ),
                       ],
@@ -398,23 +325,23 @@ Future<void> _processPaperSale() async {
                             ),
                           ),
                           child: ListTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 16.w, // ریسپانسیو
+                              vertical: 12.h, // ریسپانسیو
                             ),
                             leading: CircleAvatar(
                               backgroundColor: Colors.red.shade100,
                               child: Icon(
                                 Icons.person,
-                                size: 20,
+                                size: 20.sp, // ریسپانسیو
                                 color: Colors.red,
                               ),
                             ),
                             title: Text(
                               customer['name']?.toString() ?? 'بدون نام',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                fontSize: 15,
+                                fontSize: 15.sp, // ریسپانسیو
                               ),
                             ),
                             subtitle: Column(
@@ -424,7 +351,7 @@ Future<void> _processPaperSale() async {
                                   Text(
                                     'کد: ${customer['customer_code']}',
                                     style: TextStyle(
-                                      fontSize: 12,
+                                      fontSize: 12.sp, // ریسپانسیو
                                       color: Colors.grey.shade600,
                                     ),
                                   ),
@@ -432,7 +359,7 @@ Future<void> _processPaperSale() async {
                                   Text(
                                     'تلفن: ${customer['phone']}',
                                     style: TextStyle(
-                                      fontSize: 12,
+                                      fontSize: 12.sp, // ریسپانسیو
                                       color: Colors.grey.shade600,
                                     ),
                                   ),
@@ -440,17 +367,17 @@ Future<void> _processPaperSale() async {
                             ),
                             trailing: Container(
                               padding: EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
+                                horizontal: 8.w, // ریسپانسیو
+                                vertical: 4.h, // ریسپانسیو
                               ),
                               decoration: BoxDecoration(
                                 color: Colors.green.shade50,
-                                borderRadius: BorderRadius.circular(6),
+                                borderRadius: BorderRadius.circular(6.r), // ریسپانسیو
                               ),
                               child: Text(
                                 customer['type'] == 'WHOLESALE' ? 'عمده' : 'عادی',
                                 style: TextStyle(
-                                  fontSize: 11,
+                                  fontSize: 11.sp, // ریسپانسیو
                                   color: Colors.green.shade800,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -480,32 +407,34 @@ Future<void> _processPaperSale() async {
 
   Widget _buildNotFoundWidget() {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(24.r), // ریسپانسیو
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.search_off, size: 50, color: Colors.grey.shade400),
-          SizedBox(height: 12),
+          Icon(Icons.search_off, size: 50.sp, color: Colors.grey.shade400), // ریسپانسیو
+          SizedBox(height: 12.h), // ریسپانسیو
           Text(
             'مشتری با این نام یافت نشد',
             style: TextStyle(
               color: Colors.grey.shade600,
-              fontSize: 14,
+              fontSize: 14.sp, // ریسپانسیو
             ),
           ),
-          SizedBox(height: 16),
+          SizedBox(height: 16.h), // ریسپانسیو
           ElevatedButton.icon(
             onPressed: () {
               _removeOverlay();
-              // Navigation به صفحه اضافه کردن مشتری
             },
-            icon: Icon(Icons.add, size: 18),
-            label: Text('افزودن مشتری جدید'),
+            icon: Icon(Icons.add, size: 18.sp), // ریسپانسیو
+            label: Text(
+              'افزودن مشتری جدید',
+              style: TextStyle(fontSize: 14.sp), // ریسپانسیو
+            ),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(8.r), // ریسپانسیو
               ),
             ),
           ),
@@ -556,9 +485,13 @@ Future<void> _processPaperSale() async {
 
   @override
   Widget build(BuildContext context) {
+    // مقداردهی اولیه ScreenUtil
+    ScreenUtil.init(context, designSize: const Size(360, 800));
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       print('اپراتور فعلی در paper_card_screen: $operator');
     });
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -566,7 +499,7 @@ Future<void> _processPaperSale() async {
         appBar: _buildAppBar(),
         bottomNavigationBar: _buildBottomBar(),
         body: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(16.r), // ریسپانسیو
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -574,25 +507,23 @@ Future<void> _processPaperSale() async {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // برچسب بالایی با فونت جدید
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 10, right: 4),
+                  Padding(
+                    padding: EdgeInsets.only(bottom: 10.h, right: 4.w), // ریسپانسیو
                     child: Text(
                       'اطلاعات خریدار',
                       style: TextStyle(
                         fontWeight: FontWeight.w900,
-                        fontSize: 15,
+                        fontSize: 15.sp, // ریسپانسیو
                         color: Colors.black87,
                       ),
                     ),
                   ),
 
-                  // باکس اصلی جستجو
                   Container(
                     key: _searchBoxKey,
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(16), // گوشه‌های گردتر مشابه طرح جدید
+                      borderRadius: BorderRadius.circular(16.r), // ریسپانسیو
                       border: Border.all(
                         color: _selectedCustomerId != null ? Colors.green.shade300 : Colors.transparent,
                         width: 1.5,
@@ -609,22 +540,21 @@ Future<void> _processPaperSale() async {
                       children: [
                         Row(
                           children: [
-                            // آیکون هوشمند (تغییر بر اساس وضعیت)
                             Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              padding: EdgeInsets.symmetric(horizontal: 16.w), // ریسپانسیو
                               child: _isSearching
-                                  ? const SizedBox(
-                                width: 20, height: 20,
+                                  ? SizedBox(
+                                width: 20.w, // ریسپانسیو
+                                height: 20.h, // ریسپانسیو
                                 child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFEA2A33)),
                               )
                                   : Icon(
                                 _selectedCustomerId != null ? Icons.person_rounded : Icons.search_rounded,
                                 color: _selectedCustomerId != null ? Colors.green : Colors.grey.shade400,
-                                size: 24,
+                                size: 24.sp, // ریسپانسیو
                               ),
                             ),
 
-                            // فیلد ورودی
                             Expanded(
                               child: TextField(
                                 controller: _searchController,
@@ -632,49 +562,47 @@ Future<void> _processPaperSale() async {
                                 decoration: InputDecoration(
                                   border: InputBorder.none,
                                   hintText: 'نام مشتری را جستجو کنید...',
-                                  hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
-                                  contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                                  hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14.sp), // ریسپانسیو
+                                  contentPadding: EdgeInsets.symmetric(vertical: 16.h), // ریسپانسیو
                                 ),
                                 onChanged: _onSearchChanged,
                               ),
                             ),
 
-                            // دکمه پاک‌سازی
                             if (_searchController.text.isNotEmpty || _selectedCustomerId != null)
                               IconButton(
-                                icon: const Icon(Icons.close_rounded, size: 18),
+                                icon: Icon(Icons.close_rounded, size: 18.sp), // ریسپانسیو
                                 onPressed: _clearCustomer,
                                 color: Colors.grey.shade400,
                               ),
                           ],
                         ),
 
-                        // بخش داخلی نمایش نام مشتری (فقط در صورت انتخاب)
                         if (_selectedCustomerName != null)
                           AnimatedContainer(
                             duration: const Duration(milliseconds: 300),
                             width: double.infinity,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h), // ریسپانسیو
                             decoration: BoxDecoration(
                               color: Colors.green.shade50,
-                              borderRadius: const BorderRadius.only(
-                                bottomLeft: Radius.circular(16),
-                                bottomRight: Radius.circular(16),
+                              borderRadius: BorderRadius.only(
+                                bottomLeft: Radius.circular(16.r), // ریسپانسیو
+                                bottomRight: Radius.circular(16.r), // ریسپانسیو
                               ),
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.check_circle_rounded, color: Colors.green, size: 18),
-                                const SizedBox(width: 8),
+                                Icon(Icons.check_circle_rounded, color: Colors.green, size: 18.sp), // ریسپانسیو
+                                SizedBox(width: 8.w), // ریسپانسیو
                                 Text(
                                   'مشتری تایید شد: ',
-                                  style: TextStyle(color: Colors.green.shade700, fontSize: 13),
+                                  style: TextStyle(color: Colors.green.shade700, fontSize: 13.sp), // ریسپانسیو
                                 ),
                                 Text(
                                   _selectedCustomerName!,
                                   style: TextStyle(
                                     color: Colors.green.shade900,
-                                    fontSize: 14,
+                                    fontSize: 14.sp, // ریسپانسیو
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
@@ -687,73 +615,84 @@ Future<void> _processPaperSale() async {
                 ],
               ),
               // -----------------------------------------------
-              SizedBox(height: 24),
+              SizedBox(height: 24.h), // ریسپانسیو
               _sectionTitle('شرکت مخابراتی'),
+              SizedBox(height: 12.h), // ریسپانسیو
               _operatorGrid(),
-              SizedBox(height: 24),
-              _sectionTitle('مقدار کریدیت (افغانی)'),
+              SizedBox(height: 24.h), // ریسپانسیو
+              _sectionTitle('مقدار کریدیت (؋)'),
+              SizedBox(height: 12.h), // ریسپانسیو
               _amountGrid(),
-              SizedBox(height: 24),
+              SizedBox(height: 24.h), // ریسپانسیو
               _priceAndQuantityRow(),
-              SizedBox(height: 16),
+              SizedBox(height: 16.h), // ریسپانسیو
               _amountInput('مقدار دریافتی (نقد)', paidCtrl, "AFN"),
 
-              const SizedBox(height: 12),
+              SizedBox(height: 12.h), // ریسپانسیو
             ],
           ),
         ),
       ),
     );
   }
-Widget _amountInput(
-    String label,
-    TextEditingController ctrl,
-    String? suffixText,
-    ) {
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-      const SizedBox(height: 6),
-      Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          border: BoxBorder.all(color: Colors.red.shade200),
+
+  Widget _amountInput(
+      String label,
+      TextEditingController ctrl,
+      String? suffixText,
+      ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(fontSize: 12.sp, color: Colors.grey), // ریسپانسیو
         ),
-        child: TextField(
-          textDirection: TextDirection.ltr,
-          cursorColor: kPrimaryColor,
-          controller: ctrl,
-          keyboardType: TextInputType.number,
-          textAlign: TextAlign.center,
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: const Color(0xFFF3F4F6),
-            suffixText: suffixText,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
+        SizedBox(height: 6.h), // ریسپانسیو
+        Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12.r), // ریسپانسیو
+            border: BoxBorder.all(color: Colors.red.shade200),
           ),
-          onChanged: (_) => setState(() {}),
+          child: TextField(
+            textDirection: TextDirection.ltr,
+            cursorColor: kPrimaryColor,
+            controller: ctrl,
+            keyboardType: TextInputType.number,
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 16.sp), // ریسپانسیو
+            decoration: InputDecoration(
+              filled: true,
+              fillColor: const Color(0xFFF3F4F6),
+              suffixText: suffixText,
+              suffixStyle: TextStyle(fontSize: 14.sp), // ریسپانسیو
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12.r), // ریسپانسیو
+                borderSide: BorderSide.none,
+              ),
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 12.w, // ریسپانسیو
+                vertical: 14.h, // ریسپانسیو
+              ),
+            ),
+            onChanged: (_) => setState(() {}),
+          ),
         ),
-      ),
-    ],
-  );
-}
-  // ---------- بقیه ویجت‌ها بدون تغییر ----------
+      ],
+    );
+  }
 
   AppBar _buildAppBar() {
     return AppBar(
       elevation: 1,
       backgroundColor: Colors.white,
-      title: const Text(
+      title: Text(
         'فروش کارت کاغذی',
-        style: TextStyle(fontWeight: FontWeight.bold),
+        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18.sp), // ریسپانسیو
       ),
       centerTitle: true,
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back),
+        icon: Icon(Icons.arrow_back, size: 24.sp), // ریسپانسیو
         onPressed: () => Navigator.pop(context),
       ),
     );
@@ -761,21 +700,19 @@ Widget _amountInput(
 
   Widget _sectionTitle(String title) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
+      padding: EdgeInsets.symmetric(horizontal: 4.w), // ریسپانسیو
       child: Text(
         title,
-        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold), // ریسپانسیو
       ),
     );
   }
 
-
   Widget _operatorGrid() {
-    // لیست اپراتورها در paper_card_screen.dart
     final List<Map<String, dynamic>> operators = [
       {
         'title': 'افغان بیسیم',
-        'value': 'awcc', // این باید با _selectedOperatorValue در buy_credit_screen مطابقت داشته باشد
+        'value': 'awcc',
         'svgPath': 'assets/svg/awcc.svg',
         'useSvg': true,
       },
@@ -795,26 +732,24 @@ Widget _amountInput(
         'title': 'اتوما',
         'value': 'mtn',
         'svgPath': 'assets/svg/atoma.svg',
-
         'useSvg': true,
       },
       {
         'title': 'سلام',
         'value': 'salaam',
         'svgPath': 'assets/svg/salaam.svg',
-
         'useSvg': true,
       },
     ];
 
     return SizedBox(
-      height: 120,
+      height: 120.h, // ریسپانسیو
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 4),
+        padding: EdgeInsets.symmetric(horizontal: 4.w), // ریسپانسیو
         itemCount: operators.length,
-        separatorBuilder: (context, index) => const SizedBox(width: 12),
+        separatorBuilder: (context, index) => SizedBox(width: 12.w), // ریسپانسیو
         itemBuilder: (context, index) {
           final op = operators[index];
           return _operatorItem(
@@ -822,7 +757,6 @@ Widget _amountInput(
             value: op['value'] as String,
             useSvg: op['useSvg'] as bool,
             svgPath: op['svgPath'] as String?,
-
           );
         },
       ),
@@ -841,10 +775,10 @@ Widget _amountInput(
       onTap: () => setState(() => operator = value),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
-        width: 110,
+        width: 110.w, // ریسپانسیو
         decoration: BoxDecoration(
           color: active ? Colors.red.shade50 : Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(16.r), // ریسپانسیو
           border: Border.all(
             color: active ? Colors.red : Colors.grey.shade300,
             width: active ? 2 : 1,
@@ -868,8 +802,8 @@ Widget _amountInput(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 50,
-              height: 50,
+              width: 50.w, // ریسپانسیو
+              height: 50.h, // ریسپانسیو
               decoration: BoxDecoration(
                 color: active ? Colors.white70 : Colors.white70,
                 shape: BoxShape.circle,
@@ -877,54 +811,48 @@ Widget _amountInput(
               child: Center(
                 child: useSvg && svgPath != null
                     ? SizedBox(
-                  width: 32,
-                  height: 32,
-                  child: SvgPicture.asset(
-                    svgPath,
-                    // colorFilter: ColorFilter.mode(
-                    //   // active ? Colors.white : Colors.grey.shade600,
-                    //   // BlendMode.srcIn,
-                    // ),
-                  ),
+                  width: 32.w, // ریسپانسیو
+                  height: 32.h, // ریسپانسیو
+                  child: SvgPicture.asset(svgPath),
                 )
                     : Icon(
                   icon ?? Icons.sim_card,
-                  size: 28,
+                  size: 28.sp, // ریسپانسیو
                   color: active ? Colors.white : Colors.grey.shade600,
                 ),
               ),
             ),
-            const SizedBox(height: 10),
+            SizedBox(height: 10.h), // ریسپانسیو
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
+              padding: EdgeInsets.symmetric(horizontal: 8.w), // ریسپانسیو
               child: Text(
                 title,
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  fontSize: 13,
+                  fontSize: 13.sp, // ریسپانسیو
                   color: active ? Colors.red.shade800 : Colors.grey.shade700,
                 ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-
           ],
         ),
       ),
     );
   }
+
   Widget _amountGrid() {
     final values = [50, 100, 150, 200, 250, 500];
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: values.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
+        mainAxisSpacing: 12.h, // ریسپانسیو
+        crossAxisSpacing: 12.w, // ریسپانسیو
         childAspectRatio: 2.3,
       ),
       itemBuilder: (_, i) {
@@ -936,7 +864,7 @@ Widget _amountInput(
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(12.r), // ریسپانسیو
               border: Border.all(
                 color: active ? Colors.red : Colors.transparent,
                 width: 2,
@@ -945,7 +873,7 @@ Widget _amountInput(
             child: Text(
               v.toString(),
               style: TextStyle(
-                fontSize: 18,
+                fontSize: 18.sp, // ریسپانسیو
                 fontWeight: FontWeight.bold,
                 color: active ? Colors.red : Colors.black,
               ),
@@ -955,47 +883,48 @@ Widget _amountInput(
       },
     );
   }
+
   Widget _priceAndQuantityRow() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16.r), // ریسپانسیو
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(12.r), // ریسپانسیو
       ),
       child: Row(
         children: [
-          // قیمت فروش فی کارت
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'قیمت فی کارت',
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 14.sp, // ریسپانسیو
                     fontWeight: FontWeight.bold,
                     color: Colors.grey,
                   ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: 4.h), // ریسپانسیو
                 TextField(
                   keyboardType: TextInputType.number,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 18,
+                  style: TextStyle(
+                    fontSize: 18.sp, // ریسپانسیو
                     fontWeight: FontWeight.bold,
                   ),
                   decoration: InputDecoration(
                     suffixText: 'AFN',
+                    suffixStyle: TextStyle(fontSize: 14.sp), // ریسپانسیو
                     filled: true,
                     fillColor: Colors.grey.shade50,
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(8.r), // ریسپانسیو
                       borderSide: BorderSide.none,
                     ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      vertical: 12,
-                      horizontal: 8,
+                    contentPadding: EdgeInsets.symmetric(
+                      vertical: 12.h, // ریسپانسیو
+                      horizontal: 8.w, // ریسپانسیو
                     ),
                   ),
                   onChanged: (v) => setState(() => price = int.tryParse(v) ?? price),
@@ -1004,42 +933,41 @@ Widget _amountInput(
             ),
           ),
 
-          const SizedBox(width: 16),
+          SizedBox(width: 16.w), // ریسپانسیو
 
-          // تعداد
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'تعداد',
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 14.sp, // ریسپانسیو
                     fontWeight: FontWeight.bold,
                     color: Colors.grey,
                   ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: 4.h), // ریسپانسیو
                 SizedBox(
-                  height: 50,
+                  height: 50.h, // ریسپانسیو
                   child: TextField(
                     controller: quantityController,
                     keyboardType: TextInputType.number,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 18,
+                    style: TextStyle(
+                      fontSize: 18.sp, // ریسپانسیو
                       fontWeight: FontWeight.bold,
                     ),
                     decoration: InputDecoration(
                       filled: true,
                       fillColor: Colors.grey.shade50,
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(8.r), // ریسپانسیو
                         borderSide: BorderSide.none,
                       ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        vertical: 12,
-                        horizontal: 8,
+                      contentPadding: EdgeInsets.symmetric(
+                        vertical: 12.h, // ریسپانسیو
+                        horizontal: 8.w, // ریسپانسیو
                       ),
                     ),
                     onChanged: (value) {
@@ -1074,7 +1002,7 @@ Widget _amountInput(
   Widget _buildBottomBar() {
     final total = price * quantity;
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16.r), // ریسپانسیو
       decoration: const BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -1087,69 +1015,76 @@ Widget _amountInput(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('مجموع قابل پرداخت',
-                  style: TextStyle(fontSize: 12, color: Colors.grey)),
               Text(
-                '$total افغانی',
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                'مجموع قابل پرداخت',
+                style: TextStyle(fontSize: 12.sp, color: Colors.grey), // ریسپانسیو
+              ),
+              Text(
+                '$total ؋ ',
+                style: TextStyle(fontSize: 20.sp, fontWeight: FontWeight.bold), // ریسپانسیو
               ),
             ],
           ),
-          SizedBox(width: 16),
+          SizedBox(width: 16.w), // ریسپانسیو
           Expanded(
             child: ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red,
-                padding: const EdgeInsets.symmetric(vertical: 14),
+                padding: EdgeInsets.symmetric(vertical: 14.h), // ریسپانسیو
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
+                  borderRadius: BorderRadius.circular(12.r), // ریسپانسیو
+                ),
               ),
-              icon: const Icon(color: Colors.white, Icons.check_circle),
-              label: const Text(
+              icon: Icon(Icons.check_circle, size: 24.sp, color: Colors.white), // ریسپانسیو
+              label: Text(
                 'ثبت فروش',
-                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18.sp, // ریسپانسیو
+                    fontWeight: FontWeight.bold
+                ),
               ),
               onPressed: () {
                 if (_selectedCustomerId == null) {
-                  // مشتری انتخاب نشده -> فروش متفرقه
                   showDialog(
                     context: context,
                     builder: (ctx) => AlertDialog(
                       backgroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                      titlePadding: const EdgeInsets.only(top: 25, right: 20, left: 20),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-                      actionsPadding: const EdgeInsets.only(bottom: 15, left: 10, right: 10),
-                      title: const Row(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)), // ریسپانسیو
+                      titlePadding: EdgeInsets.only(top: 25.h, right: 20.w, left: 20.w), // ریسپانسیو
+                      contentPadding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 15.h), // ریسپانسیو
+                      actionsPadding: EdgeInsets.only(bottom: 15.h, left: 10.w, right: 10.w), // ریسپانسیو
+                      title: Row(
                         children: [
-                          Icon(Icons.person_outline_rounded, color: Color(0xFFEA2A33)),
-                          SizedBox(width: 10),
+                          Icon(Icons.person_outline_rounded, color: const Color(0xFFEA2A33), size: 24.sp), // ریسپانسیو
+                          SizedBox(width: 10.w), // ریسپانسیو
                           Text(
                             "فروش به مشتری ناشناس",
-                            style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                            style: TextStyle(fontSize: 17.sp, fontWeight: FontWeight.bold), // ریسپانسیو
                           ),
                         ],
                       ),
-                      content: const Text(
+                      content: Text(
                         "آیا این فروش به صورت نقد و متفرقه ثبت شود؟",
-                        style: TextStyle(fontSize: 14, color: Colors.grey, height: 1.5),
+                        style: TextStyle(fontSize: 14.sp, color: Colors.grey, height: 1.5), // ریسپانسیو
                       ),
                       actions: [
                         Row(
                           children: [
-                            // دکمه انصراف
                             Expanded(
                               child: TextButton(
                                 onPressed: () => Navigator.pop(ctx),
                                 style: TextButton.styleFrom(
                                   foregroundColor: Colors.grey[600],
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  padding: EdgeInsets.symmetric(vertical: 12.h), // ریسپانسیو
                                 ),
-                                child: const Text("خیر، بازگشت"),
+                                child: Text(
+                                  "خیر، بازگشت",
+                                  style: TextStyle(fontSize: 14.sp), // ریسپانسیو
+                                ),
                               ),
                             ),
-                            const SizedBox(width: 10),
-                            // دکمه تایید با رنگ برند
+                            SizedBox(width: 10.w), // ریسپانسیو
                             Expanded(
                               child: ElevatedButton(
                                 onPressed: () {
@@ -1160,10 +1095,13 @@ Widget _amountInput(
                                   backgroundColor: const Color(0xFFEA2A33),
                                   foregroundColor: Colors.white,
                                   elevation: 0,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)), // ریسپانسیو
+                                  padding: EdgeInsets.symmetric(vertical: 12.h), // ریسپانسیو
                                 ),
-                                child: const Text("بله، ثبت شود"),
+                                child: Text(
+                                  "بله، ثبت شود",
+                                  style: TextStyle(fontSize: 14.sp), // ریسپانسیو
+                                ),
                               ),
                             ),
                           ],
@@ -1172,7 +1110,6 @@ Widget _amountInput(
                     ),
                   );
                 } else {
-                  // مشتری انتخاب شده -> ثبت مستقیم
                   _processPaperSale();
                 }
               },

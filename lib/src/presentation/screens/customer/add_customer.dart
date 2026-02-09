@@ -726,44 +726,65 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
 class _DealerItem {
   final TextEditingController codeCtrl = TextEditingController();
   String? companyType;
+  int? companyTypeId;
+
 
   Widget buildCompany(WidgetRef ref, VoidCallback onUpdate) {
     final providersAsync = ref.watch(providersListProvider);
     return providersAsync.when(
-      data: (list) => DropdownButtonFormField<String>(
-        isExpanded: true, // رفع مشکل overflow
-        dropdownColor: Colors.white,
-        value: companyType,
-        items: list.map((p) => DropdownMenuItem(
-          value: p['name'].toString(),
-          child: Text(
-            p['name'].toString(),
-            style: TextStyle(fontSize: 14.sp,color: Colors.black),
-            overflow: TextOverflow.ellipsis, // متن‌های طولانی با ... نمایش داده شوند
+      data: (list) {
+        // حذف مقادیر تکراری بر اساس فیلد 'name'
+        final uniqueList = <Map<String, dynamic>>[];
+        final seenNames = <String>{};
+
+        for (var p in list) {
+          final name = p['name'].toString();
+          if (!seenNames.contains(name)) {
+            seenNames.add(name);
+            uniqueList.add(p);
+          }
+        }
+
+        // اگر مقدار companyType در لیست وجود ندارد، آن را null قرار بده
+        final String? currentValue =
+        companyType != null && seenNames.contains(companyType)
+            ? companyType
+            : null;
+
+        return DropdownButtonFormField<String>(
+          isExpanded: true,
+          dropdownColor: Colors.white,
+          value: currentValue,
+          items: uniqueList.map((p) => DropdownMenuItem(
+            value: p['name'].toString(),
+            child: Text(
+              p['name'].toString(),
+              style: TextStyle(fontSize: 14.sp, color: Colors.black),
+              overflow: TextOverflow.ellipsis,
+            ),
+          )).toList(),
+          onChanged: (v) {
+            companyType = v;
+            onUpdate();
+          },
+          style: TextStyle(fontSize: 14.sp),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: Colors.white,
+            hintText: 'شرکت',
+            hintStyle: TextStyle(fontSize: 14.sp, color: Colors.black),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14.r),
+              borderSide: BorderSide.none,
+            ),
+            contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 16.h),
           ),
-        )).toList(),
-        onChanged: (v) {
-          companyType = v;
-          onUpdate();
-        },
-        style: TextStyle(fontSize: 14.sp),
-        decoration: InputDecoration(
-          filled: true,
-          fillColor: Colors.white,
-          hintText: 'شرکت',
-          hintStyle: TextStyle(fontSize: 14.sp,color: Colors.black),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14.r),
-            borderSide: BorderSide.none,
-          ),
-          contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 16.h),
-        ),
-      ),
+        );
+      },
       loading: () => Center(child: CircularProgressIndicator(strokeWidth: 2.w)),
       error: (_, __) => Text('خطا در بارگذاری', style: TextStyle(fontSize: 14.sp, color: Colors.red)),
     );
   }
-
   Widget buildCode() {
     return TextField(
       keyboardType: TextInputType.number,

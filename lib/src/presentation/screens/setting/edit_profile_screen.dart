@@ -5,8 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-// اگر فایل theme/colors.dart را دارید از آن ایمپورت کنید، در غیر این صورت:
-const Color kPrimaryColor = Color(0xFFEA2A33);
+import '../../theme/colors.dart';
 const Color kBackgroundColor = Color(0xFFF8F6F6);
 const Color kSurfaceColor = Colors.white;
 

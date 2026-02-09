@@ -2,12 +2,15 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart'; // اضافه کردن پکیج
+import 'package:top_up_shops/src/presentation/screens/setting/privecy_policy.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/local_provider.dart';
 import '../../theme/colors.dart';
 import '../auth/login_screen.dart';
 
+import 'about_us_screen.dart';
+import 'call_with_support.dart';
 import 'edit_profile_screen.dart' hide kPrimaryColor;
 import 'package:top_up_shops/src/presentation/screens/setting/unit_screen.dart';
 
@@ -97,21 +100,26 @@ class SettingsScreen extends ConsumerWidget {
                   iconColor: Colors.purple,
                   title: l10n.callWithSupport,
                   trailingIcon: Icons.call,
-                  onTap: () {},
+                  onTap: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (context)=>ContactSupportPage()));
+                  },
                 ),
                 _navigationTile(
                   icon: Icons.description,
                   iconBg: Colors.purple.shade50,
                   iconColor: Colors.purple,
                   title: 'شرایط و مقررات',
-                  onTap: () {},
+                  onTap: () { Navigator.push(context, MaterialPageRoute(builder: (context)=>TermsAndConditionsPage()));
+                  },
                 ),
                 _navigationTile(
                   icon: Icons.info,
                   iconBg: Colors.purple.shade50,
                   iconColor: Colors.purple,
                   title: l10n.aboutUs,
-                  onTap: () {
+                  onTap: () { Navigator.push(context, MaterialPageRoute(builder: (context)=>AboutUsPage()));
+
+
                          },
                 ),
               ],

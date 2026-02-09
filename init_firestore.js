@@ -354,26 +354,18 @@ async function seedFirestore() {
   console.log("✅ واحد با ID 1 اضافه شد.");
 
   // 5.2 تامین کنندگان (Providers)
-  await shopRef.collection("providers").doc("1").set({
-    id: 1,
-    name: "Roshan",
-    type: "TELECOM",
-    ordinary_code: "111",
-    wholesale_code: "222",
-    shop_id: shopId,
-    created_at: new Date().toISOString(),
-  });
-  console.log("✅ تامین‌کننده با ID 1 اضافه شد.");
+//  await shopRef.collection("providers").doc("1").set({
+//    id: 1,
+//    name: "Roshan",
+//    type: "TELECOM",
+//    ordinary_code: "111",
+//    wholesale_code: "222",
+//    shop_id: shopId,
+//    created_at: new Date().toISOString(),
+//  });
+//  console.log("✅ تامین‌کننده با ID 1 اضافه شد.");
 
   // 5.3 موجودی تامین‌کنندگان (Provider Balances)
-  await shopRef.collection("provider_balances").doc("1").set({
-    id: 1,
-    provider_name: "Roshan",
-    current_balance: 5000.0,
-    shop_id: shopId,
-    updated_at: new Date().toISOString(),
-  });
-  console.log("✅ موجودی تامین‌کننده با ID 1 اضافه شد.");
 
   // 5.4 مشتریان (Customers) - ساختار جدید با JSON fields
   const customerId = 1;
@@ -418,7 +410,7 @@ async function seedFirestore() {
 
     // ✅ ساختار جدید: کدهای عمده
     wholesale_codes: JSON.stringify([
-      { company: "Roshan", code: "WHOLESALE001" },
+      { company: "افغان پی", code: "WHOLESALE001" },
       { company: "ستارگان متحد", code: "STAR001" }
     ]),
 
@@ -427,15 +419,6 @@ async function seedFirestore() {
   console.log("✅ مشتری عمده با ID 2 اضافه شد.");
 
   // 5.6 کارت کاغذی (Paper Stock)
-  await shopRef.collection("paper_stock").doc("1").set({
-    id: 1,
-    operator_name: "Roshan",
-    face_value: 50,
-    quantity: 200,
-    shop_id: shopId,
-    updated_at: new Date().toISOString(),
-  });
-  console.log("✅ کارت کاغذی با ID 1 اضافه شد.");
 
   // 5.7 خریدها (Purchases)
   await shopRef.collection("purchases").doc("1").set({
@@ -620,38 +603,23 @@ async function seedFirestore() {
 
   /* =========================
      8. اضافه کردن کارت‌های کاغذی بیشتر
-     ========================= */
-  const additionalPaperStocks = [
-    {
-      id: 2,
-      operator_name: "Roshan",
-      face_value: 100,
-      quantity: 100,
-      shop_id: shopId,
-      updated_at: new Date().toISOString(),
-    },
-    {
-      id: 3,
-      operator_name: "ستارگان متحد",
-      face_value: 50,
-      quantity: 150,
-      shop_id: shopId,
-      updated_at: new Date().toISOString(),
-    },
-    {
-      id: 4,
-      operator_name: "افغان پی",
-      face_value: 200,
-      quantity: 75,
-      shop_id: shopId,
-      updated_at: new Date().toISOString(),
-    },
-  ];
-
-  for (const stock of additionalPaperStocks) {
-    await shopRef.collection("paper_stock").doc(stock.id.toString()).set(stock);
-  }
-  console.log(`✅ ${additionalPaperStocks.length} کارت کاغذی اضافی اضافه شد.`);
+//     ========================= */
+//  const additionalPaperStocks = [
+//    {
+//      id: 2,
+//      operator_name: "Roshan",
+//      face_value: 100,
+//      quantity: 100,
+//      shop_id: shopId,
+//      updated_at: new Date().toISOString(),
+//    },
+//
+//  ];
+//
+//  for (const stock of additionalPaperStocks) {
+//    await shopRef.collection("paper_stock").doc(stock.id.toString()).set(stock);
+//  }
+//  console.log(`✅ ${additionalPaperStocks.length} کارت کاغذی اضافی اضافه شد.`);
 
   console.log("\n" + "=".repeat(50));
   console.log("🎉 دیتابیس با ساختار جدید با موفقیت ساخته شد!");
