@@ -178,6 +178,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
       });
 
       _showUssdResponseDialog(result);
+
     } on PlatformException catch (e) {
       setState(() => _ussdResponse = "خطا: ${e.message}");
     } finally {
@@ -185,15 +186,55 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
     }
   }
   Future<void> _executeUssdOnly(int slotIndex) async {
+    // ابتدا چک می‌کنیم که آیا شرکت سرویس‌دهنده انتخاب شده است
+    if (selectedOperator.isEmpty) {
+      _showSnackBar('لطفاً ابتدا شرکت سرویس‌دهنده را انتخاب کنید', Colors.orange);
+      return;
+    }
+
+    // چک می‌کنیم که مقدار کریدیت وارد شده باشد
+    double creditAmount = double.tryParse(creditCtrl.text) ?? 0.0;
+    if (creditAmount <= 0) {
+      _showSnackBar('لطفاً مقدار کریدیت را وارد کنید', Colors.orange);
+      return;
+    }
+
+    // چک موجودی شرکت سرویس‌دهنده
+    try {
+      final user = ref.read(currentUserProvider);
+      if (user == null) {
+        _showSnackBar("خطا: کاربر وارد نشده است", Colors.red);
+        return;
+      }
+
+      double currentBalance = await DatabaseHelper.instance.getProviderBalance(
+          selectedOperator,
+          user.shopId
+      );
+
+      if (currentBalance < creditAmount) {
+        _showErrorDialog(
+            'موجودی شرکت "$selectedOperator" کافی نیست!\n'
+                'موجودی فعلی: $currentBalance\n'
+                'مبلغ درخواستی: $creditAmount\n\n'
+                'لطفاً ابتدا موجودی شرکت را افزایش دهید.'
+        );
+        return;
+      }
+    } catch (e) {
+      _showSnackBar('خطا در بررسی موجودی: $e', Colors.red);
+      return;
+    }
+
+    // اگر موجودی کافی بود، ادامه می‌دهیم
     setState(() {
       _isUssdLoading = true;
       _ussdResponse = "";
     });
 
     try {
-      // ۱. بررسی مجوز (Permission.phone شامل CALL_PHONE و READ_PHONE_STATE است)
+      // ۱. بررسی مجوز
       var status = await Permission.phone.status;
-
       if (!status.isGranted) {
         status = await Permission.phone.request();
         if (!status.isGranted) {
@@ -204,12 +245,20 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
         }
       }
 
-      // ۲. فراخوانی متد (استفاده مستقیم از platform بدون پیشوند)
-      // دقت کنید کلیدها دقیقا "code" و "slot" باشند تا با MainActivity.kt شما همخوانی داشته باشند
+      // ۲. استفاده از کد USSD واقعی (نه کد سخت‌کد شده)
+      String ussdCode = _buildUSSDCode();
+      if (ussdCode.isEmpty) {
+        throw PlatformException(
+          code: 'INVALID_USSD',
+          message: 'کد USSD معتبر تولید نشد! لطفاً فیلدها را پر کنید.',
+        );
+      }
+
+      // ۳. فراخوانی متد
       final String result = await platform.invokeMethod(
         'sendUssd',
         {
-          'code': "*789#", // اینجا کد مورد نظر خود را قرار دهید
+          'code': ussdCode, // استفاده از کد USSD واقعی
           'slot': slotIndex,
         },
       );
@@ -230,8 +279,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
         _ussdResponse = "خطای ناشناخته: $e";
       });
     }
-  }
-  void _showUssdResponseDialog(String message) {
+  }  void _showUssdResponseDialog(String message) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -424,9 +472,9 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 15),
-            Text('مبلغ دریافتی: $received AFN'),
+            Text('مبلغ دریافتی: $received ؋'),
             Divider(),
-            Text('سود شما: ${profit.toStringAsFixed(2)} AFN'),
+            Text('سود شما: ${profit.toStringAsFixed(2)} ؋ '),
           ],
         ),
         actions: [
@@ -1649,7 +1697,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    "سود خالص شما: ${netProfit.toStringAsFixed(0)} AFN",
+                    "سود خالص شما: ${netProfit.toStringAsFixed(0)} ؋",
                     style: TextStyle(
                       fontSize: 14,
                       color: ColorForProfit,
@@ -1669,7 +1717,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
               const SizedBox(width: 12),
               Expanded(
                 flex: 2,
-                child: _amountInput('تخفیف (AFN)', discountCtrl, "AFN"),
+                child: _amountInput('تخفیف (؋)', discountCtrl, "؋"),
               ),
             ],
           ),
@@ -1700,7 +1748,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
                   ],
                 ),
                 Text(
-                  '${calculatedTotalPayable.toStringAsFixed(0)} AFN',
+                  '${calculatedTotalPayable.toStringAsFixed(0)} ؋',
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -1714,7 +1762,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
           const SizedBox(height: 16),
 
           // ورودی مقدار پرداخت شده توسط مشتری
-          _amountInput('مقدار دریافتی (نقد)', paidCtrl, "AFN"),
+          _amountInput('مقدار دریافتی (نقد)', paidCtrl, "؋"),
 
           const SizedBox(height: 12),
 
@@ -1738,7 +1786,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
                   ),
                 ),
                 Text(
-                  '${remainingBalance.abs().toStringAsFixed(0)} AFN',
+                  '${remainingBalance.abs().toStringAsFixed(0)} ؋ ',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -1754,34 +1802,46 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
   }
 
   Widget _amountInput(
-    String label,
-    TextEditingController ctrl,
-    String? suffixText,
-  ) {
+      String label,
+      TextEditingController ctrl,
+      String? suffixText,
+      ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 12, color: textMuted)),
-        const SizedBox(height: 6),
+        // استایل لیبل دقیقاً مشابه متد _input (بدون رنگ خاص)
+        Text(label, style: const TextStyle(fontSize: 12)),
+
+        // فاصله مشابه (4 پیکسل)
+        const SizedBox(height: 4),
+
         Container(
+          // انتقال دکوراسیون (بوردر و رنگ) به کانتینر والد
           decoration: BoxDecoration(
+            color: kComponentColor, // استفاده از متغیر رنگ مشابه
             borderRadius: BorderRadius.circular(12),
-            border: BoxBorder.all(color: Colors.red.shade200),
+            border: Border.all(color: Colors.grey[300]!), // بوردر خاکستری
           ),
           child: TextField(
             textDirection: TextDirection.ltr,
             cursorColor: kPrimaryColor,
             controller: ctrl,
             keyboardType: TextInputType.number,
-            textAlign: TextAlign.center,
+            // نکته: textAlign را حذف کردم تا مثل _input از چپ شروع شود (استانداردتر)
+            // اگر می‌خواهید وسط‌چین باشد، خط زیر را از کامنت خارج کنید:
+            // textAlign: TextAlign.center,
+
             decoration: InputDecoration(
-              filled: true,
-              fillColor: const Color(0xFFF3F4F6),
-              suffixText: suffixText,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
+              // حذف بوردر داخلی چون کانتینر بوردر دارد
+              border: InputBorder.none,
+              // تنظیم پدینگ برای قرارگیری مرتب متن
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 8, // مشابه ورودی _input
               ),
+              suffixText: suffixText,
+              suffixStyle: const TextStyle(color: Colors.grey),
+              hintStyle: const TextStyle(color: Colors.grey),
             ),
             onChanged: (_) => setState(() {}),
           ),

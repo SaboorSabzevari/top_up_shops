@@ -1,238 +1,3 @@
-//
-//const admin = require("firebase-admin");
-//const serviceAccount = require("./serviceAccountKey.json");
-//
-//admin.initializeApp({
-//  credential: admin.credential.cert(serviceAccount),
-//});
-//
-//const db = admin.firestore();
-//const auth = admin.auth();
-//
-//// تنظیمات مدیر
-//const OWNER_EMAIL = "admin@shop.com";
-//const OWNER_PASS = "12345678";
-//
-//// تنظیمات کارمند (اضافه شده)
-//const STAFF_EMAIL = "staff@shop.com";
-//const STAFF_PASS = "12345678";
-//
-//async function seedFirestore() {
-//  console.log("🚀 شروع عملیات Seed دیتابیس (شامل مدیر و کارمند)...");
-//
-//  /* =========================
-//     1. ایجاد مدیر (OWNER)
-//     ========================= */
-//  let owner;
-//  try {
-//    owner = await auth.createUser({
-//      email: OWNER_EMAIL,
-//      password: OWNER_PASS,
-//      displayName: "مدیر فروشگاه",
-//    });
-//    console.log("✅ مدیر (Auth) ساخته شد:", owner.uid);
-//  } catch (error) {
-//    if (error.code === 'auth/email-already-exists') {
-//      owner = await auth.getUserByEmail(OWNER_EMAIL);
-//      console.log("ℹ️ مدیر از قبل وجود داشت:", owner.uid);
-//    } else {
-//      throw error;
-//    }
-//  }
-//
-//  /* =========================
-//     2. ایجاد فروشگاه (SHOP)
-//     ========================= */
-//  const shopRef = await db.collection("shops").add({
-//    info: {
-//      name: "فروشگاه مرکزی",
-//      owner_uid: owner.uid,
-//      created_at: admin.firestore.FieldValue.serverTimestamp(),
-//      subscription_status: "active"
-//    },
-//  });
-//  const shopId = shopRef.id;
-//
-//  /* =========================
-//     3. ذخیره اطلاعات مدیر
-//     ========================= */
-//  const ownerData = {
-//    uid: owner.uid,
-//    name: "مدیر فروشگاه",
-//    email: OWNER_EMAIL,
-//    role: "OWNER",
-//    shop_id: shopId,
-//    shopId: shopId,
-//  };
-//  await db.collection("users").doc(owner.uid).set(ownerData);
-//  await shopRef.collection("users").doc(owner.uid).set(ownerData);
-//
-//  /* =========================
-//     4. ایجاد کارمند (STAFF) - جدید
-//     ========================= */
-//  let staff;
-//  try {
-//    staff = await auth.createUser({
-//      email: STAFF_EMAIL,
-//      password: STAFF_PASS,
-//      displayName: "کارمند علی",
-//    });
-//    console.log("✅ کارمند (Auth) ساخته شد:", staff.uid);
-//  } catch (error) {
-//    if (error.code === 'auth/email-already-exists') {
-//      staff = await auth.getUserByEmail(STAFF_EMAIL);
-//      console.log("ℹ️ کارمند از قبل وجود داشت:", staff.uid);
-//    } else {
-//      throw error; // اگر خطای دیگری بود
-//    }
-//  }
-//
-//  // تنظیم دیتای کارمند (متصل به همان shopId ولی با role متفاوت)
-//  const staffData = {
-//    uid: staff.uid,
-//    name: "کارمند علی",
-//    email: STAFF_EMAIL,
-//    role: "STAFF", // نقش کارمند
-//    shop_id: shopId, // همان دکان مدیر
-//    shopId: shopId,
-//    active: true
-//  };
-//
-//  // ذخیره در روت (برای لاگین)
-//  await db.collection("users").doc(staff.uid).set(staffData);
-//  // ذخیره در زیرمجموعه فروشگاه (برای مدیریت لیست کارمندان)
-//  await shopRef.collection("users").doc(staff.uid).set(staffData);
-//  console.log("✅ اطلاعات کارمند در دیتابیس ذخیره شد.");
-//
-//
-//  /* =========================
-//     5. دیتای نمونه (با ID های عددی)
-//     ========================= */
-//
-//  // مشتریان (با ID = 1)
-// const customerId = 1;
-//   await shopRef.collection("customers").doc(customerId.toString()).set({
-//     id: customerId,
-//     name: "مشتری نمونه",
-//     shop_id: shopId,
-//    customer_code: "C-1001",
-//    type: "REGISTERED",
-//
-//    created_by: owner.uid,
-//    address: "کابل، بازار اصلی",
-//    profile_image: "",
-//    tazkira_image: "",
-//    created_at: new Date().toISOString(),
-//  });
-//  console.log("✅ مشتری با ID 1 اضافه شد.");
-//
-//  // تلفن مشتری
-// await shopRef.collection("customer_phones").doc(customerId.toString()).set({
-//     id: customerId,          // آی‌دی خودِ ردیف تلفن
-//     customer_id: customerId, // اشاره به مشتری شماره ۱
-//     shop_id: shopId,
-//     phone_number: "0799999999",
-//   });
-//
-//  // واحدها
-//  await shopRef.collection("units").doc("1").set({
-//    id: 1,
-//    name: "افغانی",
-//    buy_price: 1.0,
-//    sell_price: 1.0,
-//    shop_id: shopId,
-//  });
-//
-//  // تامین کنندگان
-// // 7. تامین کنندگان (اصلاح شده)
-//   await shopRef.collection("providers").doc("1").set({
-//     id: 1,
-//     name: "Roshan",
-//     type: "TELECOM",
-//     ordinary_code: "111",
-//     wholesale_code: "222",
-//     shop_id: shopId, // ✅ این فیلد را اضافه کنید
-//   });
-//
-//  // موجودی (Provider Balance)
-//  await shopRef.collection("provider_balances").doc("1").set({
-//    id: 1,
-//    provider_name: "Roshan",
-//    current_balance: 5000.0,
-//    shop_id: shopId,
-//  });
-//
-//  // کارت کاغذی
-//  await shopRef.collection("paper_stock").doc("1").set({
-//    id: 1,
-//    operator_name: "Roshan",
-//    face_value: 50,
-//    quantity: 200,
-//    shop_id: shopId,
-//  });
-//
-//  // خریدها
-//  await shopRef.collection("purchases").doc("1").set({
-//    id: 1,
-//    type: "BUY_CREDIT",
-//    provider_name: "Roshan",
-//    operator_name: "Roshan",
-//    face_value: 0,
-//    quantity: 1,
-//    total_credit: 5000.0,
-//    nominal_price: 5000.0,
-//    actual_paid: 4800.0,
-//    discount_amount: 200.0,
-//    cost_per_unit: 4800.0,
-//    payment_status: "PAID",
-//    payment_date: new Date().toISOString(),
-//    created_at: new Date().toISOString(),
-//    shop_id: shopId,
-//    created_by: owner.uid
-//  });
-//
-//  // تراکنش‌ها
-//  await shopRef.collection("transactions").doc("1").set({
-//    id: 1,
-//    customer_id: null,
-//    customer_name: "مشتری رهگذر",
-//    customer_type: "WALK_IN",
-//    shop_id: shopId,
-//    created_by: owner.uid, // این تراکنش توسط مدیر ثبت شده
-//    is_synced: 1,
-//    transaction_type: "DIGITAL",
-//    operator_name: "Roshan",
-//    phone_number: "0799123456",
-//    company_code: null,
-//    sent_amount: 100.0,
-//    quantity: 1,
-//    total_price: 100.0,
-//    discount: 0.0,
-//    paid_amount: 100.0,
-//    remaining_amount: 0.0,
-//    cost_price: 95.0,
-//    profit: 5.0,
-//    received_amount: 100.0,
-//    ussd_command: "*123*...",
-//    created_at: new Date().toISOString()
-//  });
-//  console.log("✅ تراکنش نمونه با ID 1 اضافه شد.");
-//
-//  console.log("\n===========================================");
-//  console.log("🎉 دیتابیس با موفقیت آپدیت شد.");
-//  console.log(`🆔 Shop ID: ${shopId}`);
-//  console.log("-------------------------------------------");
-//  console.log(`👤 ADMIN LOGIN:  ${OWNER_EMAIL}  |  ${OWNER_PASS}`);
-//  console.log(`👷 STAFF LOGIN:  ${STAFF_EMAIL}  |  ${STAFF_PASS}`);
-//  console.log("===========================================\n");
-//}
-//
-//seedFirestore()
-//  .then(() => process.exit(0))
-//  .catch((err) => {
-//    console.error("❌ خطا در اجرای اسکریپت:", err);
-//    process.exit(1);
-//  });
 const admin = require("firebase-admin");
 const serviceAccount = require("./serviceAccountKey.json");
 
@@ -525,49 +290,49 @@ async function seedFirestore() {
   /* =========================
      6. اضافه کردن تامین‌کنندگان بیشتر برای تست
      ========================= */
-  const additionalProviders = [
-    {
-      id: 2,
-      name: "ستارگان متحد",
-      type: "ستارگان متحد",
-      ordinary_code: "543*2",
-      wholesale_code: "543*6",
-      shop_id: shopId,
-      created_at: new Date().toISOString(),
-    },
-    {
-      id: 3,
-      name: "اکتیو سرویس",
-      type: "اکتیو سرویس",
-      ordinary_code: "683",
-      wholesale_code: "683*2",
-      shop_id: shopId,
-      created_at: new Date().toISOString(),
-    },
-    {
-      id: 4,
-      name: "افغان پی",
-      type: "افغان پی",
-      ordinary_code: "511",
-      wholesale_code: "511*5",
-      shop_id: shopId,
-      created_at: new Date().toISOString(),
-    },
-    {
-      id: 5,
-      name: "شاهی ایزیلود",
-      type: "شاهی ایزیلود",
-      ordinary_code: "545",
-      wholesale_code: "511*5",
-      shop_id: shopId,
-      created_at: new Date().toISOString(),
-    },
-  ];
-
-  for (const provider of additionalProviders) {
-    await shopRef.collection("providers").doc(provider.id.toString()).set(provider);
-  }
-  console.log(`✅ ${additionalProviders.length} تامین‌کننده اضافی اضافه شد.`);
+//  const additionalProviders = [
+//    {
+//      id: 2,
+//      name: "ستارگان متحد",
+//      type: "ستارگان متحد",
+//      ordinary_code: "543*2",
+//      wholesale_code: "543*6",
+//      shop_id: shopId,
+//      created_at: new Date().toISOString(),
+//    },
+//    {
+//      id: 3,
+//      name: "اکتیو سرویس",
+//      type: "اکتیو سرویس",
+//      ordinary_code: "683",
+//      wholesale_code: "683*2",
+//      shop_id: shopId,
+//      created_at: new Date().toISOString(),
+//    },
+//    {
+//      id: 4,
+//      name: "افغان پی",
+//      type: "افغان پی",
+//      ordinary_code: "511",
+//      wholesale_code: "511*5",
+//      shop_id: shopId,
+//      created_at: new Date().toISOString(),
+//    },
+//    {
+//      id: 5,
+//      name: "شاهی ایزیلود",
+//      type: "شاهی ایزیلود",
+//      ordinary_code: "545",
+//      wholesale_code: "511*5",
+//      shop_id: shopId,
+//      created_at: new Date().toISOString(),
+//    },
+//  ];
+//
+//  for (const provider of additionalProviders) {
+//    await shopRef.collection("providers").doc(provider.id.toString()).set(provider);
+//  }
+//  console.log(`✅ ${additionalProviders.length} تامین‌کننده اضافی اضافه شد.`);
 
   /* =========================
      7. اضافه کردن موجودی برای تامین‌کنندگان اضافی
@@ -601,25 +366,6 @@ async function seedFirestore() {
   }
   console.log(`✅ ${additionalBalances.length} موجودی اضافی اضافه شد.`);
 
-  /* =========================
-     8. اضافه کردن کارت‌های کاغذی بیشتر
-//     ========================= */
-//  const additionalPaperStocks = [
-//    {
-//      id: 2,
-//      operator_name: "Roshan",
-//      face_value: 100,
-//      quantity: 100,
-//      shop_id: shopId,
-//      updated_at: new Date().toISOString(),
-//    },
-//
-//  ];
-//
-//  for (const stock of additionalPaperStocks) {
-//    await shopRef.collection("paper_stock").doc(stock.id.toString()).set(stock);
-//  }
-//  console.log(`✅ ${additionalPaperStocks.length} کارت کاغذی اضافی اضافه شد.`);
 
   console.log("\n" + "=".repeat(50));
   console.log("🎉 دیتابیس با ساختار جدید با موفقیت ساخته شد!");

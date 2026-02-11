@@ -284,102 +284,98 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
 
     showDialog(
       context: context,
-      builder: (context) => Directionality(
-        textDirection: TextDirection.rtl,
-        child: Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24.r)), // ریسپانسیو
-          child: Container(
-            padding: EdgeInsets.all(24.r), // ریسپانسیو
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(24.r), // ریسپانسیو
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.shopping_basket_outlined, size: 48.sp, color: const Color(0xFFEA2A33)), // ریسپانسیو
-                SizedBox(height: 16.h), // ریسپانسیو
-                Text(
-                  'بررسی نهایی خرید',
-                  style: TextStyle(fontSize: 20.sp, fontWeight: FontWeight.bold), // ریسپانسیو
-                ),
-                SizedBox(height: 24.h), // ریسپانسیو
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24.r)), // ریسپانسیو
+        child: Container(
+          padding: EdgeInsets.all(24.r), // ریسپانسیو
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24.r), // ریسپانسیو
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.shopping_basket_outlined, size: 48.sp, color: const Color(0xFFEA2A33)),
+              Text(
+                'بررسی نهایی خرید',
+                style: TextStyle(fontSize: 20.sp, fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 10.h),
 
-                Container(
-                  padding: EdgeInsets.all(16.r), // ریسپانسیو
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8F9FA),
-                    borderRadius: BorderRadius.circular(16.r), // ریسپانسیو
-                  ),
-                  child: Column(
-                    children: [
-                      _buildDialogRow('نوع محصول:', _selectedType == PurchaseType.paperCard ? 'کارت کاغذی' : 'کریدیت ارسالی'),
-                      Divider(height: 20.h), // ریسپانسیو
-                      if (_selectedType == PurchaseType.paperCard) ...[
-                        _buildDialogRow('اپراتور:', _selectedOperator),
-                        _buildDialogRow('ارزش کارت:', '$_selectedFaceValue ؋ '),
-                        _buildDialogRow('تعداد:', '${_quantityController.text} عدد'),
-                      ] else ...[
-                        _buildDialogRow('تأمین‌کننده:', _selectedProvider),
-                        _buildDialogRow('مقدار کریدیت:', '${_totalCreditController.text} ؋ '),
-                      ],
-                      Divider(height: 20.h), // ریسپانسیو
-                      _buildDialogRow('قیمت خرید (فی):', '${_costPerUnitController.text} ؋ '),
+              Container(
+                padding: EdgeInsets.symmetric(vertical:10.h,horizontal: 10.w), // ریسپانسیو
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8F9FA),
+                  borderRadius: BorderRadius.circular(16.r), // ریسپانسیو
+                ),
+                child: Column(
+                  children: [
+                    _buildDialogRow('نوع محصول:', _selectedType == PurchaseType.paperCard ? 'کارت کاغذی' : 'کریدیت ارسالی'),
+                    Divider(height: 20.h), // ریسپانسیو
+                    if (_selectedType == PurchaseType.paperCard) ...[
+                      _buildDialogRow('اپراتور:', _selectedOperator),
+                      _buildDialogRow('ارزش کارت:', '$_selectedFaceValue ؋ '),
+                      _buildDialogRow('تعداد:', '${_quantityController.text} عدد'),
+                    ] else ...[
+                      _buildDialogRow('تأمین‌کننده:', _selectedProvider),
+                      _buildDialogRow('مقدار کریدیت:', '${_totalCreditController.text} ؋ '),
                     ],
+                    Divider(height: 20.h), // ریسپانسیو
+                    _buildDialogRow('قیمت خرید (فی):', '${_costPerUnitController.text} ؋ '),
+                  ],
+                ),
+              ),
+
+              SizedBox(height: 5.h), // ریسپانسیو
+
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('مجموع قابل پرداخت:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.sp)), // ریسپانسیو
+                  Text(
+                    '${total.toStringAsFixed(0)}؋',
+                    style: TextStyle(
+                      fontSize: 22.sp, // ریسپانسیو
+                      fontWeight: FontWeight.w900,
+                      color: const Color(0xFFEA2A33),
+                    ),
                   ),
-                ),
+                ],
+              ),
 
-                SizedBox(height: 20.h), // ریسپانسیو
+              SizedBox(height: 5.h), // ریسپانسیو
 
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('مجموع قابل پرداخت:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.sp)), // ریسپانسیو
-                    Text(
-                      '${total.toStringAsFixed(0)}؋',
-                      style: TextStyle(
-                        fontSize: 22.sp, // ریسپانسیو
-                        fontWeight: FontWeight.w900,
-                        color: const Color(0xFFEA2A33),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.symmetric(vertical: 14.h), // ریسپانسیو
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)), // ریسپانسیو
                       ),
+                      child: Text('اصلاح اطلاعات', style: TextStyle(color: Colors.grey, fontSize: 14.sp)), // ریسپانسیو
                     ),
-                  ],
-                ),
-
-                SizedBox(height: 32.h), // ریسپانسیو
-
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        style: TextButton.styleFrom(
-                          padding: EdgeInsets.symmetric(vertical: 14.h), // ریسپانسیو
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)), // ریسپانسیو
-                        ),
-                        child: Text('اصلاح اطلاعات', style: TextStyle(color: Colors.grey, fontSize: 14.sp)), // ریسپانسیو
+                  ),
+                  SizedBox(width: 12.w), // ریسپانسیو
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _savePurchase();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFEA2A33),
+                        padding: EdgeInsets.symmetric(vertical: 4.h), // ریسپانسیو
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)), // ریسپانسیو
+                        elevation: 0,
                       ),
+                      child: Text('تأیید و ثبت', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14.sp)), // ریسپانسیو
                     ),
-                    SizedBox(width: 12.w), // ریسپانسیو
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          _savePurchase();
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFEA2A33),
-                          padding: EdgeInsets.symmetric(vertical: 14.h), // ریسپانسیو
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)), // ریسپانسیو
-                          elevation: 0,
-                        ),
-                        child: Text('تأیید و ثبت', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14.sp)), // ریسپانسیو
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),

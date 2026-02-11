@@ -7,6 +7,7 @@ import android.os.Looper
 import android.telephony.SubscriptionManager
 import android.telephony.TelephonyManager
 import androidx.annotation.NonNull
+import android.util.Log
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -38,38 +39,62 @@ class MainActivity: FlutterActivity() {
             try {
                 val tm = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
 
-                // تلاش برای پیدا کردن سیم‌کارت مشخص شده
+                // بررسی وجود سیم‌کارت در اسلات مورد نظر
                 val subscriptionManager = getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE) as SubscriptionManager
                 val activeList = subscriptionManager.activeSubscriptionInfoList
 
-                val subInfo = activeList?.find { it.simSlotIndex == simSlot }
-
-                // اگر سیم‌کارت پیدا شد، از آن استفاده کن، وگرنه از پیش‌فرض
-                val finalTm = if (subInfo != null) {
-                    tm.createForSubscriptionId(subInfo.subscriptionId)
-                } else {
-                    tm
+                if (activeList == null || activeList.isEmpty()) {
+                    result.error("NO_SIM", "هیچ سیم‌کارتی یافت نشد", null)
+                    return
                 }
 
+                val subInfo = activeList.find { it.simSlotIndex == simSlot }
+
+                if (subInfo == null) {
+                    result.error("SIM_NOT_FOUND",
+                        "سیم‌کارت در اسلات ${simSlot + 1} یافت نشد. لطفاً سیم‌کارت را بررسی کنید.",
+                        null)
+                    return
+                }
+
+                val finalTm = tm.createForSubscriptionId(subInfo.subscriptionId)
+
                 val callback = object : TelephonyManager.UssdResponseCallback() {
-                    override fun onReceiveUssdResponse(telephonyManager: TelephonyManager, request: String, response: CharSequence) {
+                    override fun onReceiveUssdResponse(telephonyManager: TelephonyManager,
+                                                       request: String,
+                                                       response: CharSequence) {
                         result.success(response.toString())
                     }
 
-                    override fun onReceiveUssdResponseFailed(telephonyManager: TelephonyManager, request: String, failureCode: Int) {
-                        result.error("USSD_FAILED", "خطای شبکه یا عدم پاسخگویی (کد: $failureCode)", null)
+                    override fun onReceiveUssdResponseFailed(telephonyManager: TelephonyManager,
+                                                             request: String,
+                                                             failureCode: Int) {
+                        // لاگ خطا برای دیباگ
+                        Log.e("USSD_ERROR", "کد خطا: $failureCode, درخواست: $request")
+
+                        when (failureCode) {
+                            -1 -> result.error("NETWORK_ERROR",
+                                "خطای شبکه یا عدم پاسخگویی اپراتور. لطفاً اتصال شبکه را بررسی کنید.",
+                                null)
+                            else -> result.error("USSD_FAILED",
+                                "خطای USSD (کد: $failureCode)", null)
+                        }
                     }
                 }
 
                 finalTm.sendUssdRequest(code, callback, Handler(Looper.getMainLooper()))
 
             } catch (e: SecurityException) {
-                result.error("PERMISSION_DENIED", "مجوز دسترسی داده نشده", e.message)
+                result.error("PERMISSION_DENIED",
+                    "مجوز دسترسی داده نشده. لطفاً مجوزهای تماس و سیم‌کارت را فعال کنید.",
+                    e.message)
             } catch (e: Exception) {
                 result.error("EXCEPTION", "خطا: ${e.message}", null)
             }
         } else {
-            result.error("NOT_SUPPORTED", "اندروید گوشی پایین است", null)
+            result.error("NOT_SUPPORTED",
+                "این ویژگی نیاز به اندروید ۸ (Oreo) یا بالاتر دارد",
+                null)
         }
     }
 }

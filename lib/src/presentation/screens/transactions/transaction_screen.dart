@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart'; // اضافه کردن ScreenUtil
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../domain/entity/transaction.dart';
 import '../../../providers/transaction_provider.dart';
 import 'package:intl/intl.dart' as intl;
 
-// تعریف رنگ‌ها در صورت عدم دسترسی به فایل colors.dart
 const Color kPrimaryColor = Color(0xFFEA2A33);
 
 class TransactionHistoryPage extends ConsumerWidget {
@@ -13,7 +12,6 @@ class TransactionHistoryPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // مقداردهی اولیه ScreenUtil
     ScreenUtil.init(context, designSize: const Size(360, 800));
 
     bool isDark = Theme.of(context).brightness == Brightness.dark;
@@ -21,136 +19,131 @@ class TransactionHistoryPage extends ConsumerWidget {
     final todayProfitAsync = ref.watch(todayProfitProvider);
     final todayCountAsync = ref.watch(todayCountProvider);
 
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: Colors.white,
-        appBar: AppBar(
-          backgroundColor: isDark
-              ? const Color(0xFF121212).withOpacity(0.95)
-              : Colors.white.withOpacity(0.95),
-          elevation: 0,
-          title: Text(
-            'تاریخچه تراکنش‌ها',
-            style: TextStyle(
-              color: isDark ? Colors.white : Colors.black,
-              fontWeight: FontWeight.bold,
-              fontSize: 18.sp, // ریسپانسیو کردن فونت
-            ),
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: isDark
+            ? const Color(0xFF121212).withOpacity(0.95)
+            : Colors.white.withOpacity(0.95),
+        elevation: 0,
+        title: Text(
+          'تاریخچه تراکنش‌ها',
+          style: TextStyle(
+            color: isDark ? Colors.white : Colors.black,
+            fontWeight: FontWeight.bold,
+            fontSize: 18.sp,
           ),
-          centerTitle: true,
-          toolbarHeight: 60.h, // ریسپانسیو کردن ارتفاع appBar
         ),
-        body: RefreshIndicator(
-          onRefresh: () async {
-            ref.invalidate(transactionsProvider);
-            ref.invalidate(todayProfitProvider);
-            ref.invalidate(todayCountProvider);
-            await ref.read(transactionsProvider.future);
-          },
-          child: Column(
-            children: [
-              _buildSummaryCards(todayProfitAsync, todayCountAsync),
-              SizedBox(height: 8.h), // فاصله ریسپانسیو
-              _buildSearchBar(ref, isDark),
-              SizedBox(height: 8.h), // فاصله ریسپانسیو
-              _buildFilterChips(context, ref, isDark),
-              if (ref.watch(filterDateProvider) != null)
-                Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 16.w, // ریسپانسیو
-                    vertical: 8.h, // ریسپانسیو
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.history_toggle_off,
-                          size: 14.sp, // ریسپانسیو
-                          color: Colors.grey),
-                      SizedBox(width: 4.w), // ریسپانسیو
-                      Expanded(
-                        child: Text(
-                          "گزارش از ${intl.DateFormat('yyyy/MM/dd').format(ref.watch(filterDateProvider)!.start)} تا ${intl.DateFormat('yyyy/MM/dd').format(ref.watch(filterDateProvider)!.end)}",
-                          style: TextStyle(
-                            fontSize: 10.sp, // ریسپانسیو
-                            color: Colors.grey,
-                            fontFamily: 'Manrope',
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      SizedBox(width: 8.w), // ریسپانسیو
-                      GestureDetector(
-                        onTap: () => ref.read(filterDateProvider.notifier).state = null,
-                        child: Text(
-                            "لغو فیلتر",
-                            style: TextStyle(
-                                fontSize: 10.sp, // ریسپانسیو
-                                color: const Color(0xFFEA2A33)
-                            )
-                        ),
-                      )
-                    ],
-                  ),
+        centerTitle: true,
+        toolbarHeight: 60.h,
+      ),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(transactionsProvider);
+          ref.invalidate(todayProfitProvider);
+          ref.invalidate(todayCountProvider);
+          await ref.read(transactionsProvider.future);
+        },
+        child: Column(
+          children: [
+            _buildSummaryCards(todayProfitAsync, todayCountAsync),
+            _buildSearchBar(ref, isDark),
+            _buildFilterChips(context, ref, isDark),
+            if (ref.watch(filterDateProvider) != null)
+              Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: 16.w,
+                  vertical: 8.h,
                 ),
-              SizedBox(height: 8.h), // فاصله ریسپانسیو
-              Expanded(
-                child: transactionsAsync.when(
-                  loading: () => Center(
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.w, // ریسپانسیو کردن ضخامت
-                    ),
-                  ),
-                  error: (err, stack) => Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(16.w),
+                child: Row(
+                  children: [
+                    Icon(Icons.history_toggle_off,
+                        size: 14.sp,
+                        color: Colors.grey),
+                    SizedBox(width: 4.w),
+                    Expanded(
                       child: Text(
-                        "خطا در بارگذاری: $err",
-                        style: TextStyle(fontSize: 14.sp), // ریسپانسیو
-                        textAlign: TextAlign.center,
+                        "گزارش از ${intl.DateFormat('yyyy/MM/dd').format(ref.watch(filterDateProvider)!.start)} تا ${intl.DateFormat('yyyy/MM/dd').format(ref.watch(filterDateProvider)!.end)}",
+                        style: TextStyle(
+                          fontSize: 10.sp,
+                          color: Colors.grey,
+                          fontFamily: 'Manrope',
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                  ),
-                  data: (transactions) {
-                    if (transactions.isEmpty) {
-                      return ListView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        children: [
-                          SizedBox(height: 100.h), // ریسپانسیو
-                          Center(
-                            child: Text(
-                              "تراکنشی یافت نشد",
-                              style: TextStyle(
-                                fontSize: 16.sp, // ریسپانسیو
-                                color: Colors.grey,
-                              ),
-                            ),
-                          ),
-                        ],
-                      );
-                    }
-                    return ListView.builder(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: EdgeInsets.only(bottom: 100.h), // ریسپانسیو
-                      key: ValueKey(transactions.length +
-                          (transactions.isNotEmpty ? transactions.first.id : 0)),
-                      itemCount: transactions.length,
-                      itemBuilder: (context, index) {
-                        final t = transactions[index];
-                        return Padding(
-                          padding: EdgeInsets.only(
-                            top: index == 0 ? 8.h : 0, // ریسپانسیو
-                            bottom: 4.h, // ریسپانسیو
-                          ),
-                          child: _buildTransactionCardFromModel(context, t),
-                        );
-                      },
-                    );
-                  },
+                    SizedBox(width: 8.w), // ریسپانسیو
+                    GestureDetector(
+                      onTap: () => ref.read(filterDateProvider.notifier).state = null,
+                      child: Text(
+                          "لغو فیلتر",
+                          style: TextStyle(
+                              fontSize: 10.sp, // ریسپانسیو
+                              color: const Color(0xFFEA2A33)
+                          )
+                      ),
+                    )
+                  ],
                 ),
               ),
-            ],
-          ),
+            SizedBox(height: 8.h), // فاصله ریسپانسیو
+            Expanded(
+              child: transactionsAsync.when(
+                loading: () => Center(
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.w, // ریسپانسیو کردن ضخامت
+                  ),
+                ),
+                error: (err, stack) => Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(16.w),
+                    child: Text(
+                      "خطا در بارگذاری: $err",
+                      style: TextStyle(fontSize: 14.sp), // ریسپانسیو
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+                data: (transactions) {
+                  if (transactions.isEmpty) {
+                    return ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        SizedBox(height: 100.h), // ریسپانسیو
+                        Center(
+                          child: Text(
+                            "تراکنشی یافت نشد",
+                            style: TextStyle(
+                              fontSize: 16.sp, // ریسپانسیو
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  }
+                  return ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: EdgeInsets.only(bottom: 100.h), // ریسپانسیو
+                    key: ValueKey(transactions.length +
+                        (transactions.isNotEmpty ? transactions.first.id : 0)),
+                    itemCount: transactions.length,
+                    itemBuilder: (context, index) {
+                      final t = transactions[index];
+                      return Padding(
+                        padding: EdgeInsets.only(
+                          top: index == 0 ? 8.h : 0, // ریسپانسیو
+                          bottom: 4.h, // ریسپانسیو
+                        ),
+                        child: _buildTransactionCardFromModel(context, t),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -489,39 +482,38 @@ class TransactionHistoryPage extends ConsumerWidget {
   Widget _buildSearchBar(WidgetRef ref, bool isDark) {
     return Padding(
       padding: EdgeInsets.symmetric(
-          horizontal: 16.w, // ریسپانسیو
-          vertical: 8.h // ریسپانسیو
+          horizontal: 16.w,
+          vertical: 8.h,
       ),
       child: Container(
         decoration: BoxDecoration(
             color: Colors.grey[100],
             shape: BoxShape.rectangle,
-            borderRadius: BorderRadius.circular(12.r) // ریسپانسیو
+            borderRadius: BorderRadius.circular(12.r)
         ),
         child: TextField(
-          textDirection: TextDirection.ltr,
-          cursorColor: kPrimaryColor,
-          cursorWidth: 1.5.w, // ریسپانسیو
+           cursorColor: kPrimaryColor,
+          cursorWidth: 1.5.w,
           onChanged: (value) =>
           ref.read(transactionSearchQueryProvider.notifier).state = value,
           decoration: InputDecoration(
             hintText: "جستجو (نام، شماره، کد شرکت)...",
             hintStyle: TextStyle(
-                fontSize: 14.sp, // ریسپانسیو
+                fontSize: 14.sp,
                 color: Colors.grey.shade600
             ),
             prefixIcon: Icon(
               Icons.search,
               color: kPrimaryColor,
-              size: 20.sp, // ریسپانسیو
+              size: 20.sp,
             ),
             border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12.r), // ریسپانسیو
+                borderRadius: BorderRadius.circular(12.r),
                 borderSide: BorderSide.none
             ),
             contentPadding: EdgeInsets.symmetric(
-                horizontal: 16.w, // ریسپانسیو
-                vertical: 14.h // ریسپانسیو
+                horizontal: 16.w,
+                vertical: 14.h
             ),
           ),
           style: TextStyle(

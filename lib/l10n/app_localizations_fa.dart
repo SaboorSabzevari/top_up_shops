@@ -85,7 +85,7 @@ class AppLocalizationsFa extends AppLocalizations {
 
   @override
   // TODO: implement forgotPassword
-  String get forgotPassword => "رمز عبور خود را فراموش کرده اید؟";
+  String get forgotPassword => "رمز عبور را فراموش کرده اید؟";
 
   @override
   // TODO: implement noAccount

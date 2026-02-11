@@ -153,8 +153,8 @@ class DashboardScreen extends ConsumerWidget {
   PreferredSizeWidget _buildAppBar(BuildContext context,bool isDark, Color red, AsyncValue<Map<String, String>> profileAsync) {
 
     return AppBar(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
+      backgroundColor: Colors.white,
+      elevation: 1,
       title: Row(
         children: [
 
@@ -444,38 +444,7 @@ Widget _buildMiniCard1(String title, String val, String unit, bool isDark, Color
         ],
       ),
     );
-  } // Widget _buildRecentItem(TransactionModel t, bool isDark, Color red) {
-  //   return Container(
-  //     margin: const EdgeInsets.only(bottom: 12),
-  //     padding: const  EdgeInsets.all(15),
-  //     decoration: BoxDecoration(
-  //       color: isDark ? const Color(0xFF2A1D1D) : Colors.white,
-  //       borderRadius: BorderRadius.circular(18),
-  //     ),
-  //     child: Row(
-  //       children: [
-  //         Container(width: 45, height: 45, decoration: BoxDecoration(color: red.withOpacity(0.1), shape: BoxShape.circle), child: Icon(Icons.bolt, color: red)),
-  //         const SizedBox(width: 15),
-  //         Expanded(
-  //           child: Column(
-  //             crossAxisAlignment: CrossAxisAlignment.start,
-  //             children: [
-  //               Text(t.operator, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-  //               Text(t.phoneNumber, style: const TextStyle(fontSize: 11, color: Colors.grey)),
-  //             ],
-  //           ),
-  //         ),
-  //         Column(
-  //           crossAxisAlignment: CrossAxisAlignment.end,
-  //           children: [
-  //             Text("${t.receivedAmount}؋", style: const TextStyle(fontWeight: FontWeight.bold)),
-  //             const Text("موفق", style: TextStyle(fontSize: 9, color: Colors.green, fontWeight: FontWeight.bold)),
-  //           ],
-  //         )
-  //       ],
-  //     ),
-  //   );
-  // }
+  }
 
   Widget _buildSectionHeader(String title, Color red, BuildContext context) {
     return Row(

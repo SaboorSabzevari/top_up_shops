@@ -2,9 +2,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:top_up_shops/src/presentation/screens/transactions/transaction_screen.dart';
 import '../../../data/local/app_database.dart';
 import '../../../providers/customer_provider.dart';
 import '../../../providers/session_provider.dart'; // اضافه شد
+import '../../../utils/colors.dart';
 import 'add_customer.dart';
 
 class CustomerListPage extends ConsumerWidget {
@@ -21,16 +23,18 @@ class CustomerListPage extends ConsumerWidget {
     final activeFilter = ref.watch(customerFilterProvider);
 
     return Scaffold(
+
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text(
+
+        title:Text(
           'لیست مشتریان',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: TextStyle(fontWeight: FontWeight.bold,fontSize: 14.sp),
         ),
         centerTitle: true,
-        elevation: 0,
+        elevation: 1,
         backgroundColor: Colors.white,
-        foregroundColor: textMain,
+
       ),
       body: Stack(
         children: [
@@ -41,7 +45,6 @@ class CustomerListPage extends ConsumerWidget {
               Expanded(
                 child: customersAsync.when(
                   data: (customers) {
-                    // ۲. فیلتر کردن نهایی بر اساس ShopID (لایه دوم امنیتی)
                     final shopCustomers = customers
                         .where((c) => c['shop_id'] == user?.shopId)
                         .toList();
@@ -56,7 +59,7 @@ class CustomerListPage extends ConsumerWidget {
                   error: (err, stack) => Center(child: Text('خطا: $err')),
                 ),
               ),
-              const SizedBox(height: 80), // فضا برای دکمه پایین
+               SizedBox(height: 55.h),
             ],
           ),
           _buildAddButton(context),
@@ -65,50 +68,53 @@ class CustomerListPage extends ConsumerWidget {
     );
   }
 
-  // اصلاح بخش جستجو برای ارسال ShopID
   Widget _searchBar(WidgetRef ref) {
     return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: TextField(
-        onChanged: (value) {
-          // در اینجا باید پروایدر جستجوی شما shopId را هم در نظر بگیرد
-          ref.read(customerSearchQueryProvider.notifier).state = value;
-        },
-        decoration: InputDecoration(
-          hintText: 'جستجوی نام یا کد مشتری...',
-          prefixIcon: const Icon(Icons.search),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        ),
+      padding: EdgeInsets.only(left: 16.0,right: 16, top: 16.0,bottom: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: kComponentColor,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey[300]!),
+            ),
+            child: TextField(
+              cursorColor: kPrimaryColor,
+              onChanged: (value) {
+                ref.read(customerSearchQueryProvider.notifier).state = value;
+              },
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.search, color: kPrimaryColor),
+                hintText: 'جستجوی نام یا کد مشتری...',
+                hintStyle:  TextStyle(color: Colors.grey, fontSize: 12.sp),
+
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 6,
+                  vertical: 12,     ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
-
   Widget _customerList(List<Map<String, dynamic>> customers) {
     return ListView.separated(
-      padding: const EdgeInsets.all(16),
+      // پدینگ کل لیست مشابه لیست تراکنش‌ها
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       itemCount: customers.length,
-      separatorBuilder: (_, __) => const Divider(),
+      separatorBuilder: (_, __) => const SizedBox(height: 5),
       itemBuilder: (context, index) {
         final customer = customers[index];
-
-        // دریافت مسیر عکس مشتری
         final profileImage = customer['profile_image']?.toString();
+        final bool isWholesale = customer['type'] == 'WHOLESALE';
 
-        return ListTile(
-          leading: _buildCustomerAvatar(customer['name'], profileImage),
-          title: Text(
-            customer['name'],
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-          subtitle: Text(
-            "کد: ${customer['customer_code']} | ${customer['type'] == 'WHOLESALE' ? 'عمده' : 'عادی'}",
-          ),
-          trailing: const Icon(Icons.chevron_right),
+        return InkWell(
           onTap: () async {
-            // ۳. دریافت جزئیات با امنیت ShopID
-            final fullData = await DatabaseHelper.instance
-                .getCustomerFullDetails(customer['id']);
-
+            final fullData = await DatabaseHelper.instance.getCustomerFullDetails(customer['id']);
             if (context.mounted) {
               Navigator.push(
                 context,
@@ -118,11 +124,81 @@ class CustomerListPage extends ConsumerWidget {
               );
             }
           },
+          borderRadius: BorderRadius.circular(15),
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade200),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(15),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.02),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 45,
+                  height: 45,
+                  child: _buildCustomerAvatar(customer['name'], profileImage),
+                ),
+
+                const SizedBox(width: 15),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        customer['name'],
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: Colors.black,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        "کد: ${customer['customer_code']}",
+                        style: const TextStyle(
+                            color: Colors.grey,
+                            fontSize: 11
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: isWholesale
+                        ? kPrimaryColor.withValues(alpha: 0.1)
+                        : Colors.blue.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    isWholesale ? 'عمده' : 'عادی',
+                    style: TextStyle(
+                      color: isWholesale ? kPrimaryColor : Colors.blue[700],
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(width: 8),
+                const Icon(Icons.chevron_right, size: 18, color: Colors.grey),
+              ],
+            ),
+          ),
         );
       },
     );
   }
-
   Widget _buildCustomerAvatar(String name, String? profileImagePath) {
     if (profileImagePath != null && profileImagePath.isNotEmpty) {
       try {
@@ -134,11 +210,9 @@ class CustomerListPage extends ConsumerWidget {
           );
         }
       } catch (e) {
-        // اگر خطایی در خواندن فایل رخ داد، حرف اول را نمایش بده
       }
     }
 
-    // اگر عکس وجود نداشت، حرف اول نام را نمایش بده
     final firstChar = name.isNotEmpty ? name[0] : '?';
     return CircleAvatar(
       backgroundColor: primary.withOpacity(0.1),
@@ -147,16 +221,17 @@ class CustomerListPage extends ConsumerWidget {
         style: const TextStyle(color: primary),
       ),
     );
-  }  Widget _buildAddButton(BuildContext context) {
+  }
+  Widget _buildAddButton(BuildContext context) {
     return Positioned(
       left: 16,
       right: 16,
-      bottom: 24,
+      bottom: 14,
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           backgroundColor: primary,
-          minimumSize: const Size.fromHeight(54),
+          minimumSize: Size.fromHeight(45),
         ),
         onPressed: () => Navigator.push(
           context,
@@ -167,7 +242,6 @@ class CustomerListPage extends ConsumerWidget {
     );
   }
 
-  // متد فیلترها (فرض بر این است که منطق آن در customerFilterProvider است)
   Widget _filterChips(
       BuildContext context,
       WidgetRef ref,
@@ -219,14 +293,15 @@ class CustomerListPage extends ConsumerWidget {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: EdgeInsets.symmetric(
-        horizontal: 16.w,
-        vertical: 8.h,
+        horizontal: 8.w,
+        vertical: 2.h,
       ),
       child: Row(
         children: [
           buildChip("همه", null),
 
-          buildChip("عادی", 'ORDINARY'),  buildChip("عمده", 'WHOLESALE'),
+          buildChip("عادی", 'ORDINARY'),
+          buildChip("عمده", 'WHOLESALE'),
           SizedBox(width: 8.w),
         ],
       ),

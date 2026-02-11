@@ -340,39 +340,36 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
     final reportTransactions = ref.watch(customerReportTransactionsProvider);
     final dateRange = ref.watch(reportDateRangeProvider);
 
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: isDark ? backgroundDarkColor : backgroundLightColor,
-        appBar: _buildAppBar(isDark),
-        body: SingleChildScrollView(
-          padding: EdgeInsets.all(0),
-          child: Column(
-            children: [
-              if (_searchResults.isNotEmpty) _buildSearchResults(isDark),
-              SizedBox(height: 16.h),
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8.w),
-                child: Column(
-                  children: [
-                    if (_selectedCustomer != null) ...[
-                      reportTransactions.when(
-                        data: (transactions) =>
-                            _buildCustomerHeader(isDark, transactions),
-                        loading: () => _buildCustomerHeader(isDark, []),
-                        error: (e, st) => _buildCustomerHeader(isDark, []),
-                      ),
-                      SizedBox(height: 8.h),
-                      _buildDatePicker(context, isDark, dateRange),
-                      SizedBox(height: 8.h),
-                      _buildTransactionsTable(isDark, reportTransactions),
-                    ] else
-                      _buildEmptyState(isDark),
-                  ],
-                ),
+    return Scaffold(
+      backgroundColor: isDark ? backgroundDarkColor : backgroundLightColor,
+      appBar: _buildAppBar(isDark),
+      body: SingleChildScrollView(
+        padding: EdgeInsets.all(0),
+        child: Column(
+          children: [
+            if (_searchResults.isNotEmpty) _buildSearchResults(isDark),
+            SizedBox(height: 16.h),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 8.w),
+              child: Column(
+                children: [
+                  if (_selectedCustomer != null) ...[
+                    reportTransactions.when(
+                      data: (transactions) =>
+                          _buildCustomerHeader(isDark, transactions),
+                      loading: () => _buildCustomerHeader(isDark, []),
+                      error: (e, st) => _buildCustomerHeader(isDark, []),
+                    ),
+                    SizedBox(height: 8.h),
+                    _buildDatePicker(context, isDark, dateRange),
+                    SizedBox(height: 8.h),
+                    _buildTransactionsTable(isDark, reportTransactions),
+                  ] else
+                    _buildEmptyState(isDark),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -454,7 +451,6 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
         ),
       ),
       child: TextField(
-        textDirection: TextDirection.ltr,
         autofocus: true,
         controller: _searchController,
         onChanged: _onSearchChanged,
@@ -1315,16 +1311,7 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
               color: isDark ? const Color(0xFFD1D5DB) : const Color(0xFF374151),
             ),
           ),
-          SizedBox(height: 8.h),
-          Text(
-            "در این بازه زمانی هیچ فعالیتی ثبت نشده است",
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 11.sp,
-              color: Colors.grey,
-              fontFamily: 'Noto Sans Arabic',
-            ),
-          ),
+
         ],
       ),
     );
