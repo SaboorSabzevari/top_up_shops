@@ -22,6 +22,37 @@ class TransactionRepository {
       return id;
     });
   }
+  Future<Map<String, dynamic>> getSalesSummaryData(String shopId) async {
+    final database = await _db.database;
+
+    // فروش امروز
+    final todayRes = await database.rawQuery('''
+    SELECT SUM(received_amount) as total FROM transactions 
+    WHERE shop_id = ? AND date(created_at, 'localtime') = date('now','localtime')
+  ''', [shopId]);
+    double today = (todayRes.first['total'] as num? ?? 0).toDouble();
+
+    // فروش دیروز
+    final yesterdayRes = await database.rawQuery('''
+    SELECT SUM(received_amount) as total FROM transactions 
+    WHERE shop_id = ? AND date(created_at, 'localtime') = date('now','localtime', '-1 day')
+  ''', [shopId]);
+    double yesterday = (yesterdayRes.first['total'] as num? ?? 0).toDouble();
+
+    // محاسبه درصد تغییر
+    double percentChange = 0;
+    if (yesterday > 0) {
+      percentChange = ((today - yesterday) / yesterday) * 100;
+    } else if (today > 0) {
+      percentChange = 100; // اگر دیروز صفر بوده و امروز فروش داشتیم
+    }
+
+    return {
+      'today': today.toInt(),
+      'yesterday': yesterday,
+      'percent': percentChange,
+    };
+  }
   /// دریافت تراکنش‌ها بر اساس سطح دسترسی و آیدی دکان
   Future<List<TransactionModel>> getTransactions(UserModel user) async {
     final database = await _db.database;
@@ -47,7 +78,18 @@ class TransactionRepository {
       return TransactionModel.fromMap(updatedMap);
     }).toList();
   }
+  /// دریافت مجموع فروش در یک تاریخ خاص برای یک فروشگاه
+  Future<double> getSalesByDate(String shopId, DateTime date) async {
+    final database = await _db.database;
+    final dateString = date.toIso8601String().split('T')[0]; // تبدیل به YYYY-MM-DD
 
+    final result = await database.rawQuery('''
+      SELECT SUM(received_amount) as total FROM transactions 
+      WHERE shop_id = ? AND date(created_at) = date(?)
+    ''', [shopId, dateString]);
+
+    return (result.first['total'] as num? ?? 0).toDouble();
+  }
   /// سود امروز دکان
   Future<int> todayProfit(String shopId) async {
     final database = await _db.database;

@@ -46,6 +46,7 @@ dependencies:
   connectivity_plus:
   flutter_riverpod:
   sqflite:
+  fl_chart:
   path:
   path_provider:
   shared_preferences:

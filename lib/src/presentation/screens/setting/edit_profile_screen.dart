@@ -270,7 +270,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                         label: "شماره تماس",
                         controller: _phoneCtrl,
                         icon: Icons.call,
-                        hint: "۰۷XXXXXXXX",
+                        hint: "07XXXXXXXX",
                         isRequired: true,
                         isPhone: true,
                         isDark: isDark,
@@ -383,7 +383,6 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                 fontSize: 13,
               ),
               prefixIcon: isPhone ? null : Icon(icon, color: Colors.grey[400], size: 20),
-              // آیکون برای شماره تماس باید سمت راست (suffix) باشد چون جهت متن LTR است
               suffixIcon: isPhone ? Icon(icon, color: Colors.grey[400], size: 20) : null,
               border: InputBorder.none,
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),

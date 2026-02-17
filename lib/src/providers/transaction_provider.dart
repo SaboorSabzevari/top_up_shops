@@ -25,14 +25,45 @@ final todayProfitProvider = FutureProvider<int>((ref) {
   if (user == null) return 0;
   return ref.read(transactionRepositoryProvider).todayProfit(user.shopId);
 });
+final chartDataProvider = FutureProvider<Map<String, List<double>>>((ref) async {
+  final repository = ref.watch(transactionRepositoryProvider);
+  final user = ref.watch(currentUserProvider);
+  if (user == null) return {'current': [], 'prev': []};
 
-// مجموع فروش امروز دکان فعلی
+  final now = DateTime.now();
+
+  // اجرای همزمان تمام درخواست‌ها برای سرعت بیشتر
+  final currentWeekFutures = List.generate(7, (i) {
+    final date = now.subtract(Duration(days: 6 - i)); // از 6 روز پیش تا امروز
+    return repository.getSalesByDate(user.shopId, date);
+  });
+
+  final prevWeekFutures = List.generate(7, (i) {
+    final date = now.subtract(Duration(days: 13 - i)); // از 13 روز پیش تا 7 روز پیش
+    return repository.getSalesByDate(user.shopId, date);
+  });
+
+  final results = await Future.wait([
+    Future.wait(currentWeekFutures),
+    Future.wait(prevWeekFutures),
+  ]);
+
+  return {
+    'current': results[0],
+    'prev': results[1],
+  };
+});// مجموع فروش امروز دکان فعلی
 final todaySalesProvider = FutureProvider<int>((ref) {
   final user = ref.watch(currentUserProvider);
   if (user == null) return 0;
   return ref.read(transactionRepositoryProvider).todayTotalSales(user.shopId);
 });
+final salesSummaryProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+  final user = ref.watch(currentUserProvider);
+  if (user == null) return {'today': 0, 'yesterday': 0.0, 'percent': 0.0};
 
+  return ref.read(transactionRepositoryProvider).getSalesSummaryData(user.shopId);
+});
 // درصد رشد فروش دکان فعلی
 final salesGrowthProvider = FutureProvider<double>((ref) {
   final user = ref.watch(currentUserProvider);

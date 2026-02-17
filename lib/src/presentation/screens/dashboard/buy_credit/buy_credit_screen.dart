@@ -602,6 +602,7 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
         : (double.tryParse(_totalCreditController.text) ?? 0);
 
     return Scaffold(
+        resizeToAvoidBottomInset: true,
       backgroundColor: const Color(0xFFFCF8F8),
       appBar: AppBar(
         leading: IconButton(
@@ -683,7 +684,7 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
                     borderRadius: BorderRadius.circular(20.r), // ریسپانسیو
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.04),
+                        color: Colors.black.withValues(alpha: 0.04),
                         blurRadius: 20,
                         offset: const Offset(0, 10),
                       ),
@@ -786,30 +787,82 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
                           ),
                         ],
                       ),
-                      SizedBox(height: 16.h), // ریسپانسیو
+                      SizedBox(height:12.h), // ریسپانسیو
 
                       TextFormField(
                         controller: _actualPaidController,
-                        keyboardType: TextInputType.number,
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18.sp), // ریسپانسیو
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        textInputAction: TextInputAction.done,
+                        scrollPadding: EdgeInsets.only(bottom: 180.h),
+
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 18.sp,
+                          color: Colors.black87,
+                        ),
+
+                        cursorColor: const Color(0xFFEA2A33),
+                        cursorWidth: 1.5,
+                        cursorRadius: const Radius.circular(4),
+
                         decoration: InputDecoration(
                           labelText: 'مبلغ نقد پرداختی',
-                          labelStyle: TextStyle(fontSize: 12.sp, color: Colors.grey), // ریسپانسیو
-                          hintText: '',
-                          prefixIcon: Icon(Icons.payments_rounded, color: const Color(0xFFEA2A33), size: 20.sp), // ریسپانسیو
+                          floatingLabelBehavior: FloatingLabelBehavior.auto,
+
+                          labelStyle: TextStyle(
+                            fontSize: 12.sp,
+                            color: Colors.grey.shade600,
+                          ),
+
+                          prefixIcon: Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 8.w),
+                            child: Icon(
+                              Icons.payments_rounded,
+                              color: const Color(0xFFEA2A33),
+                              size: 20.sp,
+                            ),
+                          ),
+
                           suffixText: '؋',
-                          suffixStyle: TextStyle(fontSize: 14.sp), // ریسپانسیو
+                          suffixStyle: TextStyle(
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.grey.shade700,
+                          ),
+
                           filled: true,
                           fillColor: const Color(0xFFF8F9FA),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(15.r), // ریسپانسیو
-                            borderSide: BorderSide.none,
+
+                          contentPadding: EdgeInsets.symmetric(
+                            vertical: 18.h,
+                            horizontal: 16.w,
                           ),
+
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16.r),
+                            borderSide: BorderSide(
+                              color: Colors.grey.shade300,
+                              width: 1,
+                            ),
+                          ),
+
                           focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(15.r), // ریسپانسیو
-                            borderSide: const BorderSide(color: Color(0xFFEA2A33), width: 1),
+                            borderRadius: BorderRadius.circular(16.r),
+                            borderSide: const BorderSide(
+                              color: Color(0xFFEA2A33),
+                              width: 1.5,
+                            ),
+                          ),
+
+                          errorBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16.r),
+                            borderSide: const BorderSide(
+                              color: Colors.red,
+                              width: 1.2,
+                            ),
                           ),
                         ),
+
                         onChanged: (value) => _calculateDiscount(),
                       ),
 
@@ -841,7 +894,8 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
                   ),
                 ),
               ],
-            )
+            ),
+            SizedBox(height: 100.h),
           ],
         ),
       ),

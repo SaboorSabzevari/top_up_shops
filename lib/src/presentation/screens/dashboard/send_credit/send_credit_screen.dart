@@ -2062,7 +2062,11 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
         ],
       ),
       child: ElevatedButton(
-        onPressed: _processAndSaveTransaction, // فقط ذخیره در دیتابیس
+        onPressed:(){
+          _processAndSaveTransaction();
+          ref.invalidate(todaySalesProvider);
+          ref.invalidate(salesSummaryProvider);
+        }, // فقط ذخیره در دیتابیس
         style: ElevatedButton.styleFrom(
           backgroundColor: kPrimaryColor,
           minimumSize: const Size(double.infinity, 56),

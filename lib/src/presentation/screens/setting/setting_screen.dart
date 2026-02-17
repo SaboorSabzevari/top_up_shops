@@ -14,7 +14,7 @@ import 'call_with_support.dart';
 import 'edit_profile_screen.dart' hide kPrimaryColor;
 import 'package:top_up_shops/src/presentation/screens/setting/unit_screen.dart';
 
-// 1. تعریف یک Provider برای خواندن اطلاعات پروفایل
+
 final profileInfoProvider = FutureProvider.autoDispose<Map<String, String>>((ref) async {
   final prefs = await SharedPreferences.getInstance();
   return {
@@ -31,8 +31,6 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final locale = ref.watch(localeProvider).locale;
     final l10n = AppLocalizations.of(context)!;
-
-    // 2. گوش دادن به اطلاعات پروفایل
     final profileAsync = ref.watch(profileInfoProvider);
 
     return Scaffold(
