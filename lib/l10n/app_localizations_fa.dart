@@ -85,7 +85,7 @@ class AppLocalizationsFa extends AppLocalizations {
 
   @override
   // TODO: implement forgotPassword
-  String get forgotPassword => "رمز عبور خود را فراموش کرده اید؟";
+  String get forgotPassword => "رمز عبور را فراموش کرده اید؟";
 
   @override
   // TODO: implement noAccount
@@ -107,4 +107,53 @@ class AppLocalizationsFa extends AppLocalizations {
   @override
   // TODO: implement logout
   String get logout => "خروج از حساب";
+  String get setUnitPrice => "تنظیم قیمت واحد";
+  String get setUnit => "تنظیم واحد";
+  String get aboutUs => "درباره ما";
+
+  /// TRANSACTION
+  String get transactionHistory => "تاریخچه تراکنش‌ها";
+  String get todayProfit => "سود امروز";
+  String get todayTransactions => "تراکنش‌های امروز";
+  String get searchHintText => "جستجو کنید";
+
+  /// CUSTOMERS
+  String get customerList => "لیست مشتریان";
+  String get newCustomer => "مشتری جدید";
+  String get customer => "مشتری";
+
+  /// addNewCustomer
+  String get addNewCustomer => "افزودن مشتری جدید";
+  String get normalCustomer => "مشتری عادی";
+  String get SalesCustomer => "مشتری فروش";
+  String get uploadImage => "آپلود تصویر";
+  String get fullName => "نام کامل";
+  String get fullnameHint => "نام و نام خانوادگی را وارد کنید";
+  String get phoneNumbers => "شماره تماس";
+  String get add => "افزودن";
+  String get uploadIDImage => "آپلود تصویر کارت شناسایی";
+  String get address => "آدرس";
+  String get addressHint => "آدرس را وارد کنید";
+  String get salesCodes => "کدهای فروش";
+  String get saveBotton => "ذخیره";
+
+  /// SendCredit
+  String get sellCredit => "فروش اعتبار";
+  String get customerName => "نام مشتری";
+  String get customerType => "نوع مشتری";
+  String get chooseCompany => "انتخاب شرکت";
+  String get customerNumber => "شماره مشتری";
+  String get creditAmount => "مقدار اعتبار";
+  String get discount => "تخفیف";
+  String get totalPayAble => "مبلغ قابل پرداخت";
+  String get paiedAmount => "مبلغ پرداخت‌شده";
+  String get communicationWay => "روش ارتباط";
+  String get verbal => "حضوری";
+  String get call => "تماس";
+  String get whatsApp => "واتساپ";
+  String get telegram => "تلگرام";
+  String get transactionSaveAndSubmit => "ذخیره و ثبت تراکنش";
+  String get customerNotFound => "مشتری یافت نشد";
+  String get submitNewCustomer => "ثبت مشتری جدید";
+
 }

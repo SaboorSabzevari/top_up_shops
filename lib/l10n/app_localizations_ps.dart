@@ -105,7 +105,6 @@ class AppLocalizationsPs extends AppLocalizations {
   @override
   // TODO: implement notification
   String get notification => "اعلانونه";
-
   @override
   // TODO: implement generalSetting
   String get generalSetting =>"عمومی تنظیمات";
@@ -113,4 +112,54 @@ class AppLocalizationsPs extends AppLocalizations {
   @override
   // TODO: implement logout
   String get logout => "له حساب څخه ننوتل";
+  String get setUnitPrice => "د واحد بیه تنظیمول";
+  String get setUnit => "واحد تنظیمول";
+  String get aboutUs => "زموږ په اړه";
+
+  /// TRANSACTION
+  String get transactionHistory => "د معاملاتو تاریخچه";
+  String get todayProfit => "د نن ورځې ګټه";
+  String get todayTransactions => "د نن ورځې معاملې";
+  String get searchHintText => "لټون وکړئ";
+
+  /// CUSTOMERS
+  String get customerList => "د پیرودونکو لست";
+  String get newCustomer => "نوی پیرودونکی";
+  String get customer => "پیرودونکی";
+
+  /// addNewCustomer
+  String get addNewCustomer => "نوی پیرودونکی زیاتول";
+  String get normalCustomer => "عادي پیرودونکی";
+  String get SalesCustomer => "د پلور پیرودونکی";
+  String get uploadImage => "انځور پورته کول";
+  String get fullName => "بشپړ نوم";
+  String get fullnameHint => "بشپړ نوم ولیکئ";
+  String get phoneNumbers => "د تماس شمېره";
+  String get add => "زیاتول";
+  String get uploadIDImage => "د پېژندپاڼې انځور پورته کول";
+  String get address => "پته";
+  String get addressHint => "پته ولیکئ";
+  String get salesCodes => "د پلور کوډونه";
+  String get saveBotton => "ثبت";
+
+  /// SendCredit
+  String get sellCredit => "کریډیټ پلورل";
+  String get customerName => "د پیرودونکي نوم";
+  String get customerType => "د پیرودونکي ډول";
+  String get chooseCompany => "شرکت وټاکئ";
+  String get customerNumber => "د پیرودونکي شمېره";
+  String get creditAmount => "د کریډیټ اندازه";
+  String get discount => "تخفیف";
+  String get totalPayAble => "د ورکړې ټول مبلغ";
+  String get paiedAmount => "ورکړل شوی مبلغ";
+  String get communicationWay => "د اړیکې طریقه";
+  String get verbal => "حضوري";
+  String get call => "زنګ";
+  String get whatsApp => "واټس‌اپ";
+  String get telegram => "ټېلېګرام";
+  String get transactionSaveAndSubmit => "معامله ثبت او لېږل";
+  String get customerNotFound => "پیرودونکی ونه موندل شو";
+  String get submitNewCustomer => "نوی پیرودونکی ثبتول";
+
+
 }

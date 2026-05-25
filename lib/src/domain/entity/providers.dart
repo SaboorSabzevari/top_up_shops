@@ -1,13 +1,54 @@
 class ProviderCompany {
   final int? id;
+  final String shopId; // فیلد حیاتی برای تفکیک دکان‌ها
   final String name;
-  final String type; // ملاک تطابق (مثلاً: Roshan, MTN, Etisalat)
-  final String ordinaryCode;
-  final String wholesaleCode;
+  final double balance;
+  final String? logoPath;
 
-  ProviderCompany({this.id, required this.name, required this.type, required this.ordinaryCode, required this.wholesaleCode});
+  ProviderCompany({
+    this.id,
+    required this.shopId,
+    required this.name,
+    this.balance = 0.0,
+    this.logoPath,
+  });
 
-  Map<String, dynamic> toMap() => {
-    'id': id, 'name': name, 'type': type, 'ordinary_code': ordinaryCode, 'wholesale_code': wholesaleCode,
-  };
+  // ۱. اضافه کردن متد copyWith برای تغییر shopId در هنگام ذخیره‌سازی
+  ProviderCompany copyWith({
+    int? id,
+    String? shopId,
+    String? name,
+    double? balance,
+    String? logoPath,
+  }) {
+    return ProviderCompany(
+      id: id ?? this.id,
+      shopId: shopId ?? this.shopId,
+      name: name ?? this.name,
+      balance: balance ?? this.balance,
+      logoPath: logoPath ?? this.logoPath,
+    );
+  }
+
+  // ۲. اضافه کردن متm fromMap برای تبدیل داده‌های دیتابیس به شیء دارت
+  factory ProviderCompany.fromMap(Map<String, dynamic> map) {
+    return ProviderCompany(
+      id: map['id'] as int?,
+      shopId: map['shop_id'] as String? ?? '',
+      name: map['name'] as String? ?? '',
+      balance: (map['balance'] as num? ?? 0.0).toDouble(),
+      logoPath: map['logo_path'] as String?,
+    );
+  }
+
+  // ۳. تبدیل شیء به Map برای ذخیره در دیتابیس
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'shop_id': shopId,
+      'name': name,
+      'balance': balance,
+      'logo_path': logoPath,
+    };
+  }
 }

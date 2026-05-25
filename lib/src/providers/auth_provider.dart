@@ -1,8 +1,12 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import '../services/prefrence_services.dart';
+import 'session_provider.dart';
 
+// ۱. تعریف وضعیت احراز هویت
 class AuthState {
   final User? user;
   final bool isLoading;
@@ -39,41 +43,151 @@ class AuthState {
   }
 }
 
+// ۲. مدیریت منطق احراز هویت
 class AuthNotifier extends StateNotifier<AuthState> {
+
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final Ref ref;
 
-  AuthNotifier(this.ref) : super(AuthState(user: null, isLoggedIn: false)) {
-    // بارگذاری داده‌های ذخیره شده
-    _loadSavedData();
+  AuthNotifier(this.ref) : super(const AuthState(isLoggedIn: false)) {
+    _init();
+  }
+// داخل کلاس AuthNotifier
+  Future<void> autoLogin() async {
+    final currentUser = _auth.currentUser;
+    if (currentUser != null) {
+      // فراخوانی متد همگام‌سازی که قبلاً با هم نوشتیم
+      // این متد shopId و role را از Firestore می‌گیرد
+      await _syncUserProfile(currentUser);
+    }
+  }
+  Future<void> _init() async {
+    await _loadSavedData();
 
-    // گوش دادن به تغییرات وضعیت کاربر
-    _auth.authStateChanges().listen((user) {
-      state = state.copyWith(
-        user: user,
-        isLoggedIn: user != null,
-        error: null,
-      );
+    _auth.authStateChanges().listen((user) async {
+      if (user != null) {
+        final userModel = await _syncUserProfile(user);
+
+        if (userModel != null) {
+          await ref.read(currentUserProvider.notifier).setUser(userModel);
+        }
+
+        state = state.copyWith(
+          user: user,
+          isLoggedIn: true,
+          isLoading: false,
+        );
+      } else {
+        ref.read(currentUserProvider.notifier).state = null;
+        state = state.copyWith(
+          user: null,
+          isLoggedIn: false,
+          isLoading: false,
+        );
+      }
     });
   }
 
+  // بارگذاری داده‌ها از SharedPreferences
   Future<void> _loadSavedData() async {
-    // منتظر می‌شویم تا PreferencesService آماده شود
-    final prefsAsync = await ref.read(preferencesServiceProvider.future);
-
-    // بارگذاری ایمیل ذخیره شده
-    final savedEmail = prefsAsync.userEmail;
-    final rememberMe = prefsAsync.rememberMe;
-
-    if (savedEmail != null) {
+    try {
+      final prefs = await ref.read(preferencesServiceProvider.future);
       state = state.copyWith(
-        savedEmail: savedEmail,
-        rememberMe: rememberMe,
+        savedEmail: prefs.userEmail,
+        rememberMe: prefs.rememberMe,
       );
-    }
+    } catch (_) {}
   }
 
-  Future<void> loginWithEmailAndPassword({
+  // همگام‌سازی پروفایل کاربر با Firestore (بسیار حیاتی برای Multi-shop)
+  // قبل از تغییر: Future<void> _syncUserProfile
+// بعد از تغییر:
+  Future<UserModel?> _syncUserProfile(User firebaseUser) async {
+    print('🎯 ===== START SYNC USER PROFILE =====');
+    print('👤 UID: ${firebaseUser.uid}');
+    print('📧 Email: ${firebaseUser.email}');
+
+    try {
+      // 1. تست اتصال به Firestore
+      print('🔌 تست اتصال به Firestore...');
+      final firestore = FirebaseFirestore.instance;
+
+      // 2. بررسی دقیق‌تر مسیر
+      print('📍 مسیر مورد جستجو: users/${firebaseUser.uid}');
+
+      // 3. خواندن با source: server (نه cache)
+      final doc = await firestore
+          .collection('users')
+          .doc(firebaseUser.uid)
+          .get(GetOptions(source: Source.server));
+
+      print('📊 وضعیت داکیومنت:');
+      print('   - Exists: ${doc.exists}');
+      print('   - Has data: ${doc.data() != null}');
+
+      if (doc.exists && doc.data() != null) {
+        final data = doc.data()!;
+        print('📋 فیلدهای موجود:');
+        data.forEach((key, value) {
+          print('   - $key: $value (${value.runtimeType})');
+        });
+
+        // بررسی فیلدهای ضروری
+        final hasRole = data.containsKey('role');
+        final hasShopId = data.containsKey('shopId');
+        final role = data['role']?.toString();
+        final shopId = data['shopId']?.toString();
+
+        print('🔍 بررسی فیلدهای حیاتی:');
+        print('   - role موجود است؟ $hasRole → $role');
+        print('   - shopId موجود است؟ $hasShopId → $shopId');
+
+        if (!hasRole || !hasShopId) {
+          print('❌ فیلدهای role یا shopId موجود نیستند!');
+          return null;
+        }
+
+        if (role == null || role.isEmpty || shopId == null || shopId.isEmpty) {
+          print('❌ فیلدهای role یا shopId خالی هستند!');
+          return null;
+        }
+
+        print('✅ کاربر با موفقیت سینک شد');
+        return UserModel(
+          uid: firebaseUser.uid,
+          email: firebaseUser.email ?? '',
+          role: role,
+          shopId: shopId,
+        );
+      } else {
+        print('❌ داکیومنت وجود ندارد یا دیتا ندارد');
+
+        // 4. جستجو در کل کالکشن users
+        print('🔎 جستجو در تمام users...');
+        final allUsers = await firestore
+            .collection('users')
+            .where('email', isEqualTo: firebaseUser.email)
+            .limit(5)
+            .get();
+
+        print('🔎 تعداد کاربران با این ایمیل: ${allUsers.docs.length}');
+        for (var doc in allUsers.docs) {
+          print('   - ID: ${doc.id}, Data: ${doc.data()}');
+        }
+      }
+
+      return null;
+
+    } catch (e, stackTrace) {
+      print('💥 خطای شدید در syncUserProfile:');
+      print('   - Error: $e');
+      print('   - StackTrace: $stackTrace');
+      return null;
+    } finally {
+      print('🏁 ===== END SYNC USER PROFILE =====');
+    }
+  } Future<void> loginWithEmailAndPassword({
     required String email,
     required String password,
     required bool rememberMe,
@@ -81,95 +195,79 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       state = state.copyWith(isLoading: true, error: null);
 
-      await _auth.signInWithEmailAndPassword(
+      final userCredential = await _auth.signInWithEmailAndPassword(
         email: email.trim(),
         password: password.trim(),
       );
 
-      // ذخیره اطلاعات لاگین
-      final prefs = await ref.read(preferencesServiceProvider.future);
-      await prefs.saveLoginData(
-        email: email.trim(),
-        rememberMe: rememberMe,
-      );
+      final firebaseUser = userCredential.user;
 
-      // آپدیت state
-      state = state.copyWith(
-        savedEmail: rememberMe ? email.trim() : null,
-        rememberMe: rememberMe,
-        isLoading: false,
-      );
+      if (firebaseUser != null) {
+        final userModel = await _syncUserProfile(firebaseUser);
 
-    } on FirebaseAuthException catch (e) {
-      final errorMessage = _getErrorMessage(e.code);
-      state = state.copyWith(error: errorMessage, isLoading: false);
-      throw Exception(errorMessage);
-    } catch (e) {
-      state = state.copyWith(
-        error: 'خطای نامشخصی رخ داد',
-        isLoading: false,
-      );
-      rethrow;
-    }
-  }
+        if (userModel != null) {
+          // 🔴 اینجا حتماً باید await کنیم
+          await ref.read(currentUserProvider.notifier).setUser(userModel);
 
-  Future<void> autoLogin() async {
-    final prefsAsync = await ref.read(preferencesServiceProvider.future);
+          // 🔴 تأیید سریع که کاربر ذخیره شده
+          print('کاربر ذخیره شد: ${userModel.uid}, Shop: ${userModel.shopId}');
 
-    if (prefsAsync.isLoggedIn && state.savedEmail != null) {
-      try {
-        state = state.copyWith(isLoading: true);
-        // در اینجا می‌توانید منطق auto-login را اضافه کنید
-        await Future.delayed(const Duration(seconds: 1));
-        state = state.copyWith(isLoading: false);
-      } catch (e) {
-        state = state.copyWith(
-          isLoading: false,
-          error: 'اتوماتیک لاگین ناموفق بود',
-        );
+          // 🔴 همین الان وضعیت auth را هم آپدیت کنیم
+          state = state.copyWith(
+            isLoading: false,
+            isLoggedIn: true,
+            user: firebaseUser,
+            error: null,
+          );
+
+          // ذخیره در preferences
+          final prefsNotifier = ref.read(preferencesServiceProvider.notifier);
+          await prefsNotifier.saveFullLogin(
+            email: userModel.email,
+            uid: userModel.uid,
+            role: userModel.role,
+            shopId: userModel.shopId,
+            rememberMe: rememberMe,
+          );
+
+          // 🔴 تاخیر برای اطمینان از آپدیت state
+          await Future.delayed(const Duration(milliseconds: 100));
+        } else {
+          throw Exception("پروفایل کاربری یافت نشد.");
+        }
       }
+    } on FirebaseAuthException catch (e) {
+      state = state.copyWith(error: _getErrorMessage(e.code), isLoading: false);
+    } catch (e) {
+      state = state.copyWith(error: e.toString(), isLoading: false);
     }
   }
 
+  // خروج از حساب
   Future<void> logout() async {
     await _auth.signOut();
-
-    // حذف اطلاعات لاگین از SharedPreferences
     final prefs = await ref.read(preferencesServiceProvider.future);
     await prefs.clearLoginData();
-
-    state = AuthState(
-      user: null,
-      isLoggedIn: false,
-      rememberMe: false,
-    );
   }
+
+  // تبدیل کدهای خطا به متن فارسی (فیکس ارور قبلی)
+  String _getErrorMessage(String code) {
+    switch (code) {
+      case 'user-not-found': return 'کاربر یافت نشد';
+      case 'wrong-password': return 'رمز عبور اشتباه است';
+      case 'invalid-email': return 'ایمیل نامعتبر است';
+      case 'user-disabled': return 'حساب کاربری مسدود شده است';
+      default: return 'خطا در ورود به حساب کاربری ($code)';
+    }
+  }
+  // داخل کلاس AuthNotifier در فایل auth_provider.dart
 
   void toggleRememberMe() {
     state = state.copyWith(rememberMe: !state.rememberMe);
   }
-
-  String _getErrorMessage(String code) {
-    switch (code) {
-      case 'user-not-found':
-        return 'شما هنوز راجستر نشده‌اید';
-      case 'wrong-password':
-        return 'رمز عبور اشتباه است';
-      case 'invalid-email':
-        return 'فرمت ایمیل نادرست است';
-      case 'user-disabled':
-        return 'این حساب غیرفعال شده است';
-      case 'too-many-requests':
-        return 'تعداد تلاش زیاد است، بعداً امتحان کنید';
-      case 'network-request-failed':
-        return 'اتصال اینترنت برقرار نیست';
-      default:
-        return 'خطای نامشخصی رخ داد';
-    }
-  }
 }
 
-// Provider اصلی Auth
+// ۳. تعریف پروایدر نهایی
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   return AuthNotifier(ref);
 });

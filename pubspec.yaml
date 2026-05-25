@@ -42,8 +42,11 @@ dependencies:
   uuid:
   firebase_core:
   firebase_auth:
+  cloud_firestore:
+  connectivity_plus:
   flutter_riverpod:
   sqflite:
+  fl_chart:
   path:
   path_provider:
   shared_preferences:
@@ -51,6 +54,12 @@ dependencies:
   flutter_contacts:
   permission_handler:
   url_launcher:
+  pdf:
+  printing:
+  excel:
+  flutter_screenutil:
+  flutter_svg:
+
 
 
 dev_dependencies:
@@ -91,6 +100,14 @@ flutter:
   # "family" key with the font family name, and a "fonts" key with a
   # list giving the asset and other descriptors for the font. For
   # example:
+  assets:
+    - assets/fonts/Vazirmatn-Regular.ttf
+    - assets/svg/
+
+  fonts:
+      - family: Vazir
+        fonts:
+          - asset: assets/fonts/Vazirmatn-Regular.ttf
   # fonts:
   #   - family: Schyler
   #     fonts:

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../domain/entity/transaction.dart'; // آدرس مدل تراکنش شما
-import '../../../providers/transaction_provider.dart'; // آدرس پرووایدرهای شما
-import 'package:intl/intl.dart' as intl; // برای فرمت تاریخ
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import '../../../domain/entity/transaction.dart';
+import '../../../providers/transaction_provider.dart';
+import 'package:intl/intl.dart' as intl;
 
-// تعریف رنگ‌ها در صورت عدم دسترسی به فایل colors.dart
 const Color kPrimaryColor = Color(0xFFEA2A33);
 
 class TransactionHistoryPage extends ConsumerWidget {
@@ -12,43 +12,132 @@ class TransactionHistoryPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ScreenUtil.init(context, designSize: const Size(360, 800));
+
     bool isDark = Theme.of(context).brightness == Brightness.dark;
     final transactionsAsync = ref.watch(filteredTransactionsProvider);
     final todayProfitAsync = ref.watch(todayProfitProvider);
     final todayCountAsync = ref.watch(todayCountProvider);
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(backgroundColor: Colors.white,
-        appBar: AppBar(
-          backgroundColor: isDark ? const Color(0xFF121212).withOpacity(0.95) : Colors.white.withOpacity(0.95),
-          elevation: 0,
 
-          title: Text(
-            'تاریخچه تراکنش‌ها',
-            style: TextStyle(color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.bold, fontSize: 18),
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: isDark
+            ? const Color(0xFF121212).withOpacity(0.95)
+            : Colors.white.withOpacity(0.95),
+        elevation: 0,
+        title: Text(
+          'تاریخچه تراکنش‌ها',
+          style: TextStyle(
+            color: isDark ? Colors.white : Colors.black,
+            fontWeight: FontWeight.bold,
+            fontSize: 18.sp,
           ),
-          centerTitle:  true,
         ),
-        body: Column(
+        centerTitle: true,
+        toolbarHeight: 60.h,
+      ),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(transactionsProvider);
+          ref.invalidate(todayProfitProvider);
+          ref.invalidate(todayCountProvider);
+          await ref.read(transactionsProvider.future);
+        },
+        child: Column(
           children: [
             _buildSummaryCards(todayProfitAsync, todayCountAsync),
             _buildSearchBar(ref, isDark),
-            _buildFilterChips(context,ref, isDark),
-
+            _buildFilterChips(context, ref, isDark),
+            if (ref.watch(filterDateProvider) != null)
+              Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: 16.w,
+                  vertical: 8.h,
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.history_toggle_off,
+                        size: 14.sp,
+                        color: Colors.grey),
+                    SizedBox(width: 4.w),
+                    Expanded(
+                      child: Text(
+                        "گزارش از ${intl.DateFormat('yyyy/MM/dd').format(ref.watch(filterDateProvider)!.start)} تا ${intl.DateFormat('yyyy/MM/dd').format(ref.watch(filterDateProvider)!.end)}",
+                        style: TextStyle(
+                          fontSize: 10.sp,
+                          color: Colors.grey,
+                          fontFamily: 'Manrope',
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    SizedBox(width: 8.w), // ریسپانسیو
+                    GestureDetector(
+                      onTap: () => ref.read(filterDateProvider.notifier).state = null,
+                      child: Text(
+                          "لغو فیلتر",
+                          style: TextStyle(
+                              fontSize: 10.sp, // ریسپانسیو
+                              color: const Color(0xFFEA2A33)
+                          )
+                      ),
+                    )
+                  ],
+                ),
+              ),
+            SizedBox(height: 8.h), // فاصله ریسپانسیو
             Expanded(
               child: transactionsAsync.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (err, stack) => Center(child: Text("خطا در بارگذاری: $err")),
+                loading: () => Center(
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.w, // ریسپانسیو کردن ضخامت
+                  ),
+                ),
+                error: (err, stack) => Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(16.w),
+                    child: Text(
+                      "خطا در بارگذاری: $err",
+                      style: TextStyle(fontSize: 14.sp), // ریسپانسیو
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
                 data: (transactions) {
                   if (transactions.isEmpty) {
-                    return const Center(child: Text("تراکنشی یافت نشد"));
+                    return ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        SizedBox(height: 100.h), // ریسپانسیو
+                        Center(
+                          child: Text(
+                            "تراکنشی یافت نشد",
+                            style: TextStyle(
+                              fontSize: 16.sp, // ریسپانسیو
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
                   }
                   return ListView.builder(
-                    padding: const EdgeInsets.only(bottom: 100),
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: EdgeInsets.only(bottom: 100.h), // ریسپانسیو
+                    key: ValueKey(transactions.length +
+                        (transactions.isNotEmpty ? transactions.first.id : 0)),
                     itemCount: transactions.length,
                     itemBuilder: (context, index) {
                       final t = transactions[index];
-                      return _buildTransactionCardFromModel(context, t);
+                      return Padding(
+                        padding: EdgeInsets.only(
+                          top: index == 0 ? 8.h : 0, // ریسپانسیو
+                          bottom: 4.h, // ریسپانسیو
+                        ),
+                        child: _buildTransactionCardFromModel(context, t),
+                      );
                     },
                   );
                 },
@@ -62,43 +151,109 @@ class TransactionHistoryPage extends ConsumerWidget {
 
   Widget _buildSummaryCards(AsyncValue<int> profit, AsyncValue<int> count) {
     return Padding(
-      padding: const EdgeInsets.all(16.0),
+      padding: EdgeInsets.all(16.w), // ریسپانسیو
       child: Row(
         children: [
           Expanded(
             child: profit.when(
-              loading: () => _summaryBox("سود خالص امروز", "...", "",const Color(0xFF1E1E1E), textColor: Colors.white, subTextColor: Colors.white),
-              error: (_, __) => _summaryBox("سود خالص امروز", "خطا","", const Color(0xFF1E1E1E), textColor: Colors.white, subTextColor: Colors.white),
-              data: (value) => _summaryBox("سود خالص امروز", value.toString(), "افغانی",const Color(0xFF1E1E1E), textColor: Colors.white, subTextColor: Colors.white),
+              loading: () => _summaryBox(
+                  "سود خالص امروز",
+                  "...",
+                  "",
+                  const Color(0xFF1E1E1E),
+                  textColor: Colors.white,
+                  subTextColor: Colors.white
+              ),
+              error: (_, __) => _summaryBox(
+                  "سود خالص امروز",
+                  "خطا",
+                  "",
+                  const Color(0xFF1E1E1E),
+                  textColor: Colors.white,
+                  subTextColor: Colors.white
+              ),
+              data: (value) => _summaryBox(
+                  "سود خالص امروز",
+                  value.toString(),
+                  "؋",
+                  const Color(0xFF1E1E1E),
+                  textColor: Colors.white,
+                  subTextColor: Colors.white
+              ),
             ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12.w), // ریسپانسیو
           Expanded(
             child: count.when(
-              loading: () => _summaryBox("تعداد تراکنش امروز", "...", "",const Color(0xFFEA2A33), textColor: Colors.white, subTextColor: Colors.white),
-              error: (_, __) => _summaryBox("تعداد تراکنش امروز", "خطا", "",const Color(0xFFEA2A33), textColor: Colors.white, subTextColor:Colors.white),
-              data: (value) => _summaryBox("تعداد تراکنش امروز", value.toString(), "تراکنش",const Color(0xFFEA2A33), textColor: Colors.white, subTextColor: Colors.white),
+              loading: () => _summaryBox(
+                  "تعداد تراکنش امروز",
+                  "...",
+                  "",
+                  const Color(0xFFEA2A33),
+                  textColor: Colors.white,
+                  subTextColor: Colors.white
+              ),
+              error: (_, __) => _summaryBox(
+                  "تعداد تراکنش امروز",
+                  "خطا",
+                  "",
+                  const Color(0xFFEA2A33),
+                  textColor: Colors.white,
+                  subTextColor: Colors.white
+              ),
+              data: (value) => _summaryBox(
+                  "تعداد تراکنش امروز",
+                  value.toString(),
+                  "تراکنش",
+                  const Color(0xFFEA2A33),
+                  textColor: Colors.white,
+                  subTextColor: Colors.white
+              ),
             ),
           ),
         ],
       ),
     );
   }
-  Widget _summaryBox(String title, String amount,String amountType, Color bgColor, {required Color textColor, required Color subTextColor}) {
+
+  Widget _summaryBox(String title, String amount, String amountType, Color bgColor,
+      {required Color textColor, required Color subTextColor}) {
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(16)),
+      padding: EdgeInsets.all(16.w), // ریسپانسیو
+      decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(16.r) // ریسپانسیو
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: TextStyle(color: subTextColor, fontSize: 11)),
-          const SizedBox(height: 4),
+          Text(
+              title,
+              style: TextStyle(
+                  color: subTextColor,
+                  fontSize: 11.sp // ریسپانسیو
+              )
+          ),
+          SizedBox(height: 4.h), // ریسپانسیو
           FittedBox(
             child: Row(
               children: [
-                Text(amount, style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 18)),
-                const SizedBox(width: 4),
-                Text(amountType, style: TextStyle(color: subTextColor, fontSize: 10)),
+                Text(
+                    amount,
+                    style: TextStyle(
+                        color: textColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18.sp // ریسپانسیو
+                    )
+                ),
+                SizedBox(width: 4.w), // ریسپانسیو
+                Text(
+                    amountType,
+                    style: TextStyle(
+                        color: subTextColor,
+                        fontSize: 10.sp // ریسپانسیو
+                    )
+                ),
               ],
             ),
           )
@@ -107,9 +262,7 @@ class TransactionHistoryPage extends ConsumerWidget {
     );
   }
 
-  // کارت تراکنش بر اساس مدل داده‌ای
   Widget _buildTransactionCardFromModel(BuildContext context, TransactionModel t) {
-    // فرمت تاریخ
     String formattedTime = t.createdAt;
     try {
       final dateTime = DateTime.parse(t.createdAt);
@@ -118,28 +271,25 @@ class TransactionHistoryPage extends ConsumerWidget {
       // اگر فرمت تاریخ صحیح نبود، همان رشته اصلی نمایش داده می‌شود
     }
 
-    // تعیین عنوان شناسه (شماره تماس یا کد شرکت)
-
     String identityValue;
     IconData identityIcon;
 
-    if (t.customerType == 'bulk') {
+    String cleanPhone(String s) => s.replaceAll(RegExp(r'[^0-9]'), '');
 
-      // در متد saveDetailedTransaction، کد شرکت در فیلد company_code ذخیره می‌شود
+    if (t.customerType == 'bulk') {
       identityValue = t.companyCode.isNotEmpty ? t.companyCode : '---';
       identityIcon = Icons.business;
     } else {
-
-      // در متد saveDetailedTransaction، شماره تماس در فیلد phone_number ذخیره می‌شود
-      identityValue = t.phoneNumber;
+      // 🔥 اینجا اصلاح شد: اگر کاراکتر اضافه دارد، تمیزش کن
+      identityValue = t.phoneNumber.contains('{')
+          ? cleanPhone(t.phoneNumber)
+          : t.phoneNumber;
       identityIcon = Icons.smartphone;
     }
-
     return _buildTransactionCard(
       context,
       name: t.customerName,
       type: t.customerType == 'bulk' ? "مشتری عمده" : "مشتری عادی",
-
       identityValue: identityValue,
       identityIcon: identityIcon,
       time: formattedTime,
@@ -164,56 +314,74 @@ class TransactionHistoryPage extends ConsumerWidget {
     const Color darkCard = Color(0xFF1E1E1E);
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4), // فاصله عمودی کمتر
+      margin: EdgeInsets.symmetric(
+          horizontal: 16.w, // ریسپانسیو
+          vertical: 4.h // ریسپانسیو
+      ),
       decoration: BoxDecoration(
         color: isDark ? darkCard : Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(12.r), // ریسپانسیو
         border: Border.all(
-          color: isDark ? Colors.white.withOpacity(0.05) : Colors.grey.shade200,
+          color: isDark
+              ? Colors.white.withOpacity(0.05)
+              : Colors.grey.shade200,
+          width: 0.5.w, // ریسپانسیو
         ),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: IntrinsicHeight( // تنظیم ارتفاع بر اساس محتوا
+        borderRadius: BorderRadius.circular(12.r), // ریسپانسیو
+        child: IntrinsicHeight(
           child: Row(
             children: [
-              // نوار رنگی کناری باریک‌تر
-              Container(width: 3, color: brandRed),
-
+              // نوار رنگی کناری
+              Container(
+                width: 3.w, // ریسپانسیو
+                color: brandRed,
+              ),
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: EdgeInsets.symmetric(
+                      horizontal: 12.w, // ریسپانسیو
+                      vertical: 8.h // ریسپانسیو
+                  ),
                   child: Column(
                     children: [
                       // ردیف اصلی: نام و مبلغ دریافتی
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
                             child: Row(
                               children: [
-                                Text(
-                                  name,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 14, // سایز کمی کوچکتر برای جا شدن بیشتر
-                                    color: isDark ? Colors.white : Colors.black87,
+                                Expanded(
+                                  child: Text(
+                                    name,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14.sp, // ریسپانسیو
+                                      color: isDark ? Colors.white : Colors.black87,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  overflow: TextOverflow.ellipsis,
                                 ),
-                                const SizedBox(width: 6),
+                                SizedBox(width: 6.w), // ریسپانسیو
                                 _buildBadge(type, isDark),
                               ],
                             ),
                           ),
-                          Row(
-                            children: [ _compactInfo(operator, isDark),
-                              SizedBox(width: 10,),
+                          SizedBox(width: 8.w), // ریسپانسیو
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              _compactInfo(operator, isDark),
+                              SizedBox(height: 4.h), // ریسپانسیو
                               Text(
                                 "$received ؋",
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontWeight: FontWeight.w900,
-                                  fontSize: 15,
+                                  fontSize: 15.sp, // ریسپانسیو
                                   color: brandRed,
                                 ),
                               ),
@@ -221,23 +389,34 @@ class TransactionHistoryPage extends ConsumerWidget {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 4),
-                      // ردیف دوم: جزئیات در یک خط (Inline)
+                      SizedBox(height: 4.h), // ریسپانسیو
+                      // ردیف دوم: جزئیات
                       Row(
                         children: [
-                          Icon(identityIcon, size: 12, color: Colors.grey),
-                          const SizedBox(width: 4),
-                          Text(
-                            identityValue,
-                            style: const TextStyle(fontSize: 11, color: Colors.grey),
+                          Icon(
+                              identityIcon,
+                              size: 12.sp, // ریسپانسیو
+                              color: Colors.grey
                           ),
-                          const Spacer(),
-                          // اطلاعات تکمیلی به صورت فشرده
-
-                          const SizedBox(width: 8),
+                          SizedBox(width: 4.w), // ریسپانسیو
+                          Expanded(
+                            child: Text(
+                              identityValue,
+                              style: TextStyle(
+                                  fontSize: 11.sp, // ریسپانسیو
+                                  color: Colors.grey
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          SizedBox(width: 8.w), // ریسپانسیو
                           Text(
                             time,
-                            style: const TextStyle(fontSize: 10, color: Colors.grey),
+                            style: TextStyle(
+                                fontSize: 10.sp, // ریسپانسیو
+                                color: Colors.grey
+                            ),
                           ),
                         ],
                       ),
@@ -252,18 +431,22 @@ class TransactionHistoryPage extends ConsumerWidget {
     );
   }
 
-// ویجت کمکی برای نمایش نوع مشتری (بسیار کوچک)
   Widget _buildBadge(String text, bool isDark) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+      padding: EdgeInsets.symmetric(
+          horizontal: 4.w, // ریسپانسیو
+          vertical: 1.h // ریسپانسیو
+      ),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.08) : Colors.red.shade500,
-        borderRadius: BorderRadius.circular(3),
+        color: isDark
+            ? Colors.white.withOpacity(0.08)
+            : Colors.red.shade500,
+        borderRadius: BorderRadius.circular(3.r), // ریسپانسیو
       ),
       child: Text(
         text == 'bulk' ? "عمده" : "عادی",
         style: TextStyle(
-          fontSize: 8,
+          fontSize: 8.sp, // ریسپانسیو
           color: isDark ? Colors.white60 : Colors.white,
           fontWeight: FontWeight.bold,
         ),
@@ -271,75 +454,76 @@ class TransactionHistoryPage extends ConsumerWidget {
     );
   }
 
-// نمایش اپراتور به صورت متن ساده و خاکستری برای شلوغ نشدن
   Widget _compactInfo(String text, bool isDark) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+      padding: EdgeInsets.symmetric(
+          horizontal: 6.w, // ریسپانسیو
+          vertical: 1.h // ریسپانسیو
+      ),
       decoration: BoxDecoration(
-        border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
-        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: isDark
+              ? Colors.white10
+              : Colors.grey.shade200,
+          width: 0.5.w, // ریسپانسیو
+        ),
+        borderRadius: BorderRadius.circular(4.r), // ریسپانسیو
       ),
       child: Text(
         text,
-        style: const TextStyle(fontSize: 9, color: Colors.grey),
-      ),
-    );
-  }
-  Widget _buildDetailItem(String label, String value, {Color? dotColor, bool isLeft = false, Color? textColor}) {
-    return Column(
-      crossAxisAlignment: isLeft ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-      children: [
-         Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (dotColor != null && !isLeft) Container(width: 8, height: 8, decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle)),
-            if (dotColor != null && !isLeft) const SizedBox(width: 4),
-            Text(value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textColor)),
-          ],
-        )
-      ],
-    );
-  }
-
-  Widget _buildRowDetail(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-          Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-        ],
+        style: TextStyle(
+            fontSize: 9.sp, // ریسپانسیو
+            color: Colors.grey
+        ),
       ),
     );
   }
 
   Widget _buildSearchBar(WidgetRef ref, bool isDark) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Container(decoration:BoxDecoration(
-        color: Colors.grey[100],
-        shape: BoxShape.rectangle,
-        borderRadius: BorderRadius.circular(12)
+      padding: EdgeInsets.symmetric(
+          horizontal: 16.w,
+          vertical: 8.h,
       ),
-
-
-        child: TextField(cursorColor: kPrimaryColor,
-          onChanged: (value) => ref.read(transactionSearchQueryProvider.notifier).state = value,
+      child: Container(
+        decoration: BoxDecoration(
+            color: Colors.grey[100],
+            shape: BoxShape.rectangle,
+            borderRadius: BorderRadius.circular(12.r)
+        ),
+        child: TextField(
+           cursorColor: kPrimaryColor,
+          cursorWidth: 1.5.w,
+          onChanged: (value) =>
+          ref.read(transactionSearchQueryProvider.notifier).state = value,
           decoration: InputDecoration(
             hintText: "جستجو (نام، شماره، کد شرکت)...",
-            prefixIcon: const Icon(Icons.search, color: kPrimaryColor),
-            // ... بقیه استایل‌ها
+            hintStyle: TextStyle(
+                fontSize: 14.sp,
+                color: Colors.grey.shade600
+            ),
+            prefixIcon: Icon(
+              Icons.search,
+              color: kPrimaryColor,
+              size: 20.sp,
+            ),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(20),
-                  borderSide: BorderSide.none
-            )
+                borderRadius: BorderRadius.circular(12.r),
+                borderSide: BorderSide.none
+            ),
+            contentPadding: EdgeInsets.symmetric(
+                horizontal: 16.w,
+                vertical: 14.h
+            ),
+          ),
+          style: TextStyle(
+            fontSize: 14.sp, // ریسپانسیو
           ),
         ),
       ),
     );
   }
-  // اضافه کردن BuildContext به ورودی متد
+
   Widget _buildFilterChips(BuildContext context, WidgetRef ref, bool isDark) {
     final currentType = ref.watch(filterCustomerTypeProvider);
     const Color brandRed = Color(0xFFEA2A33);
@@ -348,21 +532,41 @@ class TransactionHistoryPage extends ConsumerWidget {
       bool isSelected = currentType == value;
 
       return Padding(
-        padding: const EdgeInsets.only(left: 8.0),
+        padding: EdgeInsets.only(left: 8.w), // ریسپانسیو
         child: FilterChip(
-          label: Text(label),
+          label: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12.sp, // ریسپانسیو
+            ),
+          ),
           selected: isSelected,
-          onSelected: (_) => ref.read(filterCustomerTypeProvider.notifier).state = value,
+          onSelected: (_) =>
+          ref.read(filterCustomerTypeProvider.notifier).state = value,
           labelStyle: TextStyle(
-            color: isSelected ? Colors.white : (isDark ? Colors.white70 : Colors.black87),
-            fontSize: 12,
+            color: isSelected
+                ? Colors.white
+                : (isDark ? Colors.white70 : Colors.black87),
+            fontSize: 12.sp, // ریسپانسیو
           ),
           selectedColor: brandRed,
-          backgroundColor: isDark ? Colors.white.withOpacity(0.05) : Colors.grey.shade100,
+          backgroundColor: isDark
+              ? Colors.white.withOpacity(0.05)
+              : Colors.grey.shade100,
           showCheckmark: false,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-            side: BorderSide(color: isSelected ? brandRed : Colors.transparent),
+            borderRadius: BorderRadius.circular(8.r), // ریسپانسیو
+            side: BorderSide(
+              color: isSelected ? brandRed : Colors.transparent,
+              width: 1.w, // ریسپانسیو
+            ),
+          ),
+          padding: EdgeInsets.symmetric(
+              horizontal: 12.w, // ریسپانسیو
+              vertical: 4.h // ریسپانسیو
+          ),
+          labelPadding: EdgeInsets.symmetric(
+              horizontal: 4.w // ریسپانسیو
           ),
         ),
       );
@@ -370,51 +574,56 @@ class TransactionHistoryPage extends ConsumerWidget {
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: EdgeInsets.symmetric(
+          horizontal: 16.w, // ریسپانسیو
+          vertical: 8.h // ریسپانسیو
+      ),
       child: Row(
         children: [
           buildChip("همه", null),
           buildChip("عادی", 'normal'),
           buildChip("عمده", 'bulk'),
-          const SizedBox(width: 8),
-
+          SizedBox(width: 8.w), // ریسپانسیو
           // بخش تقویم
           IconButton(
             onPressed: () async {
-              final DateTime? picked = await showDatePicker(
+              final DateTimeRange? picked = await showDateRangePicker(
                 context: context,
-                // حالا این متغیر شناخته شده است
-                initialDate: DateTime.now(),
-                firstDate: DateTime(2020),
-                lastDate: DateTime(2030),
+                initialDateRange: ref.read(filterDateProvider),
+                firstDate: DateTime(2023),
+                lastDate: DateTime.now(),
                 builder: (context, child) {
                   return Theme(
                     data: Theme.of(context).copyWith(
                       colorScheme: ColorScheme.light(
-                        primary: const Color(0xFFEA2A33), // رنگ هدر و روز انتخاب شده
-                        onPrimary: Colors.white,         // رنگ متن روی هدر
-                        onSurface: isDark ? Colors.white : Colors.black, // رنگ متن اعداد تقویم
+                        primary: const Color(0xFFEA2A33),
+                        onPrimary: Colors.white,
+                        onSurface: isDark ? Colors.white : Colors.black,
                       ),
-                      textButtonTheme: TextButtonThemeData(
-                        style: TextButton.styleFrom(
-                          foregroundColor: const Color(0xFFEA2A33), // رنگ دکمه‌های تایید و انصراف
-                        ),
-                      ), dialogTheme: DialogThemeData(backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white), // رنگ پس‌زمینه دیالوگ
                     ),
                     child: child!,
                   );
                 },
               );
-
               if (picked != null) {
                 ref.read(filterDateProvider.notifier).state = picked;
               }
             },
-            icon: Icon(Icons.calendar_month,
-                color: ref.watch(filterDateProvider) != null ? brandRed : Colors.grey),
+            icon: Icon(
+              Icons.date_range_rounded,
+              color: ref.watch(filterDateProvider) != null
+                  ? kPrimaryColor
+                  : Colors.grey,
+              size: 20.sp, // ریسپانسیو
+            ),
             style: IconButton.styleFrom(
-              backgroundColor: isDark ? Colors.white.withOpacity(0.05) : Colors.grey.shade100,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              backgroundColor: isDark
+                  ? Colors.white.withOpacity(0.05)
+                  : Colors.grey.shade100,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8.r) // ریسپانسیو
+              ),
+              padding: EdgeInsets.all(8.w), // ریسپانسیو
             ),
           ),
         ],

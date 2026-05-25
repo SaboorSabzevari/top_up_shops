@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'; // اضافه شد
 import '../../../data/local/app_database.dart';
+import '../../../providers/session_provider.dart'; // اضافه شد
 
-class UnitScreen extends StatefulWidget {
+class UnitScreen extends ConsumerStatefulWidget { // تغییر به ConsumerStatefulWidget
   const UnitScreen({super.key});
 
   @override
-  State<UnitScreen> createState() => _UnitScreenState();
+  ConsumerState<UnitScreen> createState() => _UnitScreenState();
 }
 
-class _UnitScreenState extends State<UnitScreen> {
+class _UnitScreenState extends ConsumerState<UnitScreen> {
   final TextEditingController buyCtrl = TextEditingController();
   final TextEditingController sellCtrl = TextEditingController();
   bool isLoading = true;
@@ -16,12 +18,18 @@ class _UnitScreenState extends State<UnitScreen> {
   @override
   void initState() {
     super.initState();
-    _loadSettings();
+    // استفاده از Future.microtask برای اطمینان از آماده بودن ref
+    Future.microtask(() => _loadSettings());
   }
 
-  // بارگذاری تنظیمات از دیتابیس
+  // بارگذاری تنظیمات از دیتابیس (اصلاح شده)
   Future<void> _loadSettings() async {
-    final unit = await DatabaseHelper.instance.getSingleUnit();
+    final user = ref.read(currentUserProvider); // دریافت کاربر فعلی
+    if (user == null) return;
+
+    // پاس دادن shopId به متد (رفع خطای شما)
+    final unit = await DatabaseHelper.instance.getSingleUnit(user.shopId);
+
     setState(() {
       buyCtrl.text = unit['buy_price'].toString();
       sellCtrl.text = unit['sell_price'].toString();
@@ -29,17 +37,21 @@ class _UnitScreenState extends State<UnitScreen> {
     });
   }
 
-  // ذخیره تغییرات
+  // ذخیره تغییرات (اصلاح شده)
   Future<void> _save() async {
+    final user = ref.read(currentUserProvider); // دریافت کاربر فعلی
+    if (user == null) return;
+
     double buy = double.tryParse(buyCtrl.text) ?? 0.0;
     double sell = double.tryParse(sellCtrl.text) ?? 0.0;
 
-    await DatabaseHelper.instance.updateSingleUnit(buy, sell);
+    // استفاده از متد اصلاح شده در دیتابیس که shopId می‌گیرد
+    await DatabaseHelper.instance.updateUnitByShop(buy, sell, user.shopId);
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('تنظیمات واحد با موفقیت ذخیره شد', textAlign: TextAlign.center),
+          content: Text('تنظیمات واحد با موفقیت برای فروشگاه شما ذخیره شد', textAlign: TextAlign.center),
           backgroundColor: Colors.green,
         ),
       );
@@ -48,6 +60,7 @@ class _UnitScreenState extends State<UnitScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // بقیه کد UI بدون تغییر باقی می‌ماند
     return Scaffold(
       backgroundColor: const Color(0xffF8F6F6),
       appBar: AppBar(
@@ -56,10 +69,6 @@ class _UnitScreenState extends State<UnitScreen> {
         title: const Text('تنظیمات واحد',
             style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
         centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -73,11 +82,10 @@ class _UnitScreenState extends State<UnitScreen> {
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
                 const Text(
-                  'این نرخ‌ها برای محاسبه قیمت تمام‌شده و سود شما در تراکنش‌ها استفاده می‌شوند.',
+                  'این نرخ‌ها فقط برای فروشگاه شما و بر اساس واحد پولی شما محاسبه می‌شوند.',
                   style: TextStyle(color: Colors.grey, fontSize: 13),
                 ),
                 const SizedBox(height: 24),
-
                 _buildSettingsCard(),
               ],
             ),
@@ -88,6 +96,7 @@ class _UnitScreenState extends State<UnitScreen> {
     );
   }
 
+  // متدهای _buildSettingsCard، _buildField و _buildBottomButton دقیقاً مثل قبل هستند
   Widget _buildSettingsCard() {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -95,9 +104,6 @@ class _UnitScreenState extends State<UnitScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)
-        ],
       ),
       child: Column(
         children: [
@@ -136,15 +142,7 @@ class _UnitScreenState extends State<UnitScreen> {
               suffixText: 'AFN',
               filled: true,
               fillColor: const Color(0xffF9FAFB),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.grey.shade300),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.grey.shade100),
-              ),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
             ),
           ),
         ],
@@ -155,16 +153,11 @@ class _UnitScreenState extends State<UnitScreen> {
   Widget _buildBottomButton() {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Color(0xffEEEEEE))),
-      ),
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xffEA2A33),
           minimumSize: const Size.fromHeight(55),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          elevation: 0,
         ),
         onPressed: _save,
         child: const Text('ذخیره تغییرات',

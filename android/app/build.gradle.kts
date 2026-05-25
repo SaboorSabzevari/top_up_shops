@@ -1,10 +1,62 @@
+//plugins {
+//    id("com.android.application")
+//    id("com.google.gms.google-services")
+//    id("kotlin-android")
+//    id("dev.flutter.flutter-gradle-plugin")
+//}
+//
+//android {
+//    namespace = "com.example.top_up_shops"
+//    compileSdk = flutter.compileSdkVersion
+//    ndkVersion = flutter.ndkVersion
+//
+//    compileOptions {
+//        sourceCompatibility = JavaVersion.VERSION_17
+//        targetCompatibility = JavaVersion.VERSION_17
+//    }
+//
+//    kotlinOptions {
+//        jvmTarget = "17"
+//    }
+//
+//    defaultConfig {
+//        applicationId = "com.example.top_up_shops"
+//        minSdk =  flutter.minSdkVersion // برای USSD حداقل باید 21 باشد
+//        targetSdk = flutter.targetSdkVersion
+//        versionCode = flutter.versionCode
+//        versionName = flutter.versionName
+//    }
+//
+//    // اصلاح بخش منابع برای فایل‌های KTS
+//    sourceSets {
+//        getByName("main") {
+//            res.srcDirs("src/main/res")
+//        }
+//    }
+//
+//    buildTypes {
+//        release {
+//            signingConfig = signingConfigs.getByName("debug")
+//            // در KTS نام‌ها کمی متفاوت هستند
+//            isShrinkResources = false
+//            isMinifyEnabled = false
+//        }
+//    }
+//
+//    // اصلاح بخش لیت برای فایل‌های KTS
+//    lint {
+//        checkReleaseBuilds = false
+//        abortOnError = false
+//    }
+//}
+//
+//flutter {
+//    source = "../.."
+//}
 plugins {
     id("com.android.application")
-    // START: FlutterFire Configuration
     id("com.google.gms.google-services")
-    // END: FlutterFire Configuration
     id("kotlin-android")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
 
@@ -19,25 +71,43 @@ android {
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
+        jvmTarget = "17"
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.example.top_up_shops"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
+        // پکیج های USSD حتما به نسخه 21 نیاز دارند
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
+    sourceSets {
+        getByName("main") {
+            res.srcDirs("src/main/res")
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+            isMinifyEnabled = false
+            isShrinkResources = false
+        }
+    }
+
+    // این بخش برای نادیده گرفتن خطاهای پکیج ussd_advanced_flutter حیاتی است
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
+        disable += listOf("MissingTranslation", "TypographyFractions")
+    }
+
+    // جلوگیری از تداخل منابع پکیج با پروژه اصلی
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
 }

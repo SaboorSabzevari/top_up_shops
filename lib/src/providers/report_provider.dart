@@ -1,9 +1,20 @@
 import '../data/local/app_database.dart';
 
-Future<List<Map<String, dynamic>>> getFilteredReport(String companyName, String startDate, String endDate) async {
+Future<List<Map<String, dynamic>>> getFilteredReport({
+  required String companyName,
+  required String startDate,
+  required String endDate,
+  required String shopId, // اضافه شدن shopId الزامی است
+}) async {
   final db = await DatabaseHelper.instance.database;
+
   return await db.rawQuery('''
-    SELECT *, (credit_amount - paid_amount) as debt FROM transactions 
-    WHERE provider_name = ? AND transaction_date BETWEEN ? AND ?
-  ''', [companyName, startDate, endDate]);
+    SELECT *, 
+    (sent_amount - paid_amount) as debt 
+    FROM transactions 
+    WHERE operator_name = ? 
+    AND shop_id = ? 
+    AND date(created_at) BETWEEN ? AND ?
+    ORDER BY created_at DESC
+  ''', [companyName, shopId, startDate, endDate]);
 }

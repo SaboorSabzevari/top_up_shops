@@ -3,10 +3,13 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
+  cloud_firestore
+  connectivity_plus
   file_selector_windows
   firebase_auth
   firebase_core
   permission_handler_windows
+  printing
   url_launcher_windows
 )
 

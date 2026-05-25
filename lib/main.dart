@@ -1,8 +1,10 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart'; // اضافه کردن این import
 import 'package:top_up_shops/src/presentation/screens/auth/start_up_screen.dart';
 import 'package:top_up_shops/src/providers/local_provider.dart';
 import 'package:top_up_shops/src/providers/start_up_provider.dart';
@@ -19,7 +21,10 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  runApp(const ProviderScope(child: MyApp()));
+  runApp(
+      const ProviderScope(child: MyApp()));
+  SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(statusBarColor: Colors.transparent));
+
 }
 
 class MyApp extends ConsumerWidget {
@@ -27,74 +32,72 @@ class MyApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // وضعیت راه‌اندازی
     final startupState = ref.watch(startupProvider);
 
-    // اگر هنوز در حال راه‌اندازی است
     if (startupState.isLoading) {
-      return MaterialApp(
-        debugShowCheckedModeBanner: false,
-        home: const StartupScreen(),
-        locale: const Locale('fa', 'IR'),
-        supportedLocales: const [
-          Locale('fa', 'IR'),
-          Locale('ps', 'AF'),
-        ],
-        localizationsDelegates: const [
-          AppLocalizations.delegate,
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
+      return ScreenUtilInit(
+        designSize: const Size(360, 690), // اندازه طراحی را اینجا تنظیم کنید
+        minTextAdapt: true,
+        splitScreenMode: true,
+        builder: (_, child) {
+          return MaterialApp(
+            debugShowCheckedModeBanner: false,
+            home: const StartupScreen(),
+            locale: const Locale('fa', 'IR'),
+            supportedLocales: const [
+              Locale('fa', 'IR'),
+              Locale('ps', 'AF'),
+            ],
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+          );
+        },
       );
     }
 
-    // زبان فعلی
     final localeState = ref.watch(localeProvider);
     final currentLocale = localeState.locale;
 
-    // وضعیت لاگین
     final authState = ref.watch(authProvider);
-
-    // صفحه اصلی بر اساس وضعیت لاگین
     final home = authState.isLoggedIn ? HomeScreen() : const LoginPage();
 
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
+    return ScreenUtilInit(
+      designSize: const Size(360, 690), // اندازه طراحی را اینجا تنظیم کنید
+      minTextAdapt: true,
+      splitScreenMode: true,
+      builder: (_, child) {
+        return MaterialApp(
+          debugShowCheckedModeBanner: false,
+          locale: currentLocale,
+          supportedLocales: const [
+            Locale('fa', 'IR'),
+            Locale('ps', 'AF'),
+          ],
+          localizationsDelegates: [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            if (currentLocale.languageCode == 'ps')
+              DefaultCupertinoLocalizations.delegate
+            else
+              GlobalCupertinoLocalizations.delegate,
+          ],
+          builder: (context, child) {
+            final isRTL = currentLocale.languageCode == 'fa' ||
+                currentLocale.languageCode == 'ps';
 
-      // تنظیم locale
-      locale: currentLocale,
-
-      // زبان‌های پشتیبانی شده
-      supportedLocales: const [
-        Locale('fa', 'IR'),
-        Locale('ps', 'AF'),
-      ],
-
-      // delegateها
-      localizationsDelegates: [
-        AppLocalizations.delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        // اگر زبان پشتو است، از Cupertino انگلیسی استفاده کن
-        if (currentLocale.languageCode == 'ps')
-          DefaultCupertinoLocalizations.delegate
-        else
-          GlobalCupertinoLocalizations.delegate,
-      ],
-
-      builder: (context, child) {
-        // تعیین جهت نوشتار
-        final isRTL = currentLocale.languageCode == 'fa' ||
-            currentLocale.languageCode == 'ps';
-
-        return Directionality(
-          textDirection: isRTL ? TextDirection.rtl : TextDirection.ltr,
-          child: child!,
+            return Directionality(
+              textDirection: isRTL ? TextDirection.rtl : TextDirection.ltr,
+              child: child!,
+            );
+          },
+          home: home,
         );
       },
-
-      home: home,
     );
   }
 }

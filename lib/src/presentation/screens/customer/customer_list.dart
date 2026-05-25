@@ -1,8 +1,12 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:top_up_shops/src/presentation/screens/transactions/transaction_screen.dart';
 import '../../../data/local/app_database.dart';
 import '../../../providers/customer_provider.dart';
+import '../../../providers/session_provider.dart'; // اضافه شد
+import '../../../utils/colors.dart';
 import 'add_customer.dart';
 
 class CustomerListPage extends ConsumerWidget {
@@ -14,48 +18,48 @@ class CustomerListPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(currentUserProvider);
     final customersAsync = ref.watch(customerSearchResults);
     final activeFilter = ref.watch(customerFilterProvider);
 
     return Scaffold(
+
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text(
+
+        title:Text(
           'لیست مشتریان',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: TextStyle(fontWeight: FontWeight.bold,fontSize: 14.sp),
         ),
         centerTitle: true,
-        elevation: 0,
+        elevation: 1,
         backgroundColor: Colors.white,
-        foregroundColor: textMain,
+
       ),
       body: Stack(
         children: [
           Column(
             children: [
               _searchBar(ref),
-              _filterChips(ref), // اصلاح شده برای کارکرد فیلتر
+              _filterChips(context,ref,false),
               Expanded(
                 child: customersAsync.when(
                   data: (customers) {
-                    // اعمال فیلتر دکان‌دار/عادی روی لیست دریافتی
-                    final filteredList = customers.where((c) {
-                      if (activeFilter == 'همه') return true;
-                      if (activeFilter == 'دکان‌دار')
-                        return c['type'] == 'WHOLESALE';
-                      if (activeFilter == 'عادی')
-                        return c['type'] == 'ORDINARY';
-                      return true;
-                    }).toList();
+                    final shopCustomers = customers
+                        .where((c) => c['shop_id'] == user?.shopId)
+                        .toList();
 
-                    return _buildCustomerList(filteredList, ref);
+                    if (shopCustomers.isEmpty) {
+                      return const Center(child: Text("مشتری یافت نشد"));
+                    }
+
+                    return _customerList(shopCustomers);
                   },
-                  loading: () => const Center(
-                    child: CircularProgressIndicator(color: primary),
-                  ),
-                  error: (err, _) => Center(child: Text('خطا: $err')),
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (err, stack) => Center(child: Text('خطا: $err')),
                 ),
               ),
+               SizedBox(height: 55.h),
             ],
           ),
           _buildAddButton(context),
@@ -66,128 +70,240 @@ class CustomerListPage extends ConsumerWidget {
 
   Widget _searchBar(WidgetRef ref) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: TextField(
-        onChanged: (v) => ref.read(customerSearchQuery.notifier).state = v,
-        decoration: InputDecoration(
-          hintText: 'جستجو با نام یا کد...',
-          prefixIcon: const Icon(Icons.search),
-          filled: true,
-          fillColor: const Color(0xFFF9F9F9),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _filterChips(WidgetRef ref) {
-    final filters = ['همه', 'دکان‌دار', 'عادی'];
-    final activeFilter = ref.watch(customerFilterProvider);
-
-    return Container(
-      height: 50,
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: filters.length,
-        itemBuilder: (context, index) {
-          final label = filters[index];
-          final isSelected = activeFilter == label;
-          return Padding(
-            padding: const EdgeInsets.only(left: 8),
-            child: ChoiceChip(
-              backgroundColor: Colors.white,
-              label: Text(label),
-              selected: isSelected,
-
-              selectedColor: primary,
-              labelStyle: TextStyle(
-                color: isSelected ? Colors.white : textSecondary,
-              ),
-              onSelected: (selected) {
-                if (selected)
-                  ref.read(customerFilterProvider.notifier).state = label;
-              },
+      padding: EdgeInsets.only(left: 16.0,right: 16, top: 16.0,bottom: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: kComponentColor,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey[300]!),
             ),
-          );
-        },
+            child: TextField(
+              cursorColor: kPrimaryColor,
+              onChanged: (value) {
+                ref.read(customerSearchQueryProvider.notifier).state = value;
+              },
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.search, color: kPrimaryColor),
+                hintText: 'جستجوی نام یا کد مشتری...',
+                hintStyle:  TextStyle(color: Colors.grey, fontSize: 12.sp),
+
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 6,
+                  vertical: 12,     ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
-
-  Widget _buildCustomerList(List<dynamic> customers, WidgetRef ref) {
-    if (customers.isEmpty) return const Center(child: Text('موردی یافت نشد'));
-
-    return ListView.builder(
-      padding: const EdgeInsets.only(bottom: 100),
+  Widget _customerList(List<Map<String, dynamic>> customers) {
+    return ListView.separated(
+      // پدینگ کل لیست مشابه لیست تراکنش‌ها
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       itemCount: customers.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 5),
       itemBuilder: (context, index) {
-        final customer = customers[index] as Map<String, dynamic>;
-        return ListTile(
-          leading: CircleAvatar(
-            backgroundColor: const Color(0xFFE5E7EB),
-            backgroundImage: customer['profile_image'] != null
-                ? FileImage(File(customer['profile_image']))
-                : null,
-            child: customer['profile_image'] == null
-                ? Text(
-                    customer['name'][0],
-                    style: const TextStyle(color: textMain),
-                  )
-                : null,
-          ),
-          title: Text(
-            customer['name'],
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-          subtitle: Text(
-            "کد: ${customer['customer_code']} | ${customer['type'] == 'WHOLESALE' ? 'دکان‌دار' : 'عادی'}",
-          ),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () async {
-            // ۱. گرفتن دیتای کامل از دیتابیس
-            final fullData = await DatabaseHelper.instance
-                .getCustomerFullDetails(customer['id']);
+        final customer = customers[index];
+        final profileImage = customer['profile_image']?.toString();
+        final bool isWholesale = customer['type'] == 'WHOLESALE';
 
-            // ۲. رفتن به صفحه با دیتای موجود
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => AddCustomerPage(customerData: fullData),
-              ),
-            );
+        return InkWell(
+          onTap: () async {
+            final fullData = await DatabaseHelper.instance.getCustomerFullDetails(customer['id']);
+            if (context.mounted) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => AddCustomerPage(customerData: fullData),
+                ),
+              );
+            }
           },
+          borderRadius: BorderRadius.circular(15),
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade200),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(15),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.02),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 45,
+                  height: 45,
+                  child: _buildCustomerAvatar(customer['name'], profileImage),
+                ),
+
+                const SizedBox(width: 15),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        customer['name'],
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: Colors.black,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        "کد: ${customer['customer_code']}",
+                        style: const TextStyle(
+                            color: Colors.grey,
+                            fontSize: 11
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: isWholesale
+                        ? kPrimaryColor.withValues(alpha: 0.1)
+                        : Colors.blue.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    isWholesale ? 'عمده' : 'عادی',
+                    style: TextStyle(
+                      color: isWholesale ? kPrimaryColor : Colors.blue[700],
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(width: 8),
+                const Icon(Icons.chevron_right, size: 18, color: Colors.grey),
+              ],
+            ),
+          ),
         );
       },
     );
   }
+  Widget _buildCustomerAvatar(String name, String? profileImagePath) {
+    if (profileImagePath != null && profileImagePath.isNotEmpty) {
+      try {
+        final file = File(profileImagePath);
+        if (file.existsSync()) {
+          return CircleAvatar(
+            backgroundImage: FileImage(file),
+            radius: 20,
+          );
+        }
+      } catch (e) {
+      }
+    }
 
+    final firstChar = name.isNotEmpty ? name[0] : '?';
+    return CircleAvatar(
+      backgroundColor: primary.withOpacity(0.1),
+      child: Text(
+        firstChar,
+        style: const TextStyle(color: primary),
+      ),
+    );
+  }
   Widget _buildAddButton(BuildContext context) {
     return Positioned(
       left: 16,
       right: 16,
-      bottom: 24,
+      bottom: 14,
       child: ElevatedButton(
-        style: ElevatedButton.styleFrom( shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        style: ElevatedButton.styleFrom(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           backgroundColor: primary,
-          minimumSize: const Size.fromHeight(54),
+          minimumSize: Size.fromHeight(45),
         ),
         onPressed: () => Navigator.push(
           context,
           MaterialPageRoute(builder: (c) => const AddCustomerPage()),
         ),
-        child: const Text(
-          'مشتری جدید',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
+        child: const Text('مشتری جدید', style: TextStyle(color: Colors.white)),
+      ),
+    );
+  }
+
+  Widget _filterChips(
+      BuildContext context,
+      WidgetRef ref,
+      bool isDark,
+      ) {
+    final activeFilter = ref.watch(customerFilterProvider);
+    const Color brandRed = Color(0xFFEA2A33);
+
+    Widget buildChip(String label, String? value) {
+      final bool isSelected = activeFilter == value;
+
+      return Padding(
+        padding: EdgeInsets.only(left: 8.w),
+        child: FilterChip(
+          label: Text(
+            label,
+            style: TextStyle(fontSize: 12.sp),
           ),
+          selected: isSelected,
+          onSelected: (_) =>
+          ref.read(customerFilterProvider.notifier).state = value,
+          labelStyle: TextStyle(
+            color: isSelected
+                ? Colors.white
+                : (isDark ? Colors.white70 : Colors.black87),
+            fontSize: 12.sp,
+          ),
+          selectedColor: brandRed,
+          backgroundColor: isDark
+              ? Colors.white.withOpacity(0.05)
+              : Colors.grey.shade100,
+          showCheckmark: false,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8.r),
+            side: BorderSide(
+              color: isSelected ? brandRed : Colors.transparent,
+              width: 1.w,
+            ),
+          ),
+          padding: EdgeInsets.symmetric(
+            horizontal: 12.w,
+            vertical: 4.h,
+          ),
+          labelPadding: EdgeInsets.symmetric(horizontal: 4.w),
         ),
+      );
+    }
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: EdgeInsets.symmetric(
+        horizontal: 8.w,
+        vertical: 2.h,
+      ),
+      child: Row(
+        children: [
+          buildChip("همه", null),
+
+          buildChip("عادی", 'ORDINARY'),
+          buildChip("عمده", 'WHOLESALE'),
+          SizedBox(width: 8.w),
+        ],
       ),
     );
   }
