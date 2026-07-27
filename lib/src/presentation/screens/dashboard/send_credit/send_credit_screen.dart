@@ -24,6 +24,7 @@ class DigitalTopupSalePage extends ConsumerStatefulWidget {
 
 class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
   int? selectedCustomerId;
+  String? selectedCustomerRemoteId;
   late final l10n = AppLocalizations.of(context)!;
   static const platform = MethodChannel('com.example.top_up_shops/ussd');
 
@@ -109,8 +110,6 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
       }
     });
 
-
-
     // اضافه کردن لیسنر برای محاسبه آنی با تغییر هر فیلد
     creditCtrl.addListener(_performCalculations);
     discountCtrl.addListener(_performCalculations);
@@ -134,6 +133,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
       });
     }
   }
+
   @override
   void dispose() {
     _debounce?.cancel();
@@ -178,17 +178,20 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
       });
 
       _showUssdResponseDialog(result);
-
     } on PlatformException catch (e) {
       setState(() => _ussdResponse = "خطا: ${e.message}");
     } finally {
       setState(() => _isUssdLoading = false);
     }
   }
+
   Future<void> _executeUssdOnly(int slotIndex) async {
     // ابتدا چک می‌کنیم که آیا شرکت سرویس‌دهنده انتخاب شده است
     if (selectedOperator.isEmpty) {
-      _showSnackBar('لطفاً ابتدا شرکت سرویس‌دهنده را انتخاب کنید', Colors.orange);
+      _showSnackBar(
+        'لطفاً ابتدا شرکت سرویس‌دهنده را انتخاب کنید',
+        Colors.orange,
+      );
       return;
     }
 
@@ -208,16 +211,16 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
       }
 
       double currentBalance = await DatabaseHelper.instance.getProviderBalance(
-          selectedOperator,
-          user.shopId
+        selectedOperator,
+        user.shopId,
       );
 
       if (currentBalance < creditAmount) {
         _showErrorDialog(
-            'موجودی شرکت "$selectedOperator" کافی نیست!\n'
-                'موجودی فعلی: $currentBalance\n'
-                'مبلغ درخواستی: $creditAmount\n\n'
-                'لطفاً ابتدا موجودی شرکت را افزایش دهید.'
+          'موجودی شرکت "$selectedOperator" کافی نیست!\n'
+          'موجودی فعلی: $currentBalance\n'
+          'مبلغ درخواستی: $creditAmount\n\n'
+          'لطفاً ابتدا موجودی شرکت را افزایش دهید.',
         );
         return;
       }
@@ -240,7 +243,8 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
         if (!status.isGranted) {
           throw PlatformException(
             code: 'PERMISSION_DENIED',
-            message: 'برای ارسال کد دستوری و مدیریت سیم‌کارت، تایید مجوز تماس الزامی است.',
+            message:
+                'برای ارسال کد دستوری و مدیریت سیم‌کارت، تایید مجوز تماس الزامی است.',
           );
         }
       }
@@ -255,19 +259,15 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
       }
 
       // ۳. فراخوانی متد
-      final String result = await platform.invokeMethod(
-        'sendUssd',
-        {
-          'code': ussdCode, // استفاده از کد USSD واقعی
-          'slot': slotIndex,
-        },
-      );
+      final String result = await platform.invokeMethod('sendUssd', {
+        'code': ussdCode, // استفاده از کد USSD واقعی
+        'slot': slotIndex,
+      });
 
       setState(() {
         _ussdResponse = result;
         _isUssdLoading = false;
       });
-
     } on PlatformException catch (e) {
       setState(() {
         _isUssdLoading = false;
@@ -279,7 +279,9 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
         _ussdResponse = "خطای ناشناخته: $e";
       });
     }
-  }  void _showUssdResponseDialog(String message) {
+  }
+
+  void _showUssdResponseDialog(String message) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -336,11 +338,13 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
       // ۲. بررسی موجودی شرکت پروایدر (بخش جدید)
       // selectedOperator نام شرکت انتخاب شده است (مثلاً "افغان پی")
       double currentBalance = await DatabaseHelper.instance.getProviderBalance(
-          selectedOperator,
-          user.shopId
+        selectedOperator,
+        user.shopId,
       );
       if (currentBalance < sentAmount) {
-        _showErrorDialog('موجودی شرکت "$selectedOperator" کافی نیست!\nموجودی فعلی: $currentBalance\nمبلغ درخواستی: $sentAmount');
+        _showErrorDialog(
+          'موجودی شرکت "$selectedOperator" کافی نیست!\nموجودی فعلی: $currentBalance\nمبلغ درخواستی: $sentAmount',
+        );
         return;
       }
 
@@ -363,41 +367,36 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
 
       // محاسبه مانده حساب (بدهی)
       double remainingAmount = totalPrice - paidCash;
+      // ۵. ذخیره تراکنش و کسر موجودی در یک transaction اتمیک
+      await DatabaseHelper.instance.recordDigitalSale(
+        providerName: selectedOperator,
+        amount: sentAmount,
+        user: user,
+        transactionData: {
+          'customer_id': selectedCustomerId,
+          'customer_remote_id': selectedCustomerRemoteId,
+          'customer_name': customerNameCtrl.text,
+          'customer_type': customerType,
+          'transaction_type': 'DIGITAL', // نوع تراکنش دیجیتال
+          'operator_name': selectedOperator,
+          'company_code': companyCodeCtrl.text,
+          'phone_number': finalPhone,
+          'sent_amount': sentAmount,
+          'quantity': 1,
 
+          // مالی
+          'discount': discount,
+          'total_price': totalPrice,
+          'paid_amount': paidCash,
+          'remaining_amount': remainingAmount,
+          'received_amount': paidCash,
+          'cost_price': costPrice,
+          'profit': netProfit,
 
-      if (user == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("خطا: کاربر وارد نشده است")),
-        );
-        return;
-      }
-      // ۵. ذخیره در دیتابیس
-      await DatabaseHelper.instance.saveDetailedTransaction({
-        'customer_id': selectedCustomerId,
-        'customer_name': customerNameCtrl.text,
-        'customer_type': customerType,
-        'transaction_type': 'DIGITAL', // نوع تراکنش دیجیتال
-        'operator_name': selectedOperator,
-        'company_code': companyCodeCtrl.text,
-        'phone_number': finalPhone,
-        'sent_amount': sentAmount,
-        'quantity': 1,
-
-        // مالی
-        'discount': discount,
-        'total_price': totalPrice,
-        'paid_amount': paidCash,
-        'remaining_amount': remainingAmount,
-        'received_amount': paidCash,
-        'cost_price': costPrice,
-        'profit': netProfit,
-
-        'ussd_command': _buildUSSDCode(),
-        'created_at': DateTime.now().toIso8601String(),
-      },user);
-
-      // ۶. کسر از موجودی شرکت پروایدر (بخش جدید)
-      await DatabaseHelper.instance.decreaseProviderBalance(selectedOperator, sentAmount,user.shopId);
+          'ussd_command': _buildUSSDCode(),
+          'created_at': DateTime.now().toIso8601String(),
+        },
+      );
 
       // ۷. بروزرسانی UI و پاکسازی
       if (mounted) {
@@ -417,6 +416,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
       _showSnackBar('خطای غیرمنتظره: $e', Colors.red);
     }
   }
+
   void _showErrorDialog(String msg) {
     showDialog(
       context: context,
@@ -428,20 +428,18 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
             Text("خطا"),
           ],
         ),
-        content: Text(
-          msg,
-          style: const TextStyle(fontSize: 14, height: 1.5),
-        ),
+        content: Text(msg, style: const TextStyle(fontSize: 14, height: 1.5)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: const Text("متوجه شدم", style: TextStyle(color: Colors.red)),
-          )
+          ),
         ],
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
+
   void _showSnackBar(String message, Color color) {
     ScaffoldMessenger.of(
       context,
@@ -497,7 +495,10 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
     }
 
     _debounce = Timer(const Duration(milliseconds: 300), () async {
-      final results = await DatabaseHelper.instance.searchCustomers(query,user!.shopId);
+      final results = await DatabaseHelper.instance.searchCustomers(
+        query,
+        user!.shopId,
+      );
       setState(() {
         _searchResults = results;
       });
@@ -605,6 +606,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
 
     setState(() {
       selectedCustomerId = customer['id'];
+      selectedCustomerRemoteId = customer['remote_id'] as String?;
       customerNameCtrl.text = customer['name']?.toString() ?? '';
       customerCodeCtrl.text = customer['customer_code']?.toString() ?? '';
       customerType = (customer['type'] == 'WHOLESALE') ? 'bulk' : 'normal';
@@ -648,7 +650,10 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
 
           if (_normalCustomerPhones.isNotEmpty) {
             // حذف شماره‌های تکراری یا خالی
-            _normalCustomerPhones = _normalCustomerPhones.where((e) => e.isNotEmpty).toSet().toList();
+            _normalCustomerPhones = _normalCustomerPhones
+                .where((e) => e.isNotEmpty)
+                .toSet()
+                .toList();
           }
 
           if (_normalCustomerPhones.length == 1) {
@@ -659,7 +664,10 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
           // برای مشتریان عمده
           _bulkCustomerPhones = phonesList.map((p) => cleanPhone(p)).toList();
           if (_bulkCustomerPhones.isNotEmpty) {
-            _bulkCustomerPhones = _bulkCustomerPhones.where((e) => e.isNotEmpty).toSet().toList();
+            _bulkCustomerPhones = _bulkCustomerPhones
+                .where((e) => e.isNotEmpty)
+                .toSet()
+                .toList();
           }
           if (_bulkCustomerPhones.length == 1) {
             _selectedBulkPhone = _bulkCustomerPhones[0];
@@ -673,7 +681,9 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
     if (customerType == 'bulk') {
       _prepareFilteredProviders();
     }
-  } void _prepareFilteredProviders() {
+  }
+
+  void _prepareFilteredProviders() {
     // استفاده از ref.read برای دریافت وضعیت فعلی لیست شرکت‌ها
     final providersAsync = ref.read(providersListProvider);
 
@@ -692,10 +702,13 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
       if (customerCompanyNames.isEmpty) {
         filtered = List<Map<String, dynamic>>.from(providersData);
       } else {
-        filtered = providersData.where((provider) {
-          final providerName = provider['name']?.toString().trim() ?? '';
-          return customerCompanyNames.contains(providerName);
-        }).cast<Map<String, dynamic>>().toList();
+        filtered = providersData
+            .where((provider) {
+              final providerName = provider['name']?.toString().trim() ?? '';
+              return customerCompanyNames.contains(providerName);
+            })
+            .cast<Map<String, dynamic>>()
+            .toList();
       }
 
       // اضافه کردن گزینه "دیگر" به انتهای لیست
@@ -714,6 +727,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
       }
     });
   }
+
   void _selectProviderForWholesale(Map<String, dynamic> provider) {
     final providerName = provider['name']?.toString().trim() ?? '';
     final providerCode = provider['wholesale_code']?.toString().trim() ?? '';
@@ -1061,7 +1075,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
           ),
           Expanded(
             child: Text(
-             "ارسال کریدیت",
+              "ارسال کریدیت",
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontWeight: FontWeight.bold,
@@ -1071,8 +1085,12 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
             ),
           ),
           GestureDetector(
-              onTap: ()=>Navigator.push(context, MaterialPageRoute(builder: (context)=>InventoryScreen())),
-              child: const Icon(Icons.notifications, color: Colors.grey)),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => InventoryScreen()),
+            ),
+            child: const Icon(Icons.notifications, color: Colors.grey),
+          ),
         ],
       ),
     );
@@ -1802,10 +1820,10 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
   }
 
   Widget _amountInput(
-      String label,
-      TextEditingController ctrl,
-      String? suffixText,
-      ) {
+    String label,
+    TextEditingController ctrl,
+    String? suffixText,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1827,10 +1845,10 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
             cursorColor: kPrimaryColor,
             controller: ctrl,
             keyboardType: TextInputType.number,
+
             // نکته: textAlign را حذف کردم تا مثل _input از چپ شروع شود (استانداردتر)
             // اگر می‌خواهید وسط‌چین باشد، خط زیر را از کامنت خارج کنید:
             // textAlign: TextAlign.center,
-
             decoration: InputDecoration(
               // حذف بوردر داخلی چون کانتینر بوردر دارد
               border: InputBorder.none,
@@ -2062,7 +2080,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
         ],
       ),
       child: ElevatedButton(
-        onPressed:(){
+        onPressed: () {
           _processAndSaveTransaction();
           ref.invalidate(todaySalesProvider);
           ref.invalidate(salesSummaryProvider);

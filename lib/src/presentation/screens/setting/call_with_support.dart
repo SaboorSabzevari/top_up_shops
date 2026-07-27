@@ -54,11 +54,7 @@ class ContactSupportPage extends StatelessWidget {
         leading: Container(
           margin: EdgeInsets.only(right: 8.w),
           child: IconButton(
-            icon: Icon(
-              Icons.arrow_back,
-              size: 20.w,
-              color: AppColors.textMain,
-            ),
+            icon: Icon(Icons.arrow_back, size: 20.w, color: AppColors.textMain),
             onPressed: () => Navigator.pop(context),
           ),
         ),
@@ -73,7 +69,7 @@ class ContactSupportPage extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                    Container(
+                  Container(
                     padding: EdgeInsets.all(20.w),
                     decoration: BoxDecoration(
                       color: AppColors.cardBg,
@@ -375,11 +371,7 @@ class ContactSupportPage extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(
-          icon,
-          color: AppColors.primary,
-          size: 20.w,
-        ),
+        Icon(icon, color: AppColors.primary, size: 20.w),
         SizedBox(width: 12.w),
         Expanded(
           child: Column(

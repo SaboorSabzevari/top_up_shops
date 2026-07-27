@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/legacy.dart';
 import '../services/prefrence_services.dart';
 import 'session_provider.dart';
 
-
 class StartupState {
   final bool isInitialized;
   final String? error;
@@ -14,7 +13,7 @@ class StartupState {
   StartupState({
     this.isInitialized = false,
     this.error,
-    this.isLoading = false
+    this.isLoading = false,
   });
 
   StartupState copyWith({bool? isInitialized, String? error, bool? isLoading}) {
@@ -68,13 +67,15 @@ class StartupNotifier extends StateNotifier<StartupState> {
             await ref.read(currentUserProvider.notifier).setUser(finalUser!);
 
             // آپدیت preferences
-            await ref.read(preferencesServiceProvider.notifier).saveFullLogin(
-              email: finalUser.email,
-              uid: finalUser.uid,
-              role: finalUser.role,
-              shopId: finalUser.shopId,
-              rememberMe: true,
-            );
+            await ref
+                .read(preferencesServiceProvider.notifier)
+                .saveFullLogin(
+                  email: finalUser.email,
+                  uid: finalUser.uid,
+                  role: finalUser.role,
+                  shopId: finalUser.shopId,
+                  rememberMe: true,
+                );
           }
         } catch (e) {
           // استفاده از دیتای ذخیره شده
@@ -94,11 +95,16 @@ class StartupNotifier extends StateNotifier<StartupState> {
 
       state = StartupState(isInitialized: true);
     } catch (e) {
-      state = StartupState(isInitialized: false, error: "خطا در راه‌اندازی: $e");
+      state = StartupState(
+        isInitialized: false,
+        error: "خطا در راه‌اندازی: $e",
+      );
     }
   }
 }
 
-final startupProvider = StateNotifierProvider<StartupNotifier, StartupState>((ref) {
+final startupProvider = StateNotifierProvider<StartupNotifier, StartupState>((
+  ref,
+) {
   return StartupNotifier(ref);
 });

@@ -23,25 +23,22 @@ class CustomerListPage extends ConsumerWidget {
     final activeFilter = ref.watch(customerFilterProvider);
 
     return Scaffold(
-
       backgroundColor: Colors.white,
       appBar: AppBar(
-
-        title:Text(
+        title: Text(
           'لیست مشتریان',
-          style: TextStyle(fontWeight: FontWeight.bold,fontSize: 14.sp),
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.sp),
         ),
         centerTitle: true,
         elevation: 1,
         backgroundColor: Colors.white,
-
       ),
       body: Stack(
         children: [
           Column(
             children: [
               _searchBar(ref),
-              _filterChips(context,ref,false),
+              _filterChips(context, ref, false),
               Expanded(
                 child: customersAsync.when(
                   data: (customers) {
@@ -55,11 +52,12 @@ class CustomerListPage extends ConsumerWidget {
 
                     return _customerList(shopCustomers);
                   },
-                  loading: () => const Center(child: CircularProgressIndicator()),
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
                   error: (err, stack) => Center(child: Text('خطا: $err')),
                 ),
               ),
-               SizedBox(height: 55.h),
+              SizedBox(height: 55.h),
             ],
           ),
           _buildAddButton(context),
@@ -70,7 +68,7 @@ class CustomerListPage extends ConsumerWidget {
 
   Widget _searchBar(WidgetRef ref) {
     return Padding(
-      padding: EdgeInsets.only(left: 16.0,right: 16, top: 16.0,bottom: 4),
+      padding: EdgeInsets.only(left: 16.0, right: 16, top: 16.0, bottom: 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -88,12 +86,13 @@ class CustomerListPage extends ConsumerWidget {
               decoration: InputDecoration(
                 prefixIcon: const Icon(Icons.search, color: kPrimaryColor),
                 hintText: 'جستجوی نام یا کد مشتری...',
-                hintStyle:  TextStyle(color: Colors.grey, fontSize: 12.sp),
+                hintStyle: TextStyle(color: Colors.grey, fontSize: 12.sp),
 
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 6,
-                  vertical: 12,     ),
+                  vertical: 12,
+                ),
               ),
             ),
           ),
@@ -101,6 +100,7 @@ class CustomerListPage extends ConsumerWidget {
       ),
     );
   }
+
   Widget _customerList(List<Map<String, dynamic>> customers) {
     return ListView.separated(
       // پدینگ کل لیست مشابه لیست تراکنش‌ها
@@ -114,7 +114,8 @@ class CustomerListPage extends ConsumerWidget {
 
         return InkWell(
           onTap: () async {
-            final fullData = await DatabaseHelper.instance.getCustomerFullDetails(customer['id']);
+            final fullData = await DatabaseHelper.instance
+                .getCustomerFullDetails(customer['id']);
             if (context.mounted) {
               Navigator.push(
                 context,
@@ -164,8 +165,8 @@ class CustomerListPage extends ConsumerWidget {
                       Text(
                         "کد: ${customer['customer_code']}",
                         style: const TextStyle(
-                            color: Colors.grey,
-                            fontSize: 11
+                          color: Colors.grey,
+                          fontSize: 11,
                         ),
                       ),
                     ],
@@ -173,7 +174,10 @@ class CustomerListPage extends ConsumerWidget {
                 ),
 
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: isWholesale
                         ? kPrimaryColor.withValues(alpha: 0.1)
@@ -199,29 +203,24 @@ class CustomerListPage extends ConsumerWidget {
       },
     );
   }
+
   Widget _buildCustomerAvatar(String name, String? profileImagePath) {
     if (profileImagePath != null && profileImagePath.isNotEmpty) {
       try {
         final file = File(profileImagePath);
         if (file.existsSync()) {
-          return CircleAvatar(
-            backgroundImage: FileImage(file),
-            radius: 20,
-          );
+          return CircleAvatar(backgroundImage: FileImage(file), radius: 20);
         }
-      } catch (e) {
-      }
+      } catch (e) {}
     }
 
     final firstChar = name.isNotEmpty ? name[0] : '?';
     return CircleAvatar(
       backgroundColor: primary.withOpacity(0.1),
-      child: Text(
-        firstChar,
-        style: const TextStyle(color: primary),
-      ),
+      child: Text(firstChar, style: const TextStyle(color: primary)),
     );
   }
+
   Widget _buildAddButton(BuildContext context) {
     return Positioned(
       left: 16,
@@ -229,7 +228,9 @@ class CustomerListPage extends ConsumerWidget {
       bottom: 14,
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
           backgroundColor: primary,
           minimumSize: Size.fromHeight(45),
         ),
@@ -242,11 +243,7 @@ class CustomerListPage extends ConsumerWidget {
     );
   }
 
-  Widget _filterChips(
-      BuildContext context,
-      WidgetRef ref,
-      bool isDark,
-      ) {
+  Widget _filterChips(BuildContext context, WidgetRef ref, bool isDark) {
     final activeFilter = ref.watch(customerFilterProvider);
     const Color brandRed = Color(0xFFEA2A33);
 
@@ -256,13 +253,10 @@ class CustomerListPage extends ConsumerWidget {
       return Padding(
         padding: EdgeInsets.only(left: 8.w),
         child: FilterChip(
-          label: Text(
-            label,
-            style: TextStyle(fontSize: 12.sp),
-          ),
+          label: Text(label, style: TextStyle(fontSize: 12.sp)),
           selected: isSelected,
           onSelected: (_) =>
-          ref.read(customerFilterProvider.notifier).state = value,
+              ref.read(customerFilterProvider.notifier).state = value,
           labelStyle: TextStyle(
             color: isSelected
                 ? Colors.white
@@ -281,10 +275,7 @@ class CustomerListPage extends ConsumerWidget {
               width: 1.w,
             ),
           ),
-          padding: EdgeInsets.symmetric(
-            horizontal: 12.w,
-            vertical: 4.h,
-          ),
+          padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 4.h),
           labelPadding: EdgeInsets.symmetric(horizontal: 4.w),
         ),
       );
@@ -292,10 +283,7 @@ class CustomerListPage extends ConsumerWidget {
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      padding: EdgeInsets.symmetric(
-        horizontal: 8.w,
-        vertical: 2.h,
-      ),
+      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 2.h),
       child: Row(
         children: [
           buildChip("همه", null),

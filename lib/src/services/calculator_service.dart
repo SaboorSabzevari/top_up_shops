@@ -1,7 +1,5 @@
 import 'dart:developer' as developer;
 
-
-
 import 'package:path/path.dart';
 
 import '../data/local/app_database.dart';
@@ -19,19 +17,21 @@ class CalculationService {
   CalculationService._internal();
 
   // دریافت تنظیمات واحد از دیتابیس با کش
-  Future<Map<String, dynamic>> getUnitSettings(String shopId, {bool forceRefresh = false}) async {
+  Future<Map<String, dynamic>> getUnitSettings(
+    String shopId, {
+    bool forceRefresh = false,
+  }) async {
     if (!forceRefresh &&
         _cachedUnitSettings != null &&
         _lastCacheTime != null &&
-        DateTime.now().difference(_lastCacheTime!) < const Duration(minutes: 5)) {
+        DateTime.now().difference(_lastCacheTime!) <
+            const Duration(minutes: 5)) {
       return _cachedUnitSettings!;
     }
 
     _cachedUnitSettings = await _dbHelper.getSingleUnit(shopId);
     _lastCacheTime = DateTime.now();
     return _cachedUnitSettings!;
-
-
   }
 
   // محاسبات اصلی
@@ -56,8 +56,11 @@ class CalculationService {
   }
 
   // محاسبه با sentAmount به صورت مستقیم
-// اصلاح شده: دریافت shopId الزامی است
-  Future<Map<String, double>> calculateWithAmount(double sentAmount, String shopId) async {
+  // اصلاح شده: دریافت shopId الزامی است
+  Future<Map<String, double>> calculateWithAmount(
+    double sentAmount,
+    String shopId,
+  ) async {
     // تنظیمات را بر اساس آیدی دکان می‌گیریم
     final unitSettings = await getUnitSettings(shopId);
 
@@ -71,10 +74,9 @@ class CalculationService {
   Future<void> refreshCache(String shopId) async {
     _cachedUnitSettings = null;
     _lastCacheTime = null;
-    await getUnitSettings(shopId,forceRefresh: true);
+    await getUnitSettings(shopId, forceRefresh: true);
   }
 }
-
 
 // --- Enum برای نوع تخفیف ---
 enum DiscountType { fixed, percent }
@@ -125,7 +127,6 @@ class PriceCalculationResult {
 
 // --- کلاس محاسبات مرکزی ---
 class PriceCalculator {
-
   // محاسبه کامل با دریافت نرخ از دیتابیس (برای زمان ذخیره تراکنش نهایی)
   static Future<PriceCalculationResult> calculateFull({
     required String shopId, // اضافه شد: برای تشخیص دکان
@@ -137,8 +138,10 @@ class PriceCalculator {
     try {
       // دریافت نرخ‌های مخصوص به این دکان
       final unitSettings = await DatabaseHelper.instance.getSingleUnit(shopId);
-      final double buyRate = (unitSettings['buy_price'] as num?)?.toDouble() ?? 0.0;
-      final double sellRate = (unitSettings['sell_price'] as num?)?.toDouble() ?? 0.0;
+      final double buyRate =
+          (unitSettings['buy_price'] as num?)?.toDouble() ?? 0.0;
+      final double sellRate =
+          (unitSettings['sell_price'] as num?)?.toDouble() ?? 0.0;
 
       return _calculate(
         creditAmount: creditAmount,
@@ -149,7 +152,10 @@ class PriceCalculator {
         sellRate: sellRate,
       );
     } catch (e) {
-      developer.log('خطا در محاسبه کامل برای دکان $shopId: $e', name: 'PriceCalculator');
+      developer.log(
+        'خطا در محاسبه کامل برای دکان $shopId: $e',
+        name: 'PriceCalculator',
+      );
       return PriceCalculationResult(
         creditAmount: creditAmount,
         discountAmount: 0,

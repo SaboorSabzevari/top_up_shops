@@ -3,7 +3,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../data/local/app_database.dart';
 
 class InventoryScreen extends StatelessWidget {
-
   const InventoryScreen({super.key});
 
   @override
@@ -11,13 +10,19 @@ class InventoryScreen extends StatelessWidget {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: const Color(0xfff8f6f6), // تم خاکستری روشن مشابه صفحه فروش
+        backgroundColor: const Color(
+          0xfff8f6f6,
+        ), // تم خاکستری روشن مشابه صفحه فروش
         appBar: AppBar(
           elevation: 0,
           backgroundColor: Colors.white,
           title: const Text(
             "مدیریت موجودی انبار",
-            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: 18),
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
+              fontSize: 18,
+            ),
           ),
           centerTitle: true,
         ),
@@ -26,7 +31,10 @@ class InventoryScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // --- بخش موجودی دیجیتال ---
-              _buildSectionHeader(Icons.account_balance_wallet_rounded, "موجودی کریدیت دیجیتال"),
+              _buildSectionHeader(
+                Icons.account_balance_wallet_rounded,
+                "موجودی کریدیت دیجیتال",
+              ),
               _buildDigitalBalanceList(),
 
               const SizedBox(height: 10),
@@ -35,14 +43,15 @@ class InventoryScreen extends StatelessWidget {
               _buildSectionHeader(Icons.style_rounded, "موجودی کارت‌های کاغذی"),
 
               FutureBuilder<List<Map<String, dynamic>>>(
-
                 future: DatabaseHelper.instance.getAllPaperStocks(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: Padding(
-                      padding: EdgeInsets.all(20.0),
-                      child: CircularProgressIndicator(color: Colors.red),
-                    ));
+                    return const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(20.0),
+                        child: CircularProgressIndicator(color: Colors.red),
+                      ),
+                    );
                   }
 
                   if (!snapshot.hasData || snapshot.data!.isEmpty) {
@@ -54,7 +63,7 @@ class InventoryScreen extends StatelessWidget {
                   for (var item in snapshot.data!) {
                     String op = item['operator_name'].toString().toLowerCase();
                     if (!groupedData.containsKey(op)) groupedData[op] = [];
-                    groupedData[op]! .add(item);
+                    groupedData[op]!.add(item);
                   }
 
                   // نمایش لیست اپراتورها به صورت عمودی
@@ -85,11 +94,21 @@ class InventoryScreen extends StatelessWidget {
         children: [
           Container(
             padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(
+              color: Colors.red.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
             child: Icon(icon, color: Colors.red, size: 20),
           ),
           const SizedBox(width: 10),
-          Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
         ],
       ),
     );
@@ -116,16 +135,31 @@ class InventoryScreen extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
-                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.02),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(item['provider_name'], style: const TextStyle(fontSize: 13, color: Colors.grey)),
+                    Text(
+                      item['provider_name'],
+                      style: const TextStyle(fontSize: 13, color: Colors.grey),
+                    ),
                     const SizedBox(height: 5),
-                    Text("${item['current_balance']} AFN",
-                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 16)),
+                    Text(
+                      "${item['current_balance']} AFN",
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green,
+                        fontSize: 16,
+                      ),
+                    ),
                   ],
                 ),
               );
@@ -144,7 +178,9 @@ class InventoryScreen extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.white),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 15)],
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 15),
+        ],
       ),
       child: Column(
         children: [
@@ -153,15 +189,27 @@ class InventoryScreen extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: Colors.grey.shade50,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(20),
+              ),
             ),
             child: Row(
               children: [
                 _getOpIcon(opId),
                 const SizedBox(width: 12),
-                Text(opId.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                Text(
+                  opId.toUpperCase(),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 16,
+                  ),
+                ),
                 const Spacer(),
-                const Icon(Icons.arrow_forward_ios, size: 12, color: Colors.grey),
+                const Icon(
+                  Icons.arrow_forward_ios,
+                  size: 12,
+                  color: Colors.grey,
+                ),
               ],
             ),
           ),
@@ -190,16 +238,26 @@ class InventoryScreen extends StatelessWidget {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text("${card['face_value']}",
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      const Text("؋ ", style: TextStyle(fontSize: 9, color: Colors.grey)),
+                      Text(
+                        "${card['face_value']}",
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const Text(
+                        "؋ ",
+                        style: TextStyle(fontSize: 9, color: Colors.grey),
+                      ),
                       const SizedBox(height: 4),
-                      Text("$qty عدد",
-                          style: TextStyle(
-                              fontSize: 11,
-                              color: qty < 5 ? Colors.orange.shade700 : Colors.red,
-                              fontWeight: FontWeight.bold
-                          )),
+                      Text(
+                        "$qty عدد",
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: qty < 5 ? Colors.orange.shade700 : Colors.red,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ],
                   ),
                 );
@@ -213,10 +271,14 @@ class InventoryScreen extends StatelessWidget {
 
   Widget _getOpIcon(String op) {
     String path = 'assets/svg/awcc.svg';
-    if (op.contains('roshan')) path = 'assets/svg/roshan.svg';
-    else if (op.contains('etisalat')) path = 'assets/svg/etisalat.svg';
-    else if (op.contains('mtn')) path = 'assets/svg/atoma.svg';
-    else if (op.contains('salaam')) path = 'assets/svg/salaam.svg';
+    if (op.contains('roshan'))
+      path = 'assets/svg/roshan.svg';
+    else if (op.contains('etisalat'))
+      path = 'assets/svg/etisalat.svg';
+    else if (op.contains('mtn'))
+      path = 'assets/svg/atoma.svg';
+    else if (op.contains('salaam'))
+      path = 'assets/svg/salaam.svg';
     return SvgPicture.asset(path, width: 28, height: 28);
   }
 
@@ -224,7 +286,10 @@ class InventoryScreen extends StatelessWidget {
     return const Center(
       child: Padding(
         padding: EdgeInsets.all(40.0),
-        child: Text("هیچ کارتی در انبار موجود نیست", style: TextStyle(color: Colors.grey)),
+        child: Text(
+          "هیچ کارتی در انبار موجود نیست",
+          style: TextStyle(color: Colors.grey),
+        ),
       ),
     );
   }

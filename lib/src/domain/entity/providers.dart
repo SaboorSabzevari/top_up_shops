@@ -1,6 +1,6 @@
 class ProviderCompany {
   final int? id;
-  final String shopId; // فیلد حیاتی برای تفکیک دکان‌ها
+  final String shopId;
   final String name;
   final double balance;
   final String? logoPath;
@@ -13,7 +13,6 @@ class ProviderCompany {
     this.logoPath,
   });
 
-  // ۱. اضافه کردن متد copyWith برای تغییر shopId در هنگام ذخیره‌سازی
   ProviderCompany copyWith({
     int? id,
     String? shopId,
@@ -30,7 +29,6 @@ class ProviderCompany {
     );
   }
 
-  // ۲. اضافه کردن متm fromMap برای تبدیل داده‌های دیتابیس به شیء دارت
   factory ProviderCompany.fromMap(Map<String, dynamic> map) {
     return ProviderCompany(
       id: map['id'] as int?,
@@ -41,7 +39,6 @@ class ProviderCompany {
     );
   }
 
-  // ۳. تبدیل شیء به Map برای ذخیره در دیتابیس
   Map<String, dynamic> toMap() {
     return {
       'id': id,

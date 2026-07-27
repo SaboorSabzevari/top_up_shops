@@ -10,7 +10,8 @@ class ImageService {
       final directory = await getApplicationDocumentsDirectory();
 
       // ۲. ایجاد نام منحصر به فرد برای فایل
-      final String fileName = '${prefix}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final String fileName =
+          '${prefix}_${DateTime.now().millisecondsSinceEpoch}.jpg';
       final String targetPath = p.join(directory.path, fileName);
 
       // ۳. فشرده‌سازی تصویر

@@ -51,15 +51,14 @@ class TransactionHistoryPage extends ConsumerWidget {
             _buildFilterChips(context, ref, isDark),
             if (ref.watch(filterDateProvider) != null)
               Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: 16.w,
-                  vertical: 8.h,
-                ),
+                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
                 child: Row(
                   children: [
-                    Icon(Icons.history_toggle_off,
-                        size: 14.sp,
-                        color: Colors.grey),
+                    Icon(
+                      Icons.history_toggle_off,
+                      size: 14.sp,
+                      color: Colors.grey,
+                    ),
                     SizedBox(width: 4.w),
                     Expanded(
                       child: Text(
@@ -75,15 +74,16 @@ class TransactionHistoryPage extends ConsumerWidget {
                     ),
                     SizedBox(width: 8.w), // ریسپانسیو
                     GestureDetector(
-                      onTap: () => ref.read(filterDateProvider.notifier).state = null,
+                      onTap: () =>
+                          ref.read(filterDateProvider.notifier).state = null,
                       child: Text(
-                          "لغو فیلتر",
-                          style: TextStyle(
-                              fontSize: 10.sp, // ریسپانسیو
-                              color: const Color(0xFFEA2A33)
-                          )
+                        "لغو فیلتر",
+                        style: TextStyle(
+                          fontSize: 10.sp, // ریسپانسیو
+                          color: const Color(0xFFEA2A33),
+                        ),
                       ),
-                    )
+                    ),
                   ],
                 ),
               ),
@@ -126,8 +126,10 @@ class TransactionHistoryPage extends ConsumerWidget {
                   return ListView.builder(
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: EdgeInsets.only(bottom: 100.h), // ریسپانسیو
-                    key: ValueKey(transactions.length +
-                        (transactions.isNotEmpty ? transactions.first.id : 0)),
+                    key: ValueKey(
+                      transactions.length +
+                          (transactions.isNotEmpty ? transactions.first.id : 0),
+                    ),
                     itemCount: transactions.length,
                     itemBuilder: (context, index) {
                       final t = transactions[index];
@@ -157,28 +159,28 @@ class TransactionHistoryPage extends ConsumerWidget {
           Expanded(
             child: profit.when(
               loading: () => _summaryBox(
-                  "سود خالص امروز",
-                  "...",
-                  "",
-                  const Color(0xFF1E1E1E),
-                  textColor: Colors.white,
-                  subTextColor: Colors.white
+                "سود خالص امروز",
+                "...",
+                "",
+                const Color(0xFF1E1E1E),
+                textColor: Colors.white,
+                subTextColor: Colors.white,
               ),
               error: (_, __) => _summaryBox(
-                  "سود خالص امروز",
-                  "خطا",
-                  "",
-                  const Color(0xFF1E1E1E),
-                  textColor: Colors.white,
-                  subTextColor: Colors.white
+                "سود خالص امروز",
+                "خطا",
+                "",
+                const Color(0xFF1E1E1E),
+                textColor: Colors.white,
+                subTextColor: Colors.white,
               ),
               data: (value) => _summaryBox(
-                  "سود خالص امروز",
-                  value.toString(),
-                  "؋",
-                  const Color(0xFF1E1E1E),
-                  textColor: Colors.white,
-                  subTextColor: Colors.white
+                "سود خالص امروز",
+                value.toString(),
+                "؋",
+                const Color(0xFF1E1E1E),
+                textColor: Colors.white,
+                subTextColor: Colors.white,
               ),
             ),
           ),
@@ -186,28 +188,28 @@ class TransactionHistoryPage extends ConsumerWidget {
           Expanded(
             child: count.when(
               loading: () => _summaryBox(
-                  "تعداد تراکنش امروز",
-                  "...",
-                  "",
-                  const Color(0xFFEA2A33),
-                  textColor: Colors.white,
-                  subTextColor: Colors.white
+                "تعداد تراکنش امروز",
+                "...",
+                "",
+                const Color(0xFFEA2A33),
+                textColor: Colors.white,
+                subTextColor: Colors.white,
               ),
               error: (_, __) => _summaryBox(
-                  "تعداد تراکنش امروز",
-                  "خطا",
-                  "",
-                  const Color(0xFFEA2A33),
-                  textColor: Colors.white,
-                  subTextColor: Colors.white
+                "تعداد تراکنش امروز",
+                "خطا",
+                "",
+                const Color(0xFFEA2A33),
+                textColor: Colors.white,
+                subTextColor: Colors.white,
               ),
               data: (value) => _summaryBox(
-                  "تعداد تراکنش امروز",
-                  value.toString(),
-                  "تراکنش",
-                  const Color(0xFFEA2A33),
-                  textColor: Colors.white,
-                  subTextColor: Colors.white
+                "تعداد تراکنش امروز",
+                value.toString(),
+                "تراکنش",
+                const Color(0xFFEA2A33),
+                textColor: Colors.white,
+                subTextColor: Colors.white,
               ),
             ),
           ),
@@ -216,53 +218,62 @@ class TransactionHistoryPage extends ConsumerWidget {
     );
   }
 
-  Widget _summaryBox(String title, String amount, String amountType, Color bgColor,
-      {required Color textColor, required Color subTextColor}) {
+  Widget _summaryBox(
+    String title,
+    String amount,
+    String amountType,
+    Color bgColor, {
+    required Color textColor,
+    required Color subTextColor,
+  }) {
     return Container(
       padding: EdgeInsets.all(16.w), // ریسپانسیو
       decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(16.r) // ریسپانسیو
+        color: bgColor,
+        borderRadius: BorderRadius.circular(16.r), // ریسپانسیو
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-              title,
-              style: TextStyle(
-                  color: subTextColor,
-                  fontSize: 11.sp // ریسپانسیو
-              )
+            title,
+            style: TextStyle(
+              color: subTextColor,
+              fontSize: 11.sp, // ریسپانسیو
+            ),
           ),
           SizedBox(height: 4.h), // ریسپانسیو
           FittedBox(
             child: Row(
               children: [
                 Text(
-                    amount,
-                    style: TextStyle(
-                        color: textColor,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18.sp // ریسپانسیو
-                    )
+                  amount,
+                  style: TextStyle(
+                    color: textColor,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18.sp, // ریسپانسیو
+                  ),
                 ),
                 SizedBox(width: 4.w), // ریسپانسیو
                 Text(
-                    amountType,
-                    style: TextStyle(
-                        color: subTextColor,
-                        fontSize: 10.sp // ریسپانسیو
-                    )
+                  amountType,
+                  style: TextStyle(
+                    color: subTextColor,
+                    fontSize: 10.sp, // ریسپانسیو
+                  ),
                 ),
               ],
             ),
-          )
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildTransactionCardFromModel(BuildContext context, TransactionModel t) {
+  Widget _buildTransactionCardFromModel(
+    BuildContext context,
+    TransactionModel t,
+  ) {
     String formattedTime = t.createdAt;
     try {
       final dateTime = DateTime.parse(t.createdAt);
@@ -299,7 +310,8 @@ class TransactionHistoryPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildTransactionCard(BuildContext context, {
+  Widget _buildTransactionCard(
+    BuildContext context, {
     required String name,
     required String type,
     required String identityValue,
@@ -315,16 +327,14 @@ class TransactionHistoryPage extends ConsumerWidget {
 
     return Container(
       margin: EdgeInsets.symmetric(
-          horizontal: 16.w, // ریسپانسیو
-          vertical: 4.h // ریسپانسیو
+        horizontal: 16.w, // ریسپانسیو
+        vertical: 4.h, // ریسپانسیو
       ),
       decoration: BoxDecoration(
         color: isDark ? darkCard : Colors.white,
         borderRadius: BorderRadius.circular(12.r), // ریسپانسیو
         border: Border.all(
-          color: isDark
-              ? Colors.white.withOpacity(0.05)
-              : Colors.grey.shade200,
+          color: isDark ? Colors.white.withOpacity(0.05) : Colors.grey.shade200,
           width: 0.5.w, // ریسپانسیو
         ),
       ),
@@ -341,8 +351,8 @@ class TransactionHistoryPage extends ConsumerWidget {
               Expanded(
                 child: Padding(
                   padding: EdgeInsets.symmetric(
-                      horizontal: 12.w, // ریسپانسیو
-                      vertical: 8.h // ریسپانسیو
+                    horizontal: 12.w, // ریسپانسیو
+                    vertical: 8.h, // ریسپانسیو
                   ),
                   child: Column(
                     children: [
@@ -360,7 +370,9 @@ class TransactionHistoryPage extends ConsumerWidget {
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 14.sp, // ریسپانسیو
-                                      color: isDark ? Colors.white : Colors.black87,
+                                      color: isDark
+                                          ? Colors.white
+                                          : Colors.black87,
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -394,17 +406,17 @@ class TransactionHistoryPage extends ConsumerWidget {
                       Row(
                         children: [
                           Icon(
-                              identityIcon,
-                              size: 12.sp, // ریسپانسیو
-                              color: Colors.grey
+                            identityIcon,
+                            size: 12.sp, // ریسپانسیو
+                            color: Colors.grey,
                           ),
                           SizedBox(width: 4.w), // ریسپانسیو
                           Expanded(
                             child: Text(
                               identityValue,
                               style: TextStyle(
-                                  fontSize: 11.sp, // ریسپانسیو
-                                  color: Colors.grey
+                                fontSize: 11.sp, // ریسپانسیو
+                                color: Colors.grey,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -414,8 +426,8 @@ class TransactionHistoryPage extends ConsumerWidget {
                           Text(
                             time,
                             style: TextStyle(
-                                fontSize: 10.sp, // ریسپانسیو
-                                color: Colors.grey
+                              fontSize: 10.sp, // ریسپانسیو
+                              color: Colors.grey,
                             ),
                           ),
                         ],
@@ -434,13 +446,11 @@ class TransactionHistoryPage extends ConsumerWidget {
   Widget _buildBadge(String text, bool isDark) {
     return Container(
       padding: EdgeInsets.symmetric(
-          horizontal: 4.w, // ریسپانسیو
-          vertical: 1.h // ریسپانسیو
+        horizontal: 4.w, // ریسپانسیو
+        vertical: 1.h, // ریسپانسیو
       ),
       decoration: BoxDecoration(
-        color: isDark
-            ? Colors.white.withOpacity(0.08)
-            : Colors.red.shade500,
+        color: isDark ? Colors.white.withOpacity(0.08) : Colors.red.shade500,
         borderRadius: BorderRadius.circular(3.r), // ریسپانسیو
       ),
       child: Text(
@@ -457,14 +467,12 @@ class TransactionHistoryPage extends ConsumerWidget {
   Widget _compactInfo(String text, bool isDark) {
     return Container(
       padding: EdgeInsets.symmetric(
-          horizontal: 6.w, // ریسپانسیو
-          vertical: 1.h // ریسپانسیو
+        horizontal: 6.w, // ریسپانسیو
+        vertical: 1.h, // ریسپانسیو
       ),
       decoration: BoxDecoration(
         border: Border.all(
-          color: isDark
-              ? Colors.white10
-              : Colors.grey.shade200,
+          color: isDark ? Colors.white10 : Colors.grey.shade200,
           width: 0.5.w, // ریسپانسیو
         ),
         borderRadius: BorderRadius.circular(4.r), // ریسپانسیو
@@ -472,8 +480,8 @@ class TransactionHistoryPage extends ConsumerWidget {
       child: Text(
         text,
         style: TextStyle(
-            fontSize: 9.sp, // ریسپانسیو
-            color: Colors.grey
+          fontSize: 9.sp, // ریسپانسیو
+          color: Colors.grey,
         ),
       ),
     );
@@ -481,39 +489,29 @@ class TransactionHistoryPage extends ConsumerWidget {
 
   Widget _buildSearchBar(WidgetRef ref, bool isDark) {
     return Padding(
-      padding: EdgeInsets.symmetric(
-          horizontal: 16.w,
-          vertical: 8.h,
-      ),
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
       child: Container(
         decoration: BoxDecoration(
-            color: Colors.grey[100],
-            shape: BoxShape.rectangle,
-            borderRadius: BorderRadius.circular(12.r)
+          color: Colors.grey[100],
+          shape: BoxShape.rectangle,
+          borderRadius: BorderRadius.circular(12.r),
         ),
         child: TextField(
-           cursorColor: kPrimaryColor,
+          cursorColor: kPrimaryColor,
           cursorWidth: 1.5.w,
           onChanged: (value) =>
-          ref.read(transactionSearchQueryProvider.notifier).state = value,
+              ref.read(transactionSearchQueryProvider.notifier).state = value,
           decoration: InputDecoration(
             hintText: "جستجو (نام، شماره، کد شرکت)...",
-            hintStyle: TextStyle(
-                fontSize: 14.sp,
-                color: Colors.grey.shade600
-            ),
-            prefixIcon: Icon(
-              Icons.search,
-              color: kPrimaryColor,
-              size: 20.sp,
-            ),
+            hintStyle: TextStyle(fontSize: 14.sp, color: Colors.grey.shade600),
+            prefixIcon: Icon(Icons.search, color: kPrimaryColor, size: 20.sp),
             border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12.r),
-                borderSide: BorderSide.none
+              borderRadius: BorderRadius.circular(12.r),
+              borderSide: BorderSide.none,
             ),
             contentPadding: EdgeInsets.symmetric(
-                horizontal: 16.w,
-                vertical: 14.h
+              horizontal: 16.w,
+              vertical: 14.h,
             ),
           ),
           style: TextStyle(
@@ -542,7 +540,7 @@ class TransactionHistoryPage extends ConsumerWidget {
           ),
           selected: isSelected,
           onSelected: (_) =>
-          ref.read(filterCustomerTypeProvider.notifier).state = value,
+              ref.read(filterCustomerTypeProvider.notifier).state = value,
           labelStyle: TextStyle(
             color: isSelected
                 ? Colors.white
@@ -562,11 +560,11 @@ class TransactionHistoryPage extends ConsumerWidget {
             ),
           ),
           padding: EdgeInsets.symmetric(
-              horizontal: 12.w, // ریسپانسیو
-              vertical: 4.h // ریسپانسیو
+            horizontal: 12.w, // ریسپانسیو
+            vertical: 4.h, // ریسپانسیو
           ),
           labelPadding: EdgeInsets.symmetric(
-              horizontal: 4.w // ریسپانسیو
+            horizontal: 4.w, // ریسپانسیو
           ),
         ),
       );
@@ -575,8 +573,8 @@ class TransactionHistoryPage extends ConsumerWidget {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: EdgeInsets.symmetric(
-          horizontal: 16.w, // ریسپانسیو
-          vertical: 8.h // ریسپانسیو
+        horizontal: 16.w, // ریسپانسیو
+        vertical: 8.h, // ریسپانسیو
       ),
       child: Row(
         children: [
@@ -621,7 +619,7 @@ class TransactionHistoryPage extends ConsumerWidget {
                   ? Colors.white.withOpacity(0.05)
                   : Colors.grey.shade100,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8.r) // ریسپانسیو
+                borderRadius: BorderRadius.circular(8.r), // ریسپانسیو
               ),
               padding: EdgeInsets.all(8.w), // ریسپانسیو
             ),

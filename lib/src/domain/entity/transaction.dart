@@ -1,8 +1,9 @@
 class TransactionModel {
   final int id;
-  final String shopId;      // اضافه شد
-  final String createdBy;   // اضافه شد (UID کارمند یا مدیر)
+  final String shopId; // اضافه شد
+  final String createdBy; // اضافه شد (UID کارمند یا مدیر)
   final int? customerId;
+  final String? customerRemoteId;
   final String customerName;
   final String customerType;
   final String transactionType;
@@ -22,9 +23,10 @@ class TransactionModel {
 
   TransactionModel({
     required this.id,
-    required this.shopId,    // اضافه شد
+    required this.shopId, // اضافه شد
     required this.createdBy, // اضافه شد
     this.customerId,
+    this.customerRemoteId,
     required this.customerName,
     required this.customerType,
     required this.transactionType,
@@ -44,9 +46,10 @@ class TransactionModel {
   factory TransactionModel.fromMap(Map<String, dynamic> map) {
     return TransactionModel(
       id: map['id'] as int,
-      shopId: (map['shop_id'] ?? '') as String,     // خواندن از دیتابیس
+      shopId: (map['shop_id'] ?? '') as String, // خواندن از دیتابیس
       createdBy: (map['created_by'] ?? '') as String, // خواندن از دیتابیس
       customerId: map['customer_id'] as int?,
+      customerRemoteId: map['customer_remote_id'] as String?,
       customerName: (map['customer_name'] ?? 'نامشخص') as String,
       customerType: (map['customer_type'] ?? 'WALK_IN') as String,
       transactionType: (map['transaction_type'] ?? 'DIGITAL') as String,
@@ -56,7 +59,9 @@ class TransactionModel {
       quantity: (map['quantity'] as num? ?? 1).toInt(),
       sentAmount: (map['sent_amount'] as num? ?? 0).toInt(),
       totalPrice: (map['total_price'] as num? ?? 0).toDouble(),
-      paidAmount: (map['paid_amount'] as num? ?? map['received_amount'] as num? ?? 0).toDouble(),
+      paidAmount:
+          (map['paid_amount'] as num? ?? map['received_amount'] as num? ?? 0)
+              .toDouble(),
       remainingAmount: (map['remaining_amount'] as num? ?? 0).toDouble(),
       costPrice: (map['cost_price'] as num? ?? 0).toDouble(),
       profit: (map['profit'] as num? ?? 0).toInt(),

@@ -27,7 +27,9 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
     final user = ref.read(currentUserProvider);
 
     if (user == null) {
-      print('❌ [ERROR] User is null in _loadDigitalProviders - Cannot load providers');
+      print(
+        '❌ [ERROR] User is null in _loadDigitalProviders - Cannot load providers',
+      );
 
       final authState = ref.read(authProvider);
       print('  Auth isLoggedIn: ${authState.isLoggedIn}');
@@ -54,14 +56,16 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
       print('⚠️ [WARNING] shopId is empty for user: ${user.uid}');
     }
 
-    print('✅ [DEBUG] Loading providers for user: ${user.uid}, shop: ${user.shopId}');
+    print(
+      '✅ [DEBUG] Loading providers for user: ${user.uid}, shop: ${user.shopId}',
+    );
 
     if (mounted) {
       setState(() => _isLoadingProviders = true);
     }
 
     try {
-      final providers = await DatabaseHelper.instance.getProviders();
+      final providers = await DatabaseHelper.instance.getProviders(user.shopId);
 
       print('📦 [DEBUG] Loaded ${providers.length} providers from database');
 
@@ -86,7 +90,7 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
             {'name': 'اکتیو سرویس'},
             {'name': 'افغان پی'},
             {'name': 'شاهی ایزیلود'},
-            {'name': 'شرکت مخابراتی آریان'}
+            {'name': 'شرکت مخابراتی آریان'},
           ];
           print('🔄 [DEBUG] Using fallback providers list');
         });
@@ -152,13 +156,23 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
   String _selectedProvider = 'ستارگان متحد';
   int _selectedFaceValue = 100;
 
-  final TextEditingController _quantityController = TextEditingController(text: '1');
+  final TextEditingController _quantityController = TextEditingController(
+    text: '1',
+  );
   final TextEditingController _costPerUnitController = TextEditingController();
   final TextEditingController _totalPaidController = TextEditingController();
-  final TextEditingController _totalCreditController = TextEditingController(text: '10000');
-  final TextEditingController _unitPriceController = TextEditingController(text: '0.91');
-  final TextEditingController _cardAmountController = TextEditingController(text: '100');
-  final TextEditingController _cardPriceController = TextEditingController(text: '92');
+  final TextEditingController _totalCreditController = TextEditingController(
+    text: '10000',
+  );
+  final TextEditingController _unitPriceController = TextEditingController(
+    text: '0.91',
+  );
+  final TextEditingController _cardAmountController = TextEditingController(
+    text: '100',
+  );
+  final TextEditingController _cardPriceController = TextEditingController(
+    text: '92',
+  );
   final TextEditingController _supplierNameController = TextEditingController();
   final TextEditingController _actualPaidController = TextEditingController();
 
@@ -256,7 +270,9 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
     setState(() {
       _selectedOperator = _paperCardOperators[index]['title'] as String;
       _selectedOperatorValue = _paperCardOperators[index]['value'] as String;
-      print('اپراتور انتخاب شد: title=$_selectedOperator, value=$_selectedOperatorValue');
+      print(
+        'اپراتور انتخاب شد: title=$_selectedOperator, value=$_selectedOperatorValue',
+      );
     });
   }
 
@@ -285,7 +301,9 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
     showDialog(
       context: context,
       builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24.r)), // ریسپانسیو
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24.r),
+        ), // ریسپانسیو
         child: Container(
           padding: EdgeInsets.all(24.r), // ریسپانسیو
           decoration: BoxDecoration(
@@ -295,7 +313,11 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.shopping_basket_outlined, size: 48.sp, color: const Color(0xFFEA2A33)),
+              Icon(
+                Icons.shopping_basket_outlined,
+                size: 48.sp,
+                color: const Color(0xFFEA2A33),
+              ),
               Text(
                 'بررسی نهایی خرید',
                 style: TextStyle(fontSize: 20.sp, fontWeight: FontWeight.bold),
@@ -303,25 +325,42 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
               SizedBox(height: 10.h),
 
               Container(
-                padding: EdgeInsets.symmetric(vertical:10.h,horizontal: 10.w), // ریسپانسیو
+                padding: EdgeInsets.symmetric(
+                  vertical: 10.h,
+                  horizontal: 10.w,
+                ), // ریسپانسیو
                 decoration: BoxDecoration(
                   color: const Color(0xFFF8F9FA),
                   borderRadius: BorderRadius.circular(16.r), // ریسپانسیو
                 ),
                 child: Column(
                   children: [
-                    _buildDialogRow('نوع محصول:', _selectedType == PurchaseType.paperCard ? 'کارت کاغذی' : 'کریدیت ارسالی'),
+                    _buildDialogRow(
+                      'نوع محصول:',
+                      _selectedType == PurchaseType.paperCard
+                          ? 'کارت کاغذی'
+                          : 'کریدیت ارسالی',
+                    ),
                     Divider(height: 20.h), // ریسپانسیو
                     if (_selectedType == PurchaseType.paperCard) ...[
                       _buildDialogRow('اپراتور:', _selectedOperator),
                       _buildDialogRow('ارزش کارت:', '$_selectedFaceValue ؋ '),
-                      _buildDialogRow('تعداد:', '${_quantityController.text} عدد'),
+                      _buildDialogRow(
+                        'تعداد:',
+                        '${_quantityController.text} عدد',
+                      ),
                     ] else ...[
                       _buildDialogRow('تأمین‌کننده:', _selectedProvider),
-                      _buildDialogRow('مقدار کریدیت:', '${_totalCreditController.text} ؋ '),
+                      _buildDialogRow(
+                        'مقدار کریدیت:',
+                        '${_totalCreditController.text} ؋ ',
+                      ),
                     ],
                     Divider(height: 20.h), // ریسپانسیو
-                    _buildDialogRow('قیمت خرید (فی):', '${_costPerUnitController.text} ؋ '),
+                    _buildDialogRow(
+                      'قیمت خرید (فی):',
+                      '${_costPerUnitController.text} ؋ ',
+                    ),
                   ],
                 ),
               ),
@@ -331,7 +370,13 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('مجموع قابل پرداخت:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.sp)), // ریسپانسیو
+                  Text(
+                    'مجموع قابل پرداخت:',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12.sp,
+                    ),
+                  ), // ریسپانسیو
                   Text(
                     '${total.toStringAsFixed(0)}؋',
                     style: TextStyle(
@@ -351,10 +396,17 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
                     child: TextButton(
                       onPressed: () => Navigator.pop(context),
                       style: TextButton.styleFrom(
-                        padding: EdgeInsets.symmetric(vertical: 14.h), // ریسپانسیو
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)), // ریسپانسیو
+                        padding: EdgeInsets.symmetric(
+                          vertical: 14.h,
+                        ), // ریسپانسیو
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12.r),
+                        ), // ریسپانسیو
                       ),
-                      child: Text('اصلاح اطلاعات', style: TextStyle(color: Colors.grey, fontSize: 14.sp)), // ریسپانسیو
+                      child: Text(
+                        'اصلاح اطلاعات',
+                        style: TextStyle(color: Colors.grey, fontSize: 14.sp),
+                      ), // ریسپانسیو
                     ),
                   ),
                   SizedBox(width: 12.w), // ریسپانسیو
@@ -366,11 +418,22 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFEA2A33),
-                        padding: EdgeInsets.symmetric(vertical: 4.h), // ریسپانسیو
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)), // ریسپانسیو
+                        padding: EdgeInsets.symmetric(
+                          vertical: 4.h,
+                        ), // ریسپانسیو
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12.r),
+                        ), // ریسپانسیو
                         elevation: 0,
                       ),
-                      child: Text('تأیید و ثبت', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14.sp)), // ریسپانسیو
+                      child: Text(
+                        'تأیید و ثبت',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14.sp,
+                        ),
+                      ), // ریسپانسیو
                     ),
                   ),
                 ],
@@ -388,8 +451,14 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(color: Colors.blueGrey, fontSize: 13.sp)), // ریسپانسیو
-          Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.sp)), // ریسپانسیو
+          Text(
+            label,
+            style: TextStyle(color: Colors.blueGrey, fontSize: 13.sp),
+          ), // ریسپانسیو
+          Text(
+            value,
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.sp),
+          ), // ریسپانسیو
         ],
       ),
     );
@@ -406,7 +475,9 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
         'type': _selectedType == PurchaseType.paperCard ? 'PAPER' : 'DIGITAL',
         'provider_name': _selectedProvider,
         'payment_status': _paymentStatus,
-        'payment_date': _paymentStatus == 'PENDING' ? null : DateTime.now().toIso8601String(),
+        'payment_date': _paymentStatus == 'PENDING'
+            ? null
+            : DateTime.now().toIso8601String(),
         'created_at': DateTime.now().toIso8601String(),
         'shop_id': user.shopId,
       };
@@ -414,16 +485,10 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
       if (_selectedType == PurchaseType.paperCard) {
         int quantity = int.tryParse(_quantityController.text) ?? 0;
 
-        await DatabaseHelper.instance.increasePaperStock(
-            _selectedOperatorValue,
-            _selectedFaceValue,
-            quantity,
-            user.shopId
-        );
-
         double unitPrice = double.tryParse(_costPerUnitController.text) ?? 0;
         double nominalPrice = unitPrice * quantity;
-        double actualPaid = double.tryParse(_actualPaidController.text) ?? nominalPrice;
+        double actualPaid =
+            double.tryParse(_actualPaidController.text) ?? nominalPrice;
 
         purchaseData.addAll({
           'operator_name': _selectedOperator,
@@ -435,17 +500,19 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
           'discount_amount': nominalPrice - actualPaid,
         });
 
+        await DatabaseHelper.instance.recordPurchase(
+          purchaseData: purchaseData,
+          user: user,
+          stockOperator: _selectedOperatorValue,
+          stockFaceValue: _selectedFaceValue,
+          stockQuantity: quantity,
+        );
       } else {
         double creditAmount = double.tryParse(_totalCreditController.text) ?? 0;
 
-        await DatabaseHelper.instance.increaseProviderBalance(
-            _selectedProvider,
-            creditAmount,
-            user.shopId
-        );
-
         double nominalPrice = creditAmount * unitBuyPrice;
-        double actualPaid = double.tryParse(_actualPaidController.text) ?? nominalPrice;
+        double actualPaid =
+            double.tryParse(_actualPaidController.text) ?? nominalPrice;
 
         purchaseData.addAll({
           'total_credit': creditAmount,
@@ -454,20 +521,24 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
           'actual_paid': actualPaid,
           'discount_amount': nominalPrice - actualPaid,
         });
-      }
 
-      await DatabaseHelper.instance.insertPurchase(purchaseData, user);
+        await DatabaseHelper.instance.recordPurchase(
+          purchaseData: purchaseData,
+          user: user,
+          providerName: _selectedProvider,
+          providerCreditAmount: creditAmount,
+        );
+      }
 
       if (mounted) {
         _showSuccessMessage(purchaseData);
       }
-
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text('❌ خطا در ثبت: ${e.toString()}'),
-              backgroundColor: Colors.red
+            content: Text('❌ خطا در ثبت: ${e.toString()}'),
+            backgroundColor: Colors.red,
           ),
         );
       }
@@ -482,7 +553,9 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
         textDirection: TextDirection.rtl,
         child: Dialog(
           backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28.r)), // ریسپانسیو
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(28.r),
+          ), // ریسپانسیو
           child: Container(
             padding: EdgeInsets.all(24.r), // ریسپانسیو
             child: Column(
@@ -494,18 +567,29 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
                     color: Colors.green.shade50,
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(Icons.check_circle_rounded, size: 60.sp, color: Colors.green), // ریسپانسیو
+                  child: Icon(
+                    Icons.check_circle_rounded,
+                    size: 60.sp,
+                    color: Colors.green,
+                  ), // ریسپانسیو
                 ),
                 SizedBox(height: 20.h), // ریسپانسیو
                 Text(
                   'خرید با موفقیت ثبت شد',
-                  style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.w900, color: Colors.black87), // ریسپانسیو
+                  style: TextStyle(
+                    fontSize: 18.sp,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.black87,
+                  ), // ریسپانسیو
                 ),
                 SizedBox(height: 8.h), // ریسپانسیو
                 Text(
                   'اطلاعات خرید در انبار و سوابق ذخیره گردید.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 12.sp, color: Colors.grey), // ریسپانسیو
+                  style: TextStyle(
+                    fontSize: 12.sp,
+                    color: Colors.grey,
+                  ), // ریسپانسیو
                 ),
                 SizedBox(height: 24.h), // ریسپانسیو
 
@@ -519,26 +603,53 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
                   child: Column(
                     children: [
                       if (data['type'] == 'DIGITAL') ...[
-                        _buildSuccessRow('مقدار کریدیت:', '${data['total_credit']}؋'),
-                        _buildSuccessRow('مبلغ اسمی:', '${data['nominal_price']} ؋'),
+                        _buildSuccessRow(
+                          'مقدار کریدیت:',
+                          '${data['total_credit']}؋',
+                        ),
+                        _buildSuccessRow(
+                          'مبلغ اسمی:',
+                          '${data['nominal_price']} ؋',
+                        ),
                         Divider(height: 20.h), // ریسپانسیو
-                        _buildSuccessRow('مبلغ پرداختی:', '${data['actual_paid']} ؋', isBold: true),
+                        _buildSuccessRow(
+                          'مبلغ پرداختی:',
+                          '${data['actual_paid']} ؋',
+                          isBold: true,
+                        ),
                       ] else ...[
                         _buildSuccessRow('اپراتور:', _selectedOperator),
                         _buildSuccessRow('تعداد:', '${data['quantity']} عدد'),
                         Divider(height: 20.h), // ریسپانسیو
-                        _buildSuccessRow('مجموع پرداخت:', '${data['actual_paid']} ؋', isBold: true),
+                        _buildSuccessRow(
+                          'مجموع پرداخت:',
+                          '${data['actual_paid']} ؋',
+                          isBold: true,
+                        ),
                       ],
 
-                      if (data['discount_amount'] != null && data['discount_amount'] > 0)
+                      if (data['discount_amount'] != null &&
+                          data['discount_amount'] > 0)
                         Padding(
                           padding: EdgeInsets.only(top: 8.h), // ریسپانسیو
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text('تخفیف دریافتی:', style: TextStyle(color: Colors.green, fontSize: 13.sp)), // ریسپانسیو
-                              Text('${data['discount_amount']} ؋',
-                                  style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 14.sp)), // ریسپانسیو
+                              Text(
+                                'تخفیف دریافتی:',
+                                style: TextStyle(
+                                  color: Colors.green,
+                                  fontSize: 13.sp,
+                                ),
+                              ), // ریسپانسیو
+                              Text(
+                                '${data['discount_amount']} ؋',
+                                style: TextStyle(
+                                  color: Colors.green,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14.sp,
+                                ),
+                              ), // ریسپانسیو
                             ],
                           ),
                         ),
@@ -556,11 +667,21 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: kPrimaryColor,
                       foregroundColor: Colors.white,
-                      padding: EdgeInsets.symmetric(vertical: 16.h), // ریسپانسیو
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14.r)), // ریسپانسیو
+                      padding: EdgeInsets.symmetric(
+                        vertical: 16.h,
+                      ), // ریسپانسیو
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14.r),
+                      ), // ریسپانسیو
                       elevation: 0,
                     ),
-                    child: Text('متوجه شدم', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.sp)), // ریسپانسیو
+                    child: Text(
+                      'متوجه شدم',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14.sp,
+                      ),
+                    ), // ریسپانسیو
                   ),
                 ),
               ],
@@ -577,14 +698,17 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(color: Colors.blueGrey, fontSize: 13.sp)), // ریسپانسیو
           Text(
-              value,
-              style: TextStyle(
-                fontWeight: isBold ? FontWeight.w900 : FontWeight.bold,
-                fontSize: isBold ? 16.sp : 14.sp, // ریسپانسیو
-                color: isBold ? Colors.black : Colors.black87,
-              )
+            label,
+            style: TextStyle(color: Colors.blueGrey, fontSize: 13.sp),
+          ), // ریسپانسیو
+          Text(
+            value,
+            style: TextStyle(
+              fontWeight: isBold ? FontWeight.w900 : FontWeight.bold,
+              fontSize: isBold ? 16.sp : 14.sp, // ریسپانسیو
+              color: isBold ? Colors.black : Colors.black87,
+            ),
           ),
         ],
       ),
@@ -602,7 +726,7 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
         : (double.tryParse(_totalCreditController.text) ?? 0);
 
     return Scaffold(
-        resizeToAvoidBottomInset: true,
+      resizeToAvoidBottomInset: true,
       backgroundColor: const Color(0xFFFCF8F8),
       appBar: AppBar(
         leading: IconButton(
@@ -611,7 +735,10 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
         ),
         title: Text(
           'ثبت خرید',
-          style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold), // ریسپانسیو
+          style: TextStyle(
+            fontSize: 18.sp,
+            fontWeight: FontWeight.bold,
+          ), // ریسپانسیو
         ),
         centerTitle: true,
         backgroundColor: const Color(0xFFFCF8F8),
@@ -656,7 +783,7 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
                 'شرکت تأمین‌کننده',
                 _providers,
                 _selectedProvider,
-                    (value) {
+                (value) {
                   setState(() {
                     _selectedProvider = value!;
                     _supplierNameController.text = value;
@@ -693,26 +820,39 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
                   child: Column(
                     children: [
                       _buildSummaryRow(
-                        _selectedType == PurchaseType.paperCard ? 'ارزش اسمی واحد:' : 'کل کریدیت:',
+                        _selectedType == PurchaseType.paperCard
+                            ? 'ارزش اسمی واحد:'
+                            : 'کل کریدیت:',
                         '${nominalValue.toStringAsFixed(0)} ؋ ',
                       ),
                       SizedBox(height: 12.h), // ریسپانسیو
                       _buildSummaryRow(
-                        _selectedType == PurchaseType.paperCard ? 'تعداد کل:' : 'نرخ خرید:',
+                        _selectedType == PurchaseType.paperCard
+                            ? 'تعداد کل:'
+                            : 'نرخ خرید:',
                         _selectedType == PurchaseType.paperCard
                             ? '${_quantityController.text} عدد'
                             : '${((double.tryParse(_costPerUnitController.text) ?? 0) * 100).toStringAsFixed(0)}% (${_costPerUnitController.text})',
                       ),
                       Padding(
-                        padding: EdgeInsets.symmetric(vertical: 16.h), // ریسپانسیو
-                        child: Divider(height: 1, color: const Color(0xFFF1F1F1)),
+                        padding: EdgeInsets.symmetric(
+                          vertical: 16.h,
+                        ), // ریسپانسیو
+                        child: Divider(
+                          height: 1,
+                          color: const Color(0xFFF1F1F1),
+                        ),
                       ),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
                             'مجموعه پرداختی نهایی',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15.sp, color: Colors.black87), // ریسپانسیو
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15.sp,
+                              color: Colors.black87,
+                            ), // ریسپانسیو
                           ),
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.end,
@@ -728,7 +868,11 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
                               ),
                               Text(
                                 'AFN (افغانی)',
-                                style: TextStyle(fontSize: 10.sp, fontWeight: FontWeight.bold, color: Colors.grey), // ریسپانسیو
+                                style: TextStyle(
+                                  fontSize: 10.sp,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey,
+                                ), // ریسپانسیو
                               ),
                             ],
                           ),
@@ -762,19 +906,33 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
                         children: [
                           Row(
                             children: [
-                              Icon(Icons.account_balance_wallet_outlined, size: 20.sp, color: Colors.blueGrey), // ریسپانسیو
+                              Icon(
+                                Icons.account_balance_wallet_outlined,
+                                size: 20.sp,
+                                color: Colors.blueGrey,
+                              ), // ریسپانسیو
                               SizedBox(width: 8.w), // ریسپانسیو
                               Text(
                                 'جزئیات پرداخت',
-                                style: TextStyle(fontSize: 15.sp, fontWeight: FontWeight.bold), // ریسپانسیو
+                                style: TextStyle(
+                                  fontSize: 15.sp,
+                                  fontWeight: FontWeight.bold,
+                                ), // ریسپانسیو
                               ),
                             ],
                           ),
                           Container(
-                            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h), // ریسپانسیو
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 10.w,
+                              vertical: 4.h,
+                            ), // ریسپانسیو
                             decoration: BoxDecoration(
-                              color: _getStatusColor(_paymentStatus).withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(8.r), // ریسپانسیو
+                              color: _getStatusColor(
+                                _paymentStatus,
+                              ).withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(
+                                8.r,
+                              ), // ریسپانسیو
                             ),
                             child: Text(
                               _getStatusText(_paymentStatus),
@@ -787,11 +945,13 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
                           ),
                         ],
                       ),
-                      SizedBox(height:12.h), // ریسپانسیو
+                      SizedBox(height: 12.h), // ریسپانسیو
 
                       TextFormField(
                         controller: _actualPaidController,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
                         textInputAction: TextInputAction.done,
                         scrollPadding: EdgeInsets.only(bottom: 180.h),
 
@@ -866,25 +1026,42 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
                         onChanged: (value) => _calculateDiscount(),
                       ),
 
-                      if (_paymentStatus == 'PARTIAL' || (_calculateDiscountAmount() > 0))
+                      if (_paymentStatus == 'PARTIAL' ||
+                          (_calculateDiscountAmount() > 0))
                         Padding(
                           padding: EdgeInsets.only(top: 16.h), // ریسپانسیو
                           child: Container(
                             padding: EdgeInsets.all(12.r), // ریسپانسیو
                             decoration: BoxDecoration(
                               color: Colors.green.shade50,
-                              borderRadius: BorderRadius.circular(12.r), // ریسپانسیو
+                              borderRadius: BorderRadius.circular(
+                                12.r,
+                              ), // ریسپانسیو
                               border: Border.all(color: Colors.green.shade100),
                             ),
                             child: Row(
                               children: [
-                                Icon(Icons.celebration_outlined, size: 18.sp, color: Colors.green), // ریسپانسیو
+                                Icon(
+                                  Icons.celebration_outlined,
+                                  size: 18.sp,
+                                  color: Colors.green,
+                                ), // ریسپانسیو
                                 SizedBox(width: 8.w), // ریسپانسیو
-                                Text('تخفیف خرید شما:', style: TextStyle(fontSize: 12.sp, color: Colors.green)), // ریسپانسیو
+                                Text(
+                                  'تخفیف خرید شما:',
+                                  style: TextStyle(
+                                    fontSize: 12.sp,
+                                    color: Colors.green,
+                                  ),
+                                ), // ریسپانسیو
                                 const Spacer(),
                                 Text(
                                   '${_calculateDiscountAmount()} ؋',
-                                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 14.sp), // ریسپانسیو
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green,
+                                    fontSize: 14.sp,
+                                  ), // ریسپانسیو
                                 ),
                               ],
                             ),
@@ -950,8 +1127,18 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: TextStyle(color: Colors.grey, fontSize: 13.sp)), // ریسپانسیو
-        Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.sp, color: Colors.black87)), // ریسپانسیو
+        Text(
+          label,
+          style: TextStyle(color: Colors.grey, fontSize: 13.sp),
+        ), // ریسپانسیو
+        Text(
+          value,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 14.sp,
+            color: Colors.black87,
+          ),
+        ), // ریسپانسیو
       ],
     );
   }
@@ -974,7 +1161,10 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
                 });
               },
               child: Container(
-                padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 16.w), // ریسپانسیو
+                padding: EdgeInsets.symmetric(
+                  vertical: 12.h,
+                  horizontal: 16.w,
+                ), // ریسپانسیو
                 decoration: BoxDecoration(
                   color: _selectedType == PurchaseType.paperCard
                       ? Colors.white
@@ -982,12 +1172,12 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
                   borderRadius: BorderRadius.circular(8.r), // ریسپانسیو
                   boxShadow: _selectedType == PurchaseType.paperCard
                       ? [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 2,
-                      offset: const Offset(0, 1),
-                    ),
-                  ]
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 2,
+                            offset: const Offset(0, 1),
+                          ),
+                        ]
                       : null,
                 ),
                 child: Text(
@@ -1013,7 +1203,10 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
                 });
               },
               child: Container(
-                padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 16.w), // ریسپانسیو
+                padding: EdgeInsets.symmetric(
+                  vertical: 12.h,
+                  horizontal: 16.w,
+                ), // ریسپانسیو
                 decoration: BoxDecoration(
                   color: _selectedType == PurchaseType.sentCredit
                       ? Colors.white
@@ -1021,12 +1214,12 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
                   borderRadius: BorderRadius.circular(8.r), // ریسپانسیو
                   boxShadow: _selectedType == PurchaseType.sentCredit
                       ? [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 2,
-                      offset: const Offset(0, 1),
-                    ),
-                  ]
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 2,
+                            offset: const Offset(0, 1),
+                          ),
+                        ]
                       : null,
                 ),
                 child: Text(
@@ -1093,24 +1286,28 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
                           ),
                           boxShadow: isSelected
                               ? [
-                            BoxShadow(
-                              color: const Color(0xFFEA2A33).withOpacity(0.05),
-                              blurRadius: 20,
-                              offset: const Offset(0, -2),
-                            ),
-                          ]
+                                  BoxShadow(
+                                    color: const Color(
+                                      0xFFEA2A33,
+                                    ).withOpacity(0.05),
+                                    blurRadius: 20,
+                                    offset: const Offset(0, -2),
+                                  ),
+                                ]
                               : null,
                         ),
                         child: ClipOval(
-                          child: operator['useSvg'] == true && operator['svgPath'] != null
+                          child:
+                              operator['useSvg'] == true &&
+                                  operator['svgPath'] != null
                               ? SvgPicture.asset(
-                            operator['svgPath'] as String,
-                            fit: BoxFit.contain,
-                          )
+                                  operator['svgPath'] as String,
+                                  fit: BoxFit.contain,
+                                )
                               : Container(
-                            color: Colors.white,
-                            child: const Icon(Icons.signal_cellular_alt),
-                          ),
+                                  color: Colors.white,
+                                  child: const Icon(Icons.signal_cellular_alt),
+                                ),
                         ),
                       ),
                       SizedBox(height: 8.h), // ریسپانسیو
@@ -1118,7 +1315,9 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
                         operator['title'] as String,
                         style: TextStyle(
                           fontSize: 12.sp, // ریسپانسیو
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                          fontWeight: isSelected
+                              ? FontWeight.bold
+                              : FontWeight.w500,
                           color: isSelected
                               ? const Color(0xFFEA2A33)
                               : const Color(0xFF994D51),
@@ -1176,12 +1375,12 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
                   ),
                   boxShadow: isSelected
                       ? [
-                    BoxShadow(
-                      color: const Color(0xFFEA2A33).withOpacity(0.1),
-                      blurRadius: 4,
-                      spreadRadius: 1,
-                    ),
-                  ]
+                          BoxShadow(
+                            color: const Color(0xFFEA2A33).withOpacity(0.1),
+                            blurRadius: 4,
+                            spreadRadius: 1,
+                          ),
+                        ]
                       : null,
                 ),
                 child: Center(
@@ -1205,12 +1404,12 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
   }
 
   Widget _buildTextField(
-      String label,
-      TextEditingController controller, {
-        Function(String)? onChanged,
-        bool isNumber = false,
-        bool isReadOnly = false,
-      }) {
+    String label,
+    TextEditingController controller, {
+    Function(String)? onChanged,
+    bool isNumber = false,
+    bool isReadOnly = false,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1234,7 +1433,10 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
             children: [
               Container(
                 margin: EdgeInsets.only(left: 16.w), // ریسپانسیو
-                padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h), // ریسپانسیو
+                padding: EdgeInsets.symmetric(
+                  horizontal: 8.w,
+                  vertical: 4.h,
+                ), // ریسپانسیو
                 decoration: BoxDecoration(
                   color: const Color(0xFFFCF8F8),
                   borderRadius: BorderRadius.circular(4.r), // ریسپانسیو
@@ -1251,7 +1453,8 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
               Expanded(
                 child: TextField(
                   controller: controller,
-                  readOnly: label.contains('قیمت فی واحد') &&
+                  readOnly:
+                      label.contains('قیمت فی واحد') &&
                       _selectedType == PurchaseType.sentCredit,
                   keyboardType: isNumber
                       ? TextInputType.numberWithOptions(decimal: true)
@@ -1264,10 +1467,17 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
                         ? unitBuyPrice.toStringAsFixed(2)
                         : '0',
                     border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(horizontal: 16.w), // ریسپانسیو
-                    suffixIcon: label.contains('قیمت فی واحد') &&
-                        _selectedType == PurchaseType.sentCredit
-                        ? Icon(Icons.lock, size: 16.sp, color: Colors.grey) // ریسپانسیو
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 16.w,
+                    ), // ریسپانسیو
+                    suffixIcon:
+                        label.contains('قیمت فی واحد') &&
+                            _selectedType == PurchaseType.sentCredit
+                        ? Icon(
+                            Icons.lock,
+                            size: 16.sp,
+                            color: Colors.grey,
+                          ) // ریسپانسیو
                         : null,
                   ),
                   style: TextStyle(
@@ -1296,11 +1506,11 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
   }
 
   Widget _buildDropdown(
-      String label,
-      List<String> items,
-      String value,
-      Function(String?) onChanged,
-      ) {
+    String label,
+    List<String> items,
+    String value,
+    Function(String?) onChanged,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1327,16 +1537,18 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
                 value: value,
                 isExpanded: true,
                 items: items
-                    .map((e) => DropdownMenuItem(
-                  value: e,
-                  child: Text(
-                    e,
-                    style: TextStyle(
-                      fontSize: 16.sp, // ریسپانسیو
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ))
+                    .map(
+                      (e) => DropdownMenuItem(
+                        value: e,
+                        child: Text(
+                          e,
+                          style: TextStyle(
+                            fontSize: 16.sp, // ریسپانسیو
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    )
                     .toList(),
                 onChanged: onChanged,
               ),
@@ -1349,21 +1561,31 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
 
   Color _getStatusColor(String status) {
     switch (status) {
-      case 'FULL': return Colors.green;
-      case 'PARTIAL': return Colors.orange;
-      case 'PENDING': return Colors.red;
-      case 'OVERPAID': return Colors.blue;
-      default: return Colors.grey;
+      case 'FULL':
+        return Colors.green;
+      case 'PARTIAL':
+        return Colors.orange;
+      case 'PENDING':
+        return Colors.red;
+      case 'OVERPAID':
+        return Colors.blue;
+      default:
+        return Colors.grey;
     }
   }
 
   String _getStatusText(String status) {
     switch (status) {
-      case 'FULL': return 'پرداخت کامل';
-      case 'PARTIAL': return 'پرداخت جزئی';
-      case 'PENDING': return 'در انتظار پرداخت';
-      case 'OVERPAID': return 'پرداخت اضافی';
-      default: return 'نامشخص';
+      case 'FULL':
+        return 'پرداخت کامل';
+      case 'PARTIAL':
+        return 'پرداخت جزئی';
+      case 'PENDING':
+        return 'در انتظار پرداخت';
+      case 'OVERPAID':
+        return 'پرداخت اضافی';
+      default:
+        return 'نامشخص';
     }
   }
 

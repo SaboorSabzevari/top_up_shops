@@ -53,7 +53,9 @@ class AboutUsPage extends StatelessWidget {
                     const SizedBox(height: 12),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 4),
+                        horizontal: 12,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: primaryColor.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(999),
@@ -144,9 +146,7 @@ class AboutUsPage extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 16),
               decoration: BoxDecoration(
                 border: Border(
-                  top: BorderSide(
-                    color: Colors.grey.withOpacity(0.2),
-                  ),
+                  top: BorderSide(color: Colors.grey.withOpacity(0.2)),
                 ),
               ),
               child: Column(
@@ -162,14 +162,11 @@ class AboutUsPage extends StatelessWidget {
                   SizedBox(height: 4),
                   Text(
                     'طراحی شده با ❤️ برای افغانستان',
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: Colors.grey,
-                    ),
+                    style: TextStyle(fontSize: 10, color: Colors.grey),
                   ),
                 ],
               ),
-            )
+            ),
           ],
         ),
       ),

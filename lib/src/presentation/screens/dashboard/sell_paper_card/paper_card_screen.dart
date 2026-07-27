@@ -19,7 +19,9 @@ class PaperTopupSalePage extends ConsumerStatefulWidget {
 class _PaperTopupSalePageState extends ConsumerState<PaperTopupSalePage> {
   // متغیرهای محاسبه فروش
   int quantity = 1;
-  late TextEditingController quantityController = TextEditingController(text: quantity.toString());
+  late TextEditingController quantityController = TextEditingController(
+    text: quantity.toString(),
+  );
   String operator = 'awcc';
   int amount = 100;
   int price = 100;
@@ -28,12 +30,14 @@ class _PaperTopupSalePageState extends ConsumerState<PaperTopupSalePage> {
   // ---------- متغیرهای جدید جستجوی مشتری (الهام گرفته از send_credit_screen) ----------
   final TextEditingController customerNameCtrl = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
-  final LayerLink _layerLink = LayerLink(); // کلید اصلی برای چسباندن لیست به فیلد
+  final LayerLink _layerLink =
+      LayerLink(); // کلید اصلی برای چسباندن لیست به فیلد
 
   Timer? _debounce;
   List<Map<String, dynamic>> _searchResults = [];
   OverlayEntry? _overlayEntry;
   int? selectedCustomerId;
+  String? selectedCustomerRemoteId;
 
   // رنگ‌ها (برای هماهنگی با تم)
   static const Color primary = Color(0xFFEA2A33);
@@ -72,13 +76,17 @@ class _PaperTopupSalePageState extends ConsumerState<PaperTopupSalePage> {
       _removeOverlay();
       setState(() {
         selectedCustomerId = null; // اگر متن پاک شد، انتخاب مشتری هم لغو شود
+        selectedCustomerRemoteId = null;
       });
       return;
     }
 
     _debounce = Timer(const Duration(milliseconds: 300), () async {
       // جستجو در دیتابیس
-      final results = await DatabaseHelper.instance.searchCustomers(query, user!.shopId);
+      final results = await DatabaseHelper.instance.searchCustomers(
+        query,
+        user!.shopId,
+      );
 
       if (mounted) {
         setState(() {
@@ -97,7 +105,9 @@ class _PaperTopupSalePageState extends ConsumerState<PaperTopupSalePage> {
 
     _overlayEntry = OverlayEntry(
       builder: (context) => Positioned(
-        width: size.width - 32.w, // تنظیم عرض متناسب با پدینگ صفحه (16 چپ + 16 راست)
+        width:
+            size.width -
+            32.w, // تنظیم عرض متناسب با پدینگ صفحه (16 چپ + 16 راست)
         child: CompositedTransformFollower(
           link: _layerLink,
           showWhenUnlinked: false,
@@ -111,29 +121,36 @@ class _PaperTopupSalePageState extends ConsumerState<PaperTopupSalePage> {
               child: _searchResults.isEmpty
                   ? _buildNotFoundWidget()
                   : ListView.separated(
-                padding: EdgeInsets.zero,
-                shrinkWrap: true,
-                itemCount: _searchResults.length,
-                separatorBuilder: (_, __) => const Divider(height: 1),
-                itemBuilder: (context, index) {
-                  final customer = _searchResults[index];
-                  return ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: Colors.red.shade50,
-                      child: Icon(Icons.person, color: primary, size: 20.sp),
+                      padding: EdgeInsets.zero,
+                      shrinkWrap: true,
+                      itemCount: _searchResults.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (context, index) {
+                        final customer = _searchResults[index];
+                        return ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: Colors.red.shade50,
+                            child: Icon(
+                              Icons.person,
+                              color: primary,
+                              size: 20.sp,
+                            ),
+                          ),
+                          title: Text(
+                            customer['name'],
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14.sp,
+                            ),
+                          ),
+                          subtitle: Text(
+                            "کد: ${customer['customer_code'] ?? '---'}",
+                            style: TextStyle(fontSize: 12.sp, color: textMuted),
+                          ),
+                          onTap: () => _selectCustomer(customer),
+                        );
+                      },
                     ),
-                    title: Text(
-                      customer['name'],
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.sp),
-                    ),
-                    subtitle: Text(
-                      "کد: ${customer['customer_code'] ?? '---'}",
-                      style: TextStyle(fontSize: 12.sp, color: textMuted),
-                    ),
-                    onTap: () => _selectCustomer(customer),
-                  );
-                },
-              ),
             ),
           ),
         ),
@@ -154,6 +171,7 @@ class _PaperTopupSalePageState extends ConsumerState<PaperTopupSalePage> {
 
     setState(() {
       selectedCustomerId = customer['id'];
+      selectedCustomerRemoteId = customer['remote_id'] as String?;
       customerNameCtrl.text = customer['name']?.toString() ?? '';
     });
   }
@@ -205,10 +223,15 @@ class _PaperTopupSalePageState extends ConsumerState<PaperTopupSalePage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text("متوجه شدم", style: TextStyle(color: Colors.red, fontSize: 14.sp)),
-          )
+            child: Text(
+              "متوجه شدم",
+              style: TextStyle(color: Colors.red, fontSize: 14.sp),
+            ),
+          ),
         ],
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12.r),
+        ),
       ),
     );
   }
@@ -216,13 +239,6 @@ class _PaperTopupSalePageState extends ConsumerState<PaperTopupSalePage> {
   Future<void> _processPaperSale() async {
     final user = ref.read(currentUserProvider);
     if (user == null) return;
-
-    // بررسی موجودی
-    int currentStock = await DatabaseHelper.instance.getPaperStockCount(operator, amount, user.shopId);
-    if (currentStock < quantity) {
-      _showErrorDialog("موجودی کافی نیست! موجودی فعلی کارت $amount ؋ $operator: $currentStock عدد");
-      return;
-    }
 
     double totalPrice = (price * quantity).toDouble();
 
@@ -240,7 +256,10 @@ class _PaperTopupSalePageState extends ConsumerState<PaperTopupSalePage> {
 
     final transactionData = {
       'customer_id': selectedCustomerId,
-      'customer_name': customerNameCtrl.text.isNotEmpty ? customerNameCtrl.text : "مشتری متفرقه (کارت $operator)",
+      'customer_remote_id': selectedCustomerRemoteId,
+      'customer_name': customerNameCtrl.text.isNotEmpty
+          ? customerNameCtrl.text
+          : "مشتری متفرقه (کارت $operator)",
       'customer_type': selectedCustomerId != null ? 'REGISTERED' : 'WALK_IN',
       'transaction_type': 'PAPER',
       'operator_name': operator.toUpperCase(),
@@ -259,8 +278,13 @@ class _PaperTopupSalePageState extends ConsumerState<PaperTopupSalePage> {
     };
 
     try {
-      await DatabaseHelper.instance.saveDetailedTransaction(transactionData, user);
-      await DatabaseHelper.instance.decreasePaperStock(operator, amount, quantity, user.shopId);
+      await DatabaseHelper.instance.recordPaperSale(
+        transactionData: transactionData,
+        operator: operator,
+        faceValue: amount,
+        quantity: quantity,
+        user: user,
+      );
 
       ref.invalidate(transactionsProvider);
       ref.invalidate(todayProfitProvider);
@@ -270,16 +294,21 @@ class _PaperTopupSalePageState extends ConsumerState<PaperTopupSalePage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(remaining > 0
-                ? 'فروش ثبت شد. مانده بدهی: ${remaining.toStringAsFixed(0)}'
-                : 'فروش نقدی با موفقیت ثبت شد'),
+            content: Text(
+              remaining > 0
+                  ? 'فروش ثبت شد. مانده بدهی: ${remaining.toStringAsFixed(0)}'
+                  : 'فروش نقدی با موفقیت ثبت شد',
+            ),
             backgroundColor: Colors.green,
           ),
         );
 
         paidCtrl.clear();
         customerNameCtrl.clear();
-        setState(() { selectedCustomerId = null; });
+        setState(() {
+          selectedCustomerId = null;
+          selectedCustomerRemoteId = null;
+        });
       }
     } catch (e) {
       _showErrorDialog('خطا در ثبت فروش: $e');
@@ -291,7 +320,6 @@ class _PaperTopupSalePageState extends ConsumerState<PaperTopupSalePage> {
     ScreenUtil.init(context, designSize: const Size(360, 800));
 
     return Scaffold(
-
       backgroundColor: const Color(0xfff8f6f6),
       appBar: _buildAppBar(),
       bottomNavigationBar: _buildBottomBar(),
@@ -300,7 +328,14 @@ class _PaperTopupSalePageState extends ConsumerState<PaperTopupSalePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('انتخاب مشتری', style: TextStyle(fontSize: 12.sp, fontWeight: FontWeight.bold, color: Colors.grey)),
+            Text(
+              'انتخاب مشتری',
+              style: TextStyle(
+                fontSize: 12.sp,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey,
+              ),
+            ),
             SizedBox(height: 8.h),
 
             CompositedTransformTarget(
@@ -317,31 +352,42 @@ class _PaperTopupSalePageState extends ConsumerState<PaperTopupSalePage> {
                   onChanged: _onSearchChanged,
                   decoration: InputDecoration(
                     hintText: 'جستجوی نام مشتری...',
-                    hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 12.sp),
+                    hintStyle: TextStyle(
+                      color: Colors.grey.shade400,
+                      fontSize: 12.sp,
+                    ),
                     prefixIcon: Icon(
-                      selectedCustomerId != null ? Icons.person_search_outlined : Icons.search,
-                      color: selectedCustomerId != null ? Colors.green : primary,
+                      selectedCustomerId != null
+                          ? Icons.person_search_outlined
+                          : Icons.search,
+                      color: selectedCustomerId != null
+                          ? Colors.green
+                          : primary,
                     ),
                     suffixIcon: customerNameCtrl.text.isNotEmpty
                         ? IconButton(
-                      icon: const Icon(Icons.close, size: 18),
-                      onPressed: () {
-                        customerNameCtrl.clear();
-                        setState(() {
-                          selectedCustomerId = null;
-                        });
-                        _removeOverlay();
-                      },
-                    )
+                            icon: const Icon(Icons.close, size: 18),
+                            onPressed: () {
+                              customerNameCtrl.clear();
+                              setState(() {
+                                selectedCustomerId = null;
+                                selectedCustomerRemoteId = null;
+                              });
+                              _removeOverlay();
+                            },
+                          )
                         : null,
                     border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 14.h),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12.w,
+                      vertical: 14.h,
+                    ),
                   ),
                 ),
               ),
             ),
-            // -----------------------------------------------------
 
+            // -----------------------------------------------------
             SizedBox(height: 24.h),
             _sectionTitle('شرکت مخابراتی'),
             SizedBox(height: 12.h),
@@ -369,7 +415,11 @@ class _PaperTopupSalePageState extends ConsumerState<PaperTopupSalePage> {
       backgroundColor: Colors.white,
       title: Text(
         'فروش کارت کاغذی',
-        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18.sp, color: Colors.black),
+        style: TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 18.sp,
+          color: Colors.black,
+        ),
       ),
       centerTitle: true,
       leading: IconButton(
@@ -386,11 +436,22 @@ class _PaperTopupSalePageState extends ConsumerState<PaperTopupSalePage> {
     );
   }
 
-  Widget _amountInput(String label, TextEditingController ctrl, String? suffixText) {
+  Widget _amountInput(
+    String label,
+    TextEditingController ctrl,
+    String? suffixText,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(fontSize: 12.sp, color:Colors.black,fontWeight: FontWeight.w600)),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12.sp,
+            color: Colors.black,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
 
         SizedBox(height: 6.h),
         Container(
@@ -408,7 +469,10 @@ class _PaperTopupSalePageState extends ConsumerState<PaperTopupSalePage> {
             decoration: InputDecoration(
               suffixText: suffixText,
               border: InputBorder.none,
-              contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 14.h),
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 12.w,
+                vertical: 14.h,
+              ),
             ),
           ),
         ),
@@ -418,9 +482,17 @@ class _PaperTopupSalePageState extends ConsumerState<PaperTopupSalePage> {
 
   Widget _operatorGrid() {
     final List<Map<String, dynamic>> operators = [
-      {'title': 'افغان بیسیم', 'value': 'awcc', 'svgPath': 'assets/svg/awcc.svg'},
+      {
+        'title': 'افغان بیسیم',
+        'value': 'awcc',
+        'svgPath': 'assets/svg/awcc.svg',
+      },
       {'title': 'روشن', 'value': 'roshan', 'svgPath': 'assets/svg/roshan.svg'},
-      {'title': 'اتصالات', 'value': 'etisalat', 'svgPath': 'assets/svg/etisalat.svg'},
+      {
+        'title': 'اتصالات',
+        'value': 'etisalat',
+        'svgPath': 'assets/svg/etisalat.svg',
+      },
       {'title': 'اتوما', 'value': 'mtn', 'svgPath': 'assets/svg/atoma.svg'},
       {'title': 'سلام', 'value': 'salaam', 'svgPath': 'assets/svg/salaam.svg'},
     ];
@@ -444,7 +516,11 @@ class _PaperTopupSalePageState extends ConsumerState<PaperTopupSalePage> {
     );
   }
 
-  Widget _operatorItem({required String title, required String value, String? svgPath}) {
+  Widget _operatorItem({
+    required String title,
+    required String value,
+    String? svgPath,
+  }) {
     final active = operator == value;
     return GestureDetector(
       onTap: () => setState(() => operator = value),
@@ -454,7 +530,10 @@ class _PaperTopupSalePageState extends ConsumerState<PaperTopupSalePage> {
         decoration: BoxDecoration(
           color: active ? primary.withOpacity(0.08) : Colors.white,
           borderRadius: BorderRadius.circular(16.r),
-          border: Border.all(color: active ? primary : Colors.grey.shade300, width: active ? 2 : 1),
+          border: Border.all(
+            color: active ? primary : Colors.grey.shade300,
+            width: active ? 2 : 1,
+          ),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -462,7 +541,10 @@ class _PaperTopupSalePageState extends ConsumerState<PaperTopupSalePage> {
             Container(
               width: 45.w,
               height: 45.h,
-              decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white),
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white,
+              ),
               child: Center(
                 child: svgPath != null
                     ? SvgPicture.asset(svgPath, width: 28.w)
@@ -506,8 +588,18 @@ class _PaperTopupSalePageState extends ConsumerState<PaperTopupSalePage> {
             decoration: BoxDecoration(
               color: active ? primary : Colors.white,
               borderRadius: BorderRadius.circular(12.r),
-              border: Border.all(color: active ? primary : Colors.grey.shade300),
-              boxShadow: active ? [BoxShadow(color: primary.withOpacity(0.3), blurRadius: 4, offset: const Offset(0, 2))] : [],
+              border: Border.all(
+                color: active ? primary : Colors.grey.shade300,
+              ),
+              boxShadow: active
+                  ? [
+                      BoxShadow(
+                        color: primary.withOpacity(0.3),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ]
+                  : [],
             ),
             child: Text(
               v.toString(),
@@ -530,7 +622,14 @@ class _PaperTopupSalePageState extends ConsumerState<PaperTopupSalePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('قیمت فی کارت', style: TextStyle(fontSize: 12.sp, color:Colors.black,fontWeight: FontWeight.w600)),
+              Text(
+                'قیمت فی کارت',
+                style: TextStyle(
+                  fontSize: 12.sp,
+                  color: Colors.black,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
               SizedBox(height: 4.h),
               Container(
                 decoration: BoxDecoration(
@@ -546,7 +645,8 @@ class _PaperTopupSalePageState extends ConsumerState<PaperTopupSalePage> {
                     border: InputBorder.none,
                     contentPadding: EdgeInsets.symmetric(vertical: 12.h),
                   ),
-                  onChanged: (v) => setState(() => price = int.tryParse(v) ?? price),
+                  onChanged: (v) =>
+                      setState(() => price = int.tryParse(v) ?? price),
                 ),
               ),
             ],
@@ -557,7 +657,14 @@ class _PaperTopupSalePageState extends ConsumerState<PaperTopupSalePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('تعداد', style: TextStyle(fontSize: 12.sp, color:Colors.black,fontWeight: FontWeight.w600)),
+              Text(
+                'تعداد',
+                style: TextStyle(
+                  fontSize: 12.sp,
+                  color: Colors.black,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
 
               SizedBox(height: 4.h),
               Container(
@@ -602,9 +709,23 @@ class _PaperTopupSalePageState extends ConsumerState<PaperTopupSalePage> {
             mainAxisAlignment: MainAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('مجموع قابل پرداخت:', style: TextStyle(fontSize: 12.sp, color: Colors.black,fontWeight: FontWeight.w600)),
+              Text(
+                'مجموع قابل پرداخت:',
+                style: TextStyle(
+                  fontSize: 12.sp,
+                  color: Colors.black,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
               SizedBox(width: 4.w),
-              Text('$total ؋', style: TextStyle(fontSize: 12.sp, fontWeight: FontWeight.bold, color: primary)),
+              Text(
+                '$total ؋',
+                style: TextStyle(
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.bold,
+                  color: primary,
+                ),
+              ),
             ],
           ),
           SizedBox(width: 16.w),
@@ -613,10 +734,19 @@ class _PaperTopupSalePageState extends ConsumerState<PaperTopupSalePage> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: primary,
                 padding: EdgeInsets.symmetric(vertical: 12.h),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12.r),
+                ),
               ),
               icon: Icon(Icons.check_circle, size: 16.sp, color: Colors.white),
-              label: Text('ثبت فروش', style: TextStyle(color: Colors.white, fontSize: 12.sp, fontWeight: FontWeight.bold)),
+              label: Text(
+                'ثبت فروش',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               onPressed: () {
                 if (selectedCustomerId == null) {
                   _showAnonymousSaleDialog();
@@ -636,15 +766,23 @@ class _PaperTopupSalePageState extends ConsumerState<PaperTopupSalePage> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text("فروش به مشتری ناشناس؟"),
-        content: const Text("مشتری انتخاب نشده است. آیا به صورت فروش آزاد ثبت شود؟"),
+        content: const Text(
+          "مشتری انتخاب نشده است. آیا به صورت فروش آزاد ثبت شود؟",
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("خیر")),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("خیر"),
+          ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(ctx);
               _processPaperSale();
             },
-            style: ElevatedButton.styleFrom(backgroundColor: primary, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primary,
+              foregroundColor: Colors.white,
+            ),
             child: const Text("بله، ثبت کن"),
           ),
         ],

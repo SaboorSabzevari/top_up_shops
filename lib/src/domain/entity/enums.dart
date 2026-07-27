@@ -1,4 +1,1 @@
-enum CustomerType {
-  normal,    
-  wholesale,
-}
+enum CustomerType { normal, wholesale }

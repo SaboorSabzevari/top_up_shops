@@ -8,13 +8,17 @@ Future<List<Map<String, dynamic>>> getFilteredReport({
 }) async {
   final db = await DatabaseHelper.instance.database;
 
-  return await db.rawQuery('''
+  return await db.rawQuery(
+    '''
     SELECT *, 
     (sent_amount - paid_amount) as debt 
     FROM transactions 
     WHERE operator_name = ? 
     AND shop_id = ? 
+    AND deleted_at IS NULL
     AND date(created_at) BETWEEN ? AND ?
     ORDER BY created_at DESC
-  ''', [companyName, shopId, startDate, endDate]);
+  ''',
+    [companyName, shopId, startDate, endDate],
+  );
 }

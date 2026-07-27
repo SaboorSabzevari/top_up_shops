@@ -35,9 +35,9 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
   static const Color surfaceLightColor = Color(0xFFFFFFFF);
 
   Future<void> _generatePdfReport(
-      List<TransactionModel> transactions,
-      String customerName,
-      ) async {
+    List<TransactionModel> transactions,
+    String customerName,
+  ) async {
     try {
       final pdf = pw.Document();
       final fontData = await rootBundle.load(
@@ -47,11 +47,11 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
 
       double totalInvoice = transactions.fold(
         0,
-            (sum, item) => sum + item.totalPrice,
+        (sum, item) => sum + item.totalPrice,
       );
       double totalPaid = transactions.fold(
         0,
-            (sum, item) => sum + item.paidAmount,
+        (sum, item) => sum + item.paidAmount,
       );
 
       double remaining = totalInvoice - totalPaid;
@@ -65,7 +65,8 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
         statusColor = PdfColors.red900;
       } else if (remaining < 0) {
         statusLabel = "وضعیت: طلبکار";
-        statusText = "${intl.NumberFormat('#,###').format(remaining.abs())} افغانی ";
+        statusText =
+            "${intl.NumberFormat('#,###').format(remaining.abs())} افغانی ";
         statusColor = PdfColors.green900;
       } else {
         statusLabel = "وضعیت:";
@@ -91,7 +92,11 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                   ),
                   pw.Text(
                     "تاریخ گزارش: ${intl.DateFormat('yyyy/MM/dd HH:mm').format(DateTime.now())}",
-                    style: pw.TextStyle(font: ttfFont, fontSize: 10, color: PdfColors.grey600),
+                    style: pw.TextStyle(
+                      font: ttfFont,
+                      fontSize: 10,
+                      color: PdfColors.grey600,
+                    ),
                   ),
                 ],
               ),
@@ -126,12 +131,14 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                   String formattedDate;
                   try {
                     DateTime dt = DateTime.parse(t.createdAt);
-                    formattedDate = "${dt.year}/${dt.month.toString().padLeft(2,'0')}/${dt.day.toString().padLeft(2,'0')}";
+                    formattedDate =
+                        "${dt.year}/${dt.month.toString().padLeft(2, '0')}/${dt.day.toString().padLeft(2, '0')}";
                   } catch (e) {
                     formattedDate = t.createdAt;
                   }
 
-                  final description = (t.companyCode.isNotEmpty && t.companyCode != '—')
+                  final description =
+                      (t.companyCode.isNotEmpty && t.companyCode != '—')
                       ? "${t.operator} (کد: ${t.companyCode})"
                       : t.operator;
 
@@ -209,9 +216,9 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
   }
 
   Future<void> _generateExcelReport(
-      List<TransactionModel> transactions,
-      String customerName,
-      ) async {
+    List<TransactionModel> transactions,
+    String customerName,
+  ) async {
     try {
       var excel = xl.Excel.createExcel();
       xl.Sheet sheetObject = excel['Report'];
@@ -291,7 +298,8 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
       ]);
 
       final directory = Directory('/storage/emulated/0/Download');
-      final String fileName = "Report_${customerName}_${DateTime.now().millisecondsSinceEpoch}.xlsx";
+      final String fileName =
+          "Report_${customerName}_${DateTime.now().millisecondsSinceEpoch}.xlsx";
       final File file = File("${directory.path}/$fileName");
 
       await file.writeAsBytes(excel.save()!);
@@ -323,7 +331,10 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
     final user = ref.read(currentUserProvider);
 
     if (user != null) {
-      final results = await DatabaseHelper.instance.ajaxSearch(query, user.shopId);
+      final results = await DatabaseHelper.instance.ajaxSearch(
+        query,
+        user.shopId,
+      );
 
       if (mounted) {
         setState(() => _searchResults = results);
@@ -402,7 +413,11 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                 data: (list) {
                   if (list.isEmpty) return const SizedBox.shrink();
                   return PopupMenuButton<String>(
-                    icon: Icon(Icons.ios_share, color: primaryColor, size: 24.w),
+                    icon: Icon(
+                      Icons.ios_share,
+                      color: primaryColor,
+                      size: 24.w,
+                    ),
                     onSelected: (value) {
                       if (value == 'pdf') {
                         _generatePdfReport(list, _selectedCustomer!['name']);
@@ -413,18 +428,23 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                     itemBuilder: (context) => [
                       PopupMenuItem(
                         value: 'pdf',
-                        child: Text("خروجی PDF", style: TextStyle(fontSize: 14.sp)),
+                        child: Text(
+                          "خروجی PDF",
+                          style: TextStyle(fontSize: 14.sp),
+                        ),
                       ),
                       PopupMenuItem(
                         value: 'excel',
-                        child: Text("خروجی Excel", style: TextStyle(fontSize: 14.sp)),
+                        child: Text(
+                          "خروجی Excel",
+                          style: TextStyle(fontSize: 14.sp),
+                        ),
                       ),
                     ],
                   );
                 },
-                loading: () => Center(
-                  child: CircularProgressIndicator(strokeWidth: 2.w),
-                ),
+                loading: () =>
+                    Center(child: CircularProgressIndicator(strokeWidth: 2.w)),
                 error: (e, st) =>
                     Icon(Icons.error_outline, color: Colors.orange, size: 24.w),
               );
@@ -460,7 +480,10 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
           hintStyle: TextStyle(fontFamily: 'Noto Sans Arabic', fontSize: 14.sp),
           prefixIcon: Icon(Icons.search, color: primaryColor, size: 24.w),
           border: InputBorder.none,
-          contentPadding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 16.w),
+          contentPadding: EdgeInsets.symmetric(
+            vertical: 12.h,
+            horizontal: 16.w,
+          ),
         ),
       ),
     );
@@ -503,7 +526,7 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
               });
 
               ref.read(selectedCustomerIdProvider.notifier).state =
-              customer['id'];
+                  customer['id'];
               customer['name'];
 
               FocusScope.of(context).unfocus();
@@ -515,16 +538,16 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
   }
 
   Widget _buildCustomerHeader(
-      bool isDark,
-      List<TransactionModel> transactions,
-      ) {
+    bool isDark,
+    List<TransactionModel> transactions,
+  ) {
     double totalInvoiceAmount = transactions.fold(
       0,
-          (sum, item) => sum + item.totalPrice,
+      (sum, item) => sum + item.totalPrice,
     );
     double totalPaidAmount = transactions.fold(
       0,
-          (sum, item) => sum + item.paidAmount,
+      (sum, item) => sum + item.paidAmount,
     );
     double totalRemaining = totalInvoiceAmount - totalPaidAmount;
 
@@ -580,23 +603,23 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                             ? Colors.white.withOpacity(0.1)
                             : const Color(0xFFE5E7EB),
                         backgroundImage:
-                        _selectedCustomer!['profile_image'] != null
+                            _selectedCustomer!['profile_image'] != null
                             ? FileImage(
-                          File(_selectedCustomer!['profile_image']),
-                        )
+                                File(_selectedCustomer!['profile_image']),
+                              )
                             : null,
                         child: _selectedCustomer!['profile_image'] == null
                             ? Text(
-                          _selectedCustomer!['name'].isNotEmpty
-                              ? _selectedCustomer!['name'][0]
-                              .toUpperCase()
-                              : '?',
-                          style: TextStyle(
-                            color: isDark ? Colors.white : Colors.black,
-                            fontSize: 20.sp,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        )
+                                _selectedCustomer!['name'].isNotEmpty
+                                    ? _selectedCustomer!['name'][0]
+                                          .toUpperCase()
+                                    : '?',
+                                style: TextStyle(
+                                  color: isDark ? Colors.white : Colors.black,
+                                  fontSize: 20.sp,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              )
                             : null,
                       ),
                       SizedBox(width: 16.w),
@@ -754,10 +777,10 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
   }
 
   Widget _buildDatePicker(
-      BuildContext context,
-      bool isDark,
-      DateTimeRange? range,
-      ) {
+    BuildContext context,
+    bool isDark,
+    DateTimeRange? range,
+  ) {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
       child: Row(
@@ -806,10 +829,7 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
           if (range != null) ...[
             Expanded(
               child: Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: 12.w,
-                  vertical: 8.h,
-                ),
+                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
                 decoration: BoxDecoration(
                   color: isDark
                       ? surfaceDarkColor.withOpacity(0.5)
@@ -841,8 +861,8 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                     ),
                     GestureDetector(
                       onTap: () =>
-                      ref.read(reportDateRangeProvider.notifier).state =
-                      null,
+                          ref.read(reportDateRangeProvider.notifier).state =
+                              null,
                       child: Container(
                         padding: EdgeInsets.symmetric(
                           horizontal: 8.w,
@@ -893,7 +913,11 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.calendar_today, size: 16.w, color: Colors.grey),
+                      Icon(
+                        Icons.calendar_today,
+                        size: 16.w,
+                        color: Colors.grey,
+                      ),
                       SizedBox(width: 8.w),
                       Text(
                         "انتخاب بازه زمانی",
@@ -914,9 +938,13 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
     );
   }
 
-  Widget _buildTransactionsTable(bool isDark, AsyncValue<List<TransactionModel>> transactionsAsync) {
+  Widget _buildTransactionsTable(
+    bool isDark,
+    AsyncValue<List<TransactionModel>> transactionsAsync,
+  ) {
     return transactionsAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator(color: primaryColor)),
+      loading: () =>
+          const Center(child: CircularProgressIndicator(color: primaryColor)),
       error: (e, _) => Center(child: Text("خطا: $e")),
       data: (list) {
         if (list.isEmpty) return _buildEmptyState(isDark);
@@ -936,13 +964,17 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                   child: Table(
                     columnWidths: const {
                       0: FlexColumnWidth(2.5), // شماره موبایل
-                      1: FlexColumnWidth(2),   // فاکتور
-                      2: FlexColumnWidth(2),   // دریافتی
+                      1: FlexColumnWidth(2), // فاکتور
+                      2: FlexColumnWidth(2), // دریافتی
                       3: FlexColumnWidth(1.5), // تاریخ
                     },
                     children: [
                       TableRow(
-                        decoration: BoxDecoration(color: isDark ? Colors.white.withOpacity(0.05) : Colors.grey.shade50),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? Colors.white.withOpacity(0.05)
+                              : Colors.grey.shade50,
+                        ),
                         children: [
                           _buildHeaderCell("شماره موبایل", isLeft: true),
                           _buildHeaderCell("فاکتور"),
@@ -950,19 +982,33 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                           _buildHeaderCell("تاریخ", hasIcon: false),
                         ],
                       ),
-                      ...list.map((t) => TableRow(
-                        children: [
-                          _buildDataCell(_cleanPhone(t.phoneNumber), isLeft: true, isBold: false),
-                          _buildDataCell(intl.NumberFormat('#,###').format(t.totalPrice)),
-                          _buildDataCell(intl.NumberFormat('#,###').format(t.paidAmount), color: Colors.green),
-                          _buildDataCell(t.createdAt.split('T')[0], isGrey: true, fontSize: 10),
-                        ],
-                      )),
+                      ...list.map(
+                        (t) => TableRow(
+                          children: [
+                            _buildDataCell(
+                              _cleanPhone(t.phoneNumber),
+                              isLeft: true,
+                              isBold: false,
+                            ),
+                            _buildDataCell(
+                              intl.NumberFormat('#,###').format(t.totalPrice),
+                            ),
+                            _buildDataCell(
+                              intl.NumberFormat('#,###').format(t.paidAmount),
+                              color: Colors.green,
+                            ),
+                            _buildDataCell(
+                              t.createdAt.split('T')[0],
+                              isGrey: true,
+                              fontSize: 10,
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
               ),
-
             ],
           ),
         );
@@ -974,30 +1020,53 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
     return Container(
       padding: EdgeInsets.all(12.r),
       decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: isDark ? Colors.white10 : Colors.black12)),
+        border: Border(
+          bottom: BorderSide(color: isDark ? Colors.white10 : Colors.black12),
+        ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text("لیست تراکنش‌ها", style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.bold)),
+          Text(
+            "لیست تراکنش‌ها",
+            style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.bold),
+          ),
           Container(
             padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 2.h),
-            decoration: BoxDecoration(color: primaryColor.withOpacity(0.1), borderRadius: BorderRadius.circular(20.r)),
-            child: Text("$count مورد", style: TextStyle(fontSize: 10.sp, color: primaryColor, fontWeight: FontWeight.bold)),
+            decoration: BoxDecoration(
+              color: primaryColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20.r),
+            ),
+            child: Text(
+              "$count مورد",
+              style: TextStyle(
+                fontSize: 10.sp,
+                color: primaryColor,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
     );
   }
-  Widget _buildHeaderCell(String label, {bool hasIcon = true, bool isLeft = false}) {
+
+  Widget _buildHeaderCell(
+    String label, {
+    bool hasIcon = true,
+    bool isLeft = false,
+  }) {
     return TableCell(
       child: Container(
         padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 4.w),
         child: Row(
-          mainAxisAlignment: isLeft ? MainAxisAlignment.start : MainAxisAlignment.center,
+          mainAxisAlignment: isLeft
+              ? MainAxisAlignment.start
+              : MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (hasIcon) Icon(Icons.unfold_more, size: 12.w, color: primaryColor),
+            if (hasIcon)
+              Icon(Icons.unfold_more, size: 12.w, color: primaryColor),
             if (hasIcon) SizedBox(width: 2.w),
             Flexible(
               child: FittedBox(
@@ -1019,7 +1088,14 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
     );
   }
 
-  Widget _buildDataCell(String text, {bool isLeft = false, bool isBold = true, Color? color, bool isGrey = false, double fontSize = 11}) {
+  Widget _buildDataCell(
+    String text, {
+    bool isLeft = false,
+    bool isBold = true,
+    Color? color,
+    bool isGrey = false,
+    double fontSize = 11,
+  }) {
     return TableCell(
       child: Container(
         padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 4.w),
@@ -1039,6 +1115,7 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
       ),
     );
   }
+
   Widget _buildCustomTable(List<TransactionModel> transactions, bool isDark) {
     return Container(
       constraints: BoxConstraints(
@@ -1074,15 +1151,16 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Flexible(
-                        child: FittedBox( // <--- متن را مقیاس‌بندی می‌کند تا جا شود
+                        child: FittedBox(
+                          // <--- متن را مقیاس‌بندی می‌کند تا جا شود
                           fit: BoxFit.scaleDown,
-                          child: Text('شماره موبایل',),
+                          child: Text('شماره موبایل'),
                         ),
                       ),
                       SizedBox(width: 4.w),
                       Icon(Icons.swap_vert, size: 14.w, color: primaryColor),
                     ],
-                  )
+                  ),
                 ),
               ),
               TableCell(
@@ -1159,8 +1237,8 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
             final bool isEvenRow = index % 2 == 0;
             final Color rowColor = isEvenRow
                 ? (isDark
-                ? Colors.white.withOpacity(0.02)
-                : const Color(0xFFF9FAFB))
+                      ? Colors.white.withOpacity(0.02)
+                      : const Color(0xFFF9FAFB))
                 : Colors.transparent;
 
             return TableRow(
@@ -1311,7 +1389,6 @@ class _CustomerReportScreenState extends ConsumerState<CustomerReportScreen> {
               color: isDark ? const Color(0xFFD1D5DB) : const Color(0xFF374151),
             ),
           ),
-
         ],
       ),
     );

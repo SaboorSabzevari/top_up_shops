@@ -84,7 +84,7 @@ class AppLocalizationsPs extends AppLocalizations {
 
   @override
   // TODO: implement memorizeMe
-  String get memorizeMe =>  "ما په یاد ولره.";
+  String get memorizeMe => "ما په یاد ولره.";
 
   @override
   // TODO: implement forgotPassword
@@ -107,7 +107,7 @@ class AppLocalizationsPs extends AppLocalizations {
   String get notification => "اعلانونه";
   @override
   // TODO: implement generalSetting
-  String get generalSetting =>"عمومی تنظیمات";
+  String get generalSetting => "عمومی تنظیمات";
 
   @override
   // TODO: implement logout
@@ -160,6 +160,4 @@ class AppLocalizationsPs extends AppLocalizations {
   String get transactionSaveAndSubmit => "معامله ثبت او لېږل";
   String get customerNotFound => "پیرودونکی ونه موندل شو";
   String get submitNewCustomer => "نوی پیرودونکی ثبتول";
-
-
 }

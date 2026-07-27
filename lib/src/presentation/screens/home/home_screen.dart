@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:persistent_bottom_nav_bar/persistent_bottom_nav_bar.dart';
 import 'package:top_up_shops/src/presentation/screens/dashboard/dashboard_screen.dart';
-import 'package:top_up_shops/src/presentation/theme/colors.dart' hide kPrimaryColor;
+import 'package:top_up_shops/src/presentation/theme/colors.dart'
+    hide kPrimaryColor;
 
 import '../analyze/analyze_screen.dart';
 import '../customer/customer_list.dart';
@@ -40,7 +41,7 @@ class HomeScreen extends StatelessWidget {
       PersistentBottomNavBarItem(
         icon: const Icon(Icons.people),
         title: "مشتریان",
-        activeColorPrimary:kPrimaryColor,
+        activeColorPrimary: kPrimaryColor,
         inactiveColorPrimary: Colors.grey,
 
         iconSize: 26,
@@ -76,7 +77,7 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PersistentTabView(
-    hideNavigationBarWhenKeyboardAppears: false,
+      hideNavigationBarWhenKeyboardAppears: false,
       context,
       controller: _controller,
       screens: _buildScreens(),
@@ -100,7 +101,6 @@ class HomeScreen extends StatelessWidget {
         ],
       ),
 
-
       navBarStyle: NavBarStyle.style16, // استایل 16 معادل style15 است
       navBarHeight: 70,
       padding: EdgeInsets.symmetric(vertical: 8, horizontal: 12),
@@ -109,12 +109,9 @@ class HomeScreen extends StatelessWidget {
 
   // ----------------- صفحات -----------------
 
-
-
-
-
   Widget _buildTransactionsPage() {
-    return Scaffold( body: SafeArea(child: Center(child: Text("Customer"))),
+    return Scaffold(
+      body: SafeArea(child: Center(child: Text("Customer"))),
 
       // backgroundColor: Colors.grey.shade50,
       // appBar: AppBar(
@@ -217,52 +214,52 @@ class HomeScreen extends StatelessWidget {
       body: SafeArea(child: Center(child: Text("report"))),
 
       //   backgroundColor: Colors.grey.shade50,
-    //   appBar: AppBar(
-    //     title: const Text('گزارش‌ها'),
-    //     backgroundColor: Colors.purple,
-    //     foregroundColor: Colors.white,
-    //     elevation: 2,
-    //   ),
-    //   body: Padding(
-    //     padding: const EdgeInsets.all(20),
-    //     child: GridView.count(
-    //       crossAxisCount: 2,
-    //       crossAxisSpacing: 16,
-    //       mainAxisSpacing: 16,
-    //       children: [
-    //         _buildReportCard(
-    //           title: 'گزارش فروش',
-    //           icon: Icons.shopping_cart,
-    //           color: Colors.blue,
-    //         ),
-    //         _buildReportCard(
-    //           title: 'گزارش مالی',
-    //           icon: Icons.account_balance_wallet,
-    //           color: Colors.green,
-    //         ),
-    //         _buildReportCard(
-    //           title: 'گزارش مشتریان',
-    //           icon: Icons.people,
-    //           color: Colors.orange,
-    //         ),
-    //         _buildReportCard(
-    //           title: 'گزارش موجودی',
-    //           icon: Icons.inventory,
-    //           color: Colors.purple,
-    //         ),
-    //         _buildReportCard(
-    //           title: 'گزارش کارمندان',
-    //           icon: Icons.badge,
-    //           color: Colors.red,
-    //         ),
-    //         _buildReportCard(
-    //           title: 'گزارش کلی',
-    //           icon: Icons.summarize,
-    //           color: Colors.teal,
-    //         ),
-    //       ],
-    //     ),
-    //   ),
+      //   appBar: AppBar(
+      //     title: const Text('گزارش‌ها'),
+      //     backgroundColor: Colors.purple,
+      //     foregroundColor: Colors.white,
+      //     elevation: 2,
+      //   ),
+      //   body: Padding(
+      //     padding: const EdgeInsets.all(20),
+      //     child: GridView.count(
+      //       crossAxisCount: 2,
+      //       crossAxisSpacing: 16,
+      //       mainAxisSpacing: 16,
+      //       children: [
+      //         _buildReportCard(
+      //           title: 'گزارش فروش',
+      //           icon: Icons.shopping_cart,
+      //           color: Colors.blue,
+      //         ),
+      //         _buildReportCard(
+      //           title: 'گزارش مالی',
+      //           icon: Icons.account_balance_wallet,
+      //           color: Colors.green,
+      //         ),
+      //         _buildReportCard(
+      //           title: 'گزارش مشتریان',
+      //           icon: Icons.people,
+      //           color: Colors.orange,
+      //         ),
+      //         _buildReportCard(
+      //           title: 'گزارش موجودی',
+      //           icon: Icons.inventory,
+      //           color: Colors.purple,
+      //         ),
+      //         _buildReportCard(
+      //           title: 'گزارش کارمندان',
+      //           icon: Icons.badge,
+      //           color: Colors.red,
+      //         ),
+      //         _buildReportCard(
+      //           title: 'گزارش کلی',
+      //           icon: Icons.summarize,
+      //           color: Colors.teal,
+      //         ),
+      //       ],
+      //     ),
+      //   ),
     );
   }
 
@@ -356,10 +353,7 @@ class HomeScreen extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
-                      color: Colors.grey,
-                      fontSize: 14,
-                    ),
+                    style: const TextStyle(color: Colors.grey, fontSize: 14),
                   ),
                   const SizedBox(height: 4),
                   Row(
@@ -374,12 +368,7 @@ class HomeScreen extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Text(
-                        unit,
-                        style: TextStyle(
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
+                      Text(unit, style: TextStyle(color: Colors.grey.shade600)),
                     ],
                   ),
                 ],

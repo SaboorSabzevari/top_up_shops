@@ -37,7 +37,6 @@ class _DatabaseViewerScreenState extends State<DatabaseViewerScreen> {
       // ''');
 
       print('✅ تعداد خریدهای یافت شده: ${_purchases.length}');
-
     } catch (e) {
       print('❌ خطا در خواندن purchases: $e');
     } finally {
@@ -60,9 +59,7 @@ class _DatabaseViewerScreenState extends State<DatabaseViewerScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _purchases.isEmpty
-          ? const Center(
-        child: Text('هنوز خریدی ثبت نشده است'),
-      )
+          ? const Center(child: Text('هنوز خریدی ثبت نشده است'))
           : _buildPurchasesList(),
     );
   }
@@ -101,10 +98,7 @@ class _DatabaseViewerScreenState extends State<DatabaseViewerScreen> {
                 ),
                 Text(
                   'ID: ${purchase['id']}',
-                  style: const TextStyle(
-                    color: Colors.grey,
-                    fontSize: 12,
-                  ),
+                  style: const TextStyle(color: Colors.grey, fontSize: 12),
                 ),
               ],
             ),
@@ -113,14 +107,29 @@ class _DatabaseViewerScreenState extends State<DatabaseViewerScreen> {
 
             // اطلاعات اصلی
             if (isPaper) ...[
-              _buildInfoRow('🏢 تأمین‌کننده:', purchase['provider_name']?.toString() ?? '-'),
-              _buildInfoRow('📞 اپراتور:', purchase['operator_name']?.toString() ?? '-'),
+              _buildInfoRow(
+                '🏢 تأمین‌کننده:',
+                purchase['provider_name']?.toString() ?? '-',
+              ),
+              _buildInfoRow(
+                '📞 اپراتور:',
+                purchase['operator_name']?.toString() ?? '-',
+              ),
               _buildInfoRow('💰 مقدار کارت:', '${purchase['face_value']} AFN'),
               _buildInfoRow('🔢 تعداد:', '${purchase['quantity']} عدد'),
-              _buildInfoRow('📦 مقدار کل:', '${(purchase['face_value'] as int? ?? 0) * (purchase['quantity'] as int? ?? 1)} AFN'),
+              _buildInfoRow(
+                '📦 مقدار کل:',
+                '${(purchase['face_value'] as int? ?? 0) * (purchase['quantity'] as int? ?? 1)} AFN',
+              ),
             ] else ...[
-              _buildInfoRow('🏢 تأمین‌کننده:', purchase['provider_name']?.toString() ?? '-'),
-              _buildInfoRow('💰 مقدار کریدیت:', '${purchase['total_credit']} AFN'),
+              _buildInfoRow(
+                '🏢 تأمین‌کننده:',
+                purchase['provider_name']?.toString() ?? '-',
+              ),
+              _buildInfoRow(
+                '💰 مقدار کریدیت:',
+                '${purchase['total_credit']} AFN',
+              ),
             ],
 
             const SizedBox(height: 8),
@@ -129,7 +138,10 @@ class _DatabaseViewerScreenState extends State<DatabaseViewerScreen> {
             const Divider(),
             const SizedBox(height: 8),
 
-            _buildInfoRow('💵 قیمت فی واحد:', '${purchase['cost_per_unit']} AFN'),
+            _buildInfoRow(
+              '💵 قیمت فی واحد:',
+              '${purchase['cost_per_unit']} AFN',
+            ),
 
             if (purchase['actual_paid'] != null)
               _buildInfoRow(
@@ -139,7 +151,8 @@ class _DatabaseViewerScreenState extends State<DatabaseViewerScreen> {
                 color: Colors.green,
               ),
 
-            if (purchase['nominal_price'] != null && purchase['actual_paid'] != null)
+            if (purchase['nominal_price'] != null &&
+                purchase['actual_paid'] != null)
               _buildInfoRow(
                 '🎁 تخفیف:',
                 '${(purchase['nominal_price'] as num? ?? 0) - (purchase['actual_paid'] as num? ?? 0)} AFN',
@@ -159,14 +172,15 @@ class _DatabaseViewerScreenState extends State<DatabaseViewerScreen> {
             if (purchase['created_at'] != null)
               Row(
                 children: [
-                  const Icon(Icons.calendar_today, size: 14, color: Colors.grey),
+                  const Icon(
+                    Icons.calendar_today,
+                    size: 14,
+                    color: Colors.grey,
+                  ),
                   const SizedBox(width: 6),
                   Text(
                     purchase['created_at'].toString(),
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey,
-                    ),
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
                   ),
                 ],
               ),
@@ -176,7 +190,9 @@ class _DatabaseViewerScreenState extends State<DatabaseViewerScreen> {
     );
   }
 
-  Widget _buildInfoRow(String label, String value, {
+  Widget _buildInfoRow(
+    String label,
+    String value, {
     bool isBold = false,
     Color? color,
   }) {
@@ -211,21 +227,31 @@ class _DatabaseViewerScreenState extends State<DatabaseViewerScreen> {
 
   String _getPaymentStatusText(String status) {
     switch (status) {
-      case 'FULL': return 'پرداخت کامل';
-      case 'PARTIAL': return 'پرداخت جزئی';
-      case 'PENDING': return 'در انتظار پرداخت';
-      case 'OVERPAID': return 'پرداخت اضافی';
-      default: return status;
+      case 'FULL':
+        return 'پرداخت کامل';
+      case 'PARTIAL':
+        return 'پرداخت جزئی';
+      case 'PENDING':
+        return 'در انتظار پرداخت';
+      case 'OVERPAID':
+        return 'پرداخت اضافی';
+      default:
+        return status;
     }
   }
 
   Color _getPaymentStatusColor(String status) {
     switch (status) {
-      case 'FULL': return Colors.green;
-      case 'PARTIAL': return Colors.orange;
-      case 'PENDING': return Colors.red;
-      case 'OVERPAID': return Colors.blue;
-      default: return Colors.grey;
+      case 'FULL':
+        return Colors.green;
+      case 'PARTIAL':
+        return Colors.orange;
+      case 'PENDING':
+        return Colors.red;
+      case 'OVERPAID':
+        return Colors.blue;
+      default:
+        return Colors.grey;
     }
   }
 }

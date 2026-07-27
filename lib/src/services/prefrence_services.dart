@@ -5,9 +5,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 class PreferencesService {
   static const String _keyIsLoggedIn = 'is_logged_in';
   static const String _keyUserEmail = 'user_email';
-  static const String _keyUserId = 'user_id';      // جدید
-  static const String _keyUserRole = 'user_role';    // جدید
-  static const String _keyShopId = 'shop_id';      // جدید
+  static const String _keyUserId = 'user_id'; // جدید
+  static const String _keyUserRole = 'user_role'; // جدید
+  static const String _keyShopId = 'shop_id'; // جدید
   static const String _keySelectedLanguage = 'selected_language';
   static const String _keyLastLoginTime = 'last_login_time';
   static const String _keyRememberMe = 'remember_me';
@@ -19,9 +19,9 @@ class PreferencesService {
   // ==================== لاگین (اصلاح شده) ====================
   Future<void> saveLoginData({
     required String email,
-    required String uid,      // فیلد جدید
-    required String role,     // فیلد جدید
-    required String shopId,   // فیلد جدید
+    required String uid, // فیلد جدید
+    required String role, // فیلد جدید
+    required String shopId, // فیلد جدید
     required bool rememberMe,
   }) async {
     await _prefs.setBool(_keyIsLoggedIn, true);
@@ -100,6 +100,7 @@ class PreferencesNotifier extends AsyncNotifier<PreferencesService> {
   }
 }
 
-final preferencesServiceProvider = AsyncNotifierProvider<PreferencesNotifier, PreferencesService>(
-  PreferencesNotifier.new,
-);
+final preferencesServiceProvider =
+    AsyncNotifierProvider<PreferencesNotifier, PreferencesService>(
+      PreferencesNotifier.new,
+    );

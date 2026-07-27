@@ -45,7 +45,6 @@ class AuthState {
 
 // ۲. مدیریت منطق احراز هویت
 class AuthNotifier extends StateNotifier<AuthState> {
-
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final Ref ref;
@@ -53,7 +52,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   AuthNotifier(this.ref) : super(const AuthState(isLoggedIn: false)) {
     _init();
   }
-// داخل کلاس AuthNotifier
+  // داخل کلاس AuthNotifier
   Future<void> autoLogin() async {
     final currentUser = _auth.currentUser;
     if (currentUser != null) {
@@ -62,6 +61,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await _syncUserProfile(currentUser);
     }
   }
+
   Future<void> _init() async {
     await _loadSavedData();
 
@@ -73,18 +73,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
           await ref.read(currentUserProvider.notifier).setUser(userModel);
         }
 
-        state = state.copyWith(
-          user: user,
-          isLoggedIn: true,
-          isLoading: false,
-        );
+        state = state.copyWith(user: user, isLoggedIn: true, isLoading: false);
       } else {
         ref.read(currentUserProvider.notifier).state = null;
-        state = state.copyWith(
-          user: null,
-          isLoggedIn: false,
-          isLoading: false,
-        );
+        state = state.copyWith(user: null, isLoggedIn: false, isLoading: false);
       }
     });
   }
@@ -102,7 +94,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   // همگام‌سازی پروفایل کاربر با Firestore (بسیار حیاتی برای Multi-shop)
   // قبل از تغییر: Future<void> _syncUserProfile
-// بعد از تغییر:
+  // بعد از تغییر:
   Future<UserModel?> _syncUserProfile(User firebaseUser) async {
     print('🎯 ===== START SYNC USER PROFILE =====');
     print('👤 UID: ${firebaseUser.uid}');
@@ -120,7 +112,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final doc = await firestore
           .collection('users')
           .doc(firebaseUser.uid)
-          .get(GetOptions(source: Source.server));
+          .get(const GetOptions(source: Source.serverAndCache));
 
       print('📊 وضعیت داکیومنت:');
       print('   - Exists: ${doc.exists}');
@@ -128,10 +120,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       if (doc.exists && doc.data() != null) {
         final data = doc.data()!;
-        print('📋 فیلدهای موجود:');
-        data.forEach((key, value) {
-          print('   - $key: $value (${value.runtimeType})');
-        });
+
+          print('📋 تعداد فیلدهای پروفایل: ${data.keys.length}');
+
 
         // بررسی فیلدهای ضروری
         final hasRole = data.containsKey('role');
@@ -139,9 +130,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
         final role = data['role']?.toString();
         final shopId = data['shopId']?.toString();
 
-        print('🔍 بررسی فیلدهای حیاتی:');
-        print('   - role موجود است؟ $hasRole → $role');
-        print('   - shopId موجود است؟ $hasShopId → $shopId');
+
+          print('🔍 بررسی فیلدهای حیاتی: role=$hasRole, shopId=$hasShopId');
+
 
         if (!hasRole || !hasShopId) {
           print('❌ فیلدهای role یا shopId موجود نیستند!');
@@ -172,13 +163,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
             .get();
 
         print('🔎 تعداد کاربران با این ایمیل: ${allUsers.docs.length}');
-        for (var doc in allUsers.docs) {
-          print('   - ID: ${doc.id}, Data: ${doc.data()}');
+
+          for (var doc in allUsers.docs) {
+            print('   - ID: ${doc.id}');
+
         }
       }
 
       return null;
-
     } catch (e, stackTrace) {
       print('💥 خطای شدید در syncUserProfile:');
       print('   - Error: $e');
@@ -187,7 +179,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } finally {
       print('🏁 ===== END SYNC USER PROFILE =====');
     }
-  } Future<void> loginWithEmailAndPassword({
+  }
+
+  Future<void> loginWithEmailAndPassword({
     required String email,
     required String password,
     required bool rememberMe,
@@ -253,11 +247,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
   // تبدیل کدهای خطا به متن فارسی (فیکس ارور قبلی)
   String _getErrorMessage(String code) {
     switch (code) {
-      case 'user-not-found': return 'کاربر یافت نشد';
-      case 'wrong-password': return 'رمز عبور اشتباه است';
-      case 'invalid-email': return 'ایمیل نامعتبر است';
-      case 'user-disabled': return 'حساب کاربری مسدود شده است';
-      default: return 'خطا در ورود به حساب کاربری ($code)';
+      case 'user-not-found':
+        return 'کاربر یافت نشد';
+      case 'wrong-password':
+        return 'رمز عبور اشتباه است';
+      case 'invalid-email':
+        return 'ایمیل نامعتبر است';
+      case 'user-disabled':
+        return 'حساب کاربری مسدود شده است';
+      default:
+        return 'خطا در ورود به حساب کاربری ($code)';
     }
   }
   // داخل کلاس AuthNotifier در فایل auth_provider.dart

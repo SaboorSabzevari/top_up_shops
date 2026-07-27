@@ -104,11 +104,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     try {
       _hasShownSuccessSnackBar = false;
 
-      await ref.read(authProvider.notifier).loginWithEmailAndPassword(
-        email: email,
-        password: password,
-        rememberMe: rememberMe,
-      );
+      await ref
+          .read(authProvider.notifier)
+          .loginWithEmailAndPassword(
+            email: email,
+            password: password,
+            rememberMe: rememberMe,
+          );
 
       if (!mounted) return;
 
@@ -130,7 +132,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (_) => HomeScreen()),
-              (route) => false,
+          (route) => false,
         );
       } else if (authState.error != null) {
         _showSnackBar(
@@ -154,7 +156,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   @override
   Widget build(BuildContext context) {
     // مقداردهی اولیه ScreenUtil
-    ScreenUtil.init(context, designSize: const Size(360, 800)); // اندازه طراحی مورد نظر
+    ScreenUtil.init(
+      context,
+      designSize: const Size(360, 800),
+    ); // اندازه طراحی مورد نظر
 
     final l10n = AppLocalizations.of(context)!;
     final authState = ref.watch(authProvider);
@@ -182,12 +187,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       backgroundColor: kBackgroundColor,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 40.h), // ریسپانسیو
+          padding: EdgeInsets.symmetric(
+            horizontal: 24.w,
+            vertical: 40.h,
+          ), // ریسپانسیو
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               SizedBox(height: 40.h), // ریسپانسیو
-
               // LOGO
               Container(
                 height: 100.h, // ریسپانسیو
@@ -226,7 +233,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               ),
 
               SizedBox(height: 16.h), // ریسپانسیو
-
               // LANGUAGE
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -321,27 +327,27 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   ),
                   child: authState.isLoading
                       ? SizedBox(
-                    height: 24.h, // ریسپانسیو
-                    width: 24.w, // ریسپانسیو
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
+                          height: 24.h, // ریسپانسیو
+                          width: 24.w, // ریسپانسیو
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
                       : Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        l10n.login,
-                        style: TextStyle(
-                          fontSize: 18.sp, // ریسپانسیو
-                          fontWeight: FontWeight.bold,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              l10n.login,
+                              style: TextStyle(
+                                fontSize: 18.sp, // ریسپانسیو
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            SizedBox(width: 8.w), // ریسپانسیو
+                            Icon(Icons.login, size: 20.sp), // ریسپانسیو
+                          ],
                         ),
-                      ),
-                      SizedBox(width: 8.w), // ریسپانسیو
-                      Icon(Icons.login, size: 20.sp), // ریسپانسیو
-                    ],
-                  ),
                 ),
               ),
 
@@ -388,7 +394,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h), // ریسپانسیو
+        padding: EdgeInsets.symmetric(
+          horizontal: 20.w,
+          vertical: 10.h,
+        ), // ریسپانسیو
         decoration: BoxDecoration(
           color: isSelected ? Colors.red.shade100 : Colors.transparent,
           borderRadius: BorderRadius.circular(20.r), // ریسپانسیو
@@ -458,14 +467,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               prefixIcon: Icon(icon, size: 20.sp), // ریسپانسیو
               suffixIcon: isPassword
                   ? IconButton(
-                icon: Icon(
-                  isPasswordVisible
-                      ? Icons.visibility_off
-                      : Icons.visibility,
-                  size: 20.sp, // ریسپانسیو
-                ),
-                onPressed: onToggleVisibility,
-              )
+                      icon: Icon(
+                        isPasswordVisible
+                            ? Icons.visibility_off
+                            : Icons.visibility,
+                        size: 20.sp, // ریسپانسیو
+                      ),
+                      onPressed: onToggleVisibility,
+                    )
                   : null,
             ),
           ),

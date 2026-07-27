@@ -23,7 +23,6 @@ class FirebaseService {
 
       // تست اتصال
       await _testConnection();
-
     } catch (e) {
       debugPrint('خطا در راه‌اندازی Firebase: $e');
       // در صورت شکست، اپلیکیشن را با حالت آفلاین راه‌اندازی کن

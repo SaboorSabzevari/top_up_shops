@@ -5,9 +5,10 @@ import '../domain/entity/providers.dart';
 import '../providers/session_provider.dart';
 
 // تغییر به StateNotifierProvider که Ref می‌گیرد
-final providerListProvider = StateNotifierProvider<ProviderNotifier, List<ProviderCompany>>((ref) {
-  return ProviderNotifier(ref);
-});
+final providerListProvider =
+    StateNotifierProvider<ProviderNotifier, List<ProviderCompany>>((ref) {
+      return ProviderNotifier(ref);
+    });
 
 class ProviderNotifier extends StateNotifier<List<ProviderCompany>> {
   final Ref ref;
@@ -24,7 +25,9 @@ class ProviderNotifier extends StateNotifier<List<ProviderCompany>> {
     }
 
     // متد getAllProviders باید در DatabaseHelper اصلاح شود تا shopId بگیرد
-    final providersData = await DatabaseHelper.instance.getProviders();
+    final providersData = await DatabaseHelper.instance.getProviders(
+      user.shopId,
+    );
 
     // تبدیل Map به Object (فرض بر این است که مدل ProviderCompany متد fromMap دارد)
     state = providersData.map((m) => ProviderCompany.fromMap(m)).toList();

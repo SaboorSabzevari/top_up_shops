@@ -15,7 +15,9 @@ class _UssdActionPageState extends State<UssdActionPage> {
 
   String _response = "در انتظار ارسال کد...";
   bool _isLoading = false;
-  final TextEditingController _ussdController = TextEditingController(text: "*141*1#");
+  final TextEditingController _ussdController = TextEditingController(
+    text: "*141*1#",
+  );
 
   Future<void> _executeUssd() async {
     // ۱. چک کردن مجوز تماس
@@ -37,7 +39,6 @@ class _UssdActionPageState extends State<UssdActionPage> {
         setState(() {
           _response = res ?? "پاسخ خالی دریافت شد";
         });
-
       } on PlatformException catch (e) {
         setState(() {
           _response = "خطای سیستمی: ${e.message}";
@@ -84,13 +85,16 @@ class _UssdActionPageState extends State<UssdActionPage> {
               ),
             ),
             const SizedBox(height: 40),
-            const Text("نتیجه دریافت شده:", style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text(
+              "نتیجه دریافت شده:",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 10),
             Container(
               padding: const EdgeInsets.all(15),
               decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(10)
+                color: Colors.grey[200],
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
                 _response,

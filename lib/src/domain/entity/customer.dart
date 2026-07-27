@@ -2,6 +2,7 @@ import 'dart:convert';
 
 class Customer {
   final int? id;
+  final String? remoteId;
   final String name;
   final String customerCode;
   final String type; // 'ORDINARY' یا 'WHOLESALE'
@@ -15,6 +16,7 @@ class Customer {
 
   Customer({
     this.id,
+    this.remoteId,
     required this.name,
     required this.customerCode,
     required this.type,
@@ -30,6 +32,7 @@ class Customer {
   Map<String, dynamic> toMap() {
     return {
       'id': id,
+      'remote_id': remoteId,
       'name': name,
       'customer_code': customerCode,
       'type': type,
@@ -39,7 +42,9 @@ class Customer {
       'profile_image': profileImage,
       'tazkira_image': tazkiraImage,
       'phones': phones.isNotEmpty ? jsonEncode(phones) : '[]',
-      'wholesale_codes': wholesaleCodes.isNotEmpty ? jsonEncode(wholesaleCodes) : '[]',
+      'wholesale_codes': wholesaleCodes.isNotEmpty
+          ? jsonEncode(wholesaleCodes)
+          : '[]',
     };
   }
 
@@ -60,11 +65,12 @@ class Customer {
     // پارس کردن wholesale_codes
     List<Map<String, String>> wholesaleList = [];
     try {
-      if (map['wholesale_codes'] != null && (map['wholesale_codes'] as String).isNotEmpty) {
+      if (map['wholesale_codes'] != null &&
+          (map['wholesale_codes'] as String).isNotEmpty) {
         final parsed = jsonDecode(map['wholesale_codes'] as String);
         if (parsed is List) {
           wholesaleList = List<Map<String, String>>.from(
-              parsed.map((item) => Map<String, String>.from(item))
+            parsed.map((item) => Map<String, String>.from(item)),
           );
         }
       }
@@ -74,6 +80,7 @@ class Customer {
 
     return Customer(
       id: map['id'] as int?,
+      remoteId: map['remote_id'] as String?,
       name: map['name'] as String,
       customerCode: map['customer_code'] as String,
       type: map['type'] as String,

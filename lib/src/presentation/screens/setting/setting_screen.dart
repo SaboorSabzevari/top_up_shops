@@ -14,8 +14,9 @@ import 'call_with_support.dart';
 import 'edit_profile_screen.dart' hide kPrimaryColor;
 import 'package:top_up_shops/src/presentation/screens/setting/unit_screen.dart';
 
-
-final profileInfoProvider = FutureProvider.autoDispose<Map<String, String>>((ref) async {
+final profileInfoProvider = FutureProvider.autoDispose<Map<String, String>>((
+  ref,
+) async {
   final prefs = await SharedPreferences.getInstance();
   return {
     'name': prefs.getString('store_name') ?? 'فروشگاه من',
@@ -41,7 +42,10 @@ class SettingsScreen extends ConsumerWidget {
         centerTitle: true,
         title: Text(
           l10n.settings,
-          style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+          style: const TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
       body: SingleChildScrollView(
@@ -80,7 +84,12 @@ class SettingsScreen extends ConsumerWidget {
                   iconColor: Colors.green,
                   title: l10n.setUnit,
                   onTap: () {
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => const UnitScreen()));
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const UnitScreen(),
+                      ),
+                    );
                   },
                 ),
               ],
@@ -99,7 +108,12 @@ class SettingsScreen extends ConsumerWidget {
                   title: l10n.callWithSupport,
                   trailingIcon: Icons.call,
                   onTap: () {
-                    Navigator.push(context, MaterialPageRoute(builder: (context)=>ContactSupportPage()));
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ContactSupportPage(),
+                      ),
+                    );
                   },
                 ),
                 _navigationTile(
@@ -107,7 +121,13 @@ class SettingsScreen extends ConsumerWidget {
                   iconBg: Colors.purple.shade50,
                   iconColor: Colors.purple,
                   title: 'شرایط و مقررات',
-                  onTap: () { Navigator.push(context, MaterialPageRoute(builder: (context)=>TermsAndConditionsPage()));
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => TermsAndConditionsPage(),
+                      ),
+                    );
                   },
                 ),
                 _navigationTile(
@@ -115,10 +135,12 @@ class SettingsScreen extends ConsumerWidget {
                   iconBg: Colors.purple.shade50,
                   iconColor: Colors.purple,
                   title: l10n.aboutUs,
-                  onTap: () { Navigator.push(context, MaterialPageRoute(builder: (context)=>AboutUsPage()));
-
-
-                         },
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => AboutUsPage()),
+                    );
+                  },
                 ),
               ],
             ),
@@ -137,7 +159,7 @@ class SettingsScreen extends ConsumerWidget {
                     if (context.mounted) {
                       Navigator.of(context).pushAndRemoveUntil(
                         MaterialPageRoute(builder: (_) => const LoginPage()),
-                            (route) => false,
+                        (route) => false,
                       );
                     }
                   },
@@ -154,7 +176,10 @@ class SettingsScreen extends ConsumerWidget {
                     children: [
                       Text(
                         l10n.logout,
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(width: 8),
                       const Icon(Icons.logout),
@@ -175,12 +200,19 @@ class SettingsScreen extends ConsumerWidget {
   // ================= Widgets =================
 
   // 3. اصلاح ویجت هدر پروفایل برای نمایش اطلاعات واقعی
-  Widget _profileHeader(BuildContext context, WidgetRef ref, AsyncValue<Map<String, String>> profileAsync) {
+  Widget _profileHeader(
+    BuildContext context,
+    WidgetRef ref,
+    AsyncValue<Map<String, String>> profileAsync,
+  ) {
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Container(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+        ),
         child: Row(
           children: [
             Stack(
@@ -192,16 +224,25 @@ class SettingsScreen extends ConsumerWidget {
                     return CircleAvatar(
                       radius: 40,
                       backgroundColor: Colors.grey.shade200,
-                      backgroundImage: (imagePath != null && imagePath.isNotEmpty)
+                      backgroundImage:
+                          (imagePath != null && imagePath.isNotEmpty)
                           ? FileImage(File(imagePath)) as ImageProvider
                           : null, // اگر عکس نبود نال برمی‌گرداند
                       child: (imagePath == null || imagePath.isEmpty)
-                          ? const Icon(Icons.store, size: 40, color: Colors.grey)
+                          ? const Icon(
+                              Icons.store,
+                              size: 40,
+                              color: Colors.grey,
+                            )
                           : null,
                     );
                   },
-                  loading: () => const CircleAvatar(radius: 40, child: CircularProgressIndicator()),
-                  error: (_, __) => const CircleAvatar(radius: 40, child: Icon(Icons.error)),
+                  loading: () => const CircleAvatar(
+                    radius: 40,
+                    child: CircularProgressIndicator(),
+                  ),
+                  error: (_, __) =>
+                      const CircleAvatar(radius: 40, child: Icon(Icons.error)),
                 ),
 
                 const Positioned(
@@ -224,11 +265,18 @@ class SettingsScreen extends ConsumerWidget {
                   profileAsync.when(
                     data: (data) => Text(
                       data['name']!,
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    loading: () => Container(width: 100, height: 20, color: Colors.grey.shade200),
+                    loading: () => Container(
+                      width: 100,
+                      height: 20,
+                      color: Colors.grey.shade200,
+                    ),
                     error: (_, __) => const Text('خطا'),
                   ),
 
@@ -240,7 +288,11 @@ class SettingsScreen extends ConsumerWidget {
                       data['phone']!,
                       style: const TextStyle(color: Colors.grey),
                     ),
-                    loading: () => Container(width: 80, height: 15, color: Colors.grey.shade200),
+                    loading: () => Container(
+                      width: 80,
+                      height: 15,
+                      color: Colors.grey.shade200,
+                    ),
                     error: (_, __) => const SizedBox(),
                   ),
 
@@ -251,14 +303,19 @@ class SettingsScreen extends ConsumerWidget {
                       // 4. رفتن به صفحه ویرایش و رفرش کردن اطلاعات هنگام بازگشت
                       await Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => const EditProfilePage()),
+                        MaterialPageRoute(
+                          builder: (context) => const EditProfilePage(),
+                        ),
                       );
                       // این خط باعث می‌شود وقتی کاربر برگشت، اطلاعات دوباره خوانده شود
                       ref.refresh(profileInfoProvider);
                     },
                     child: const Text(
                       'ویرایش پروفایل',
-                      style: TextStyle(color: Color(0xFFEA2A33), fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        color: Color(0xFFEA2A33),
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ],
@@ -299,7 +356,13 @@ class SettingsScreen extends ConsumerWidget {
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
       child: Align(
         alignment: Alignment.centerRight,
-        child: Text(title, style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+        child: Text(
+          title,
+          style: const TextStyle(
+            color: Colors.grey,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
     );
   }
@@ -308,7 +371,10 @@ class SettingsScreen extends ConsumerWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+        ),
         child: Column(children: children),
       ),
     );
@@ -324,7 +390,10 @@ class SettingsScreen extends ConsumerWidget {
   }) {
     return ListTile(
       onTap: onTap,
-      leading: CircleAvatar(backgroundColor: iconBg, child: Icon(icon, color: iconColor)),
+      leading: CircleAvatar(
+        backgroundColor: iconBg,
+        child: Icon(icon, color: iconColor),
+      ),
       title: Text(title),
       trailing: Icon(trailingIcon ?? Icons.chevron_right, color: Colors.grey),
     );
@@ -341,7 +410,10 @@ class SettingsScreen extends ConsumerWidget {
     return SwitchListTile(
       value: value,
       onChanged: onChanged,
-      secondary: CircleAvatar(backgroundColor: iconBg, child: Icon(icon, color: iconColor)),
+      secondary: CircleAvatar(
+        backgroundColor: iconBg,
+        child: Icon(icon, color: iconColor),
+      ),
       title: Text(title),
       activeColor: const Color(0xFFEA2A33),
     );

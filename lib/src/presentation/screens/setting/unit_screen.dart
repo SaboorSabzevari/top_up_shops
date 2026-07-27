@@ -3,7 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart'; // اضافه شد
 import '../../../data/local/app_database.dart';
 import '../../../providers/session_provider.dart'; // اضافه شد
 
-class UnitScreen extends ConsumerStatefulWidget { // تغییر به ConsumerStatefulWidget
+class UnitScreen extends ConsumerStatefulWidget {
+  // تغییر به ConsumerStatefulWidget
   const UnitScreen({super.key});
 
   @override
@@ -51,7 +52,10 @@ class _UnitScreenState extends ConsumerState<UnitScreen> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('تنظیمات واحد با موفقیت برای فروشگاه شما ذخیره شد', textAlign: TextAlign.center),
+          content: Text(
+            'تنظیمات واحد با موفقیت برای فروشگاه شما ذخیره شد',
+            textAlign: TextAlign.center,
+          ),
           backgroundColor: Colors.green,
         ),
       );
@@ -66,33 +70,40 @@ class _UnitScreenState extends ConsumerState<UnitScreen> {
       appBar: AppBar(
         elevation: 0,
         backgroundColor: const Color(0xffF8F6F6),
-        title: const Text('تنظیمات واحد',
-            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+        title: const Text(
+          'تنظیمات واحد',
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+        ),
         centerTitle: true,
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : Column(
-        children: [
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(16),
               children: [
-                const Text('تعیین نرخ واحد سیستم',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                const Text(
-                  'این نرخ‌ها فقط برای فروشگاه شما و بر اساس واحد پولی شما محاسبه می‌شوند.',
-                  style: TextStyle(color: Colors.grey, fontSize: 13),
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      const Text(
+                        'تعیین نرخ واحد سیستم',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'این نرخ‌ها فقط برای فروشگاه شما و بر اساس واحد پولی شما محاسبه می‌شوند.',
+                        style: TextStyle(color: Colors.grey, fontSize: 13),
+                      ),
+                      const SizedBox(height: 24),
+                      _buildSettingsCard(),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 24),
-                _buildSettingsCard(),
+                _buildBottomButton(),
               ],
             ),
-          ),
-          _buildBottomButton(),
-        ],
-      ),
     );
   }
 
@@ -111,8 +122,10 @@ class _UnitScreenState extends ConsumerState<UnitScreen> {
             children: [
               Icon(Icons.payments_outlined, color: Color(0xffEA2A33)),
               SizedBox(width: 10),
-              Text('نرخ‌های خرید و فروش',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              Text(
+                'نرخ‌های خرید و فروش',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              ),
             ],
           ),
           const Divider(height: 30),
@@ -128,7 +141,10 @@ class _UnitScreenState extends ConsumerState<UnitScreen> {
     );
   }
 
-  Widget _buildField({required String label, required TextEditingController controller}) {
+  Widget _buildField({
+    required String label,
+    required TextEditingController controller,
+  }) {
     return Expanded(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -142,7 +158,9 @@ class _UnitScreenState extends ConsumerState<UnitScreen> {
               suffixText: 'AFN',
               filled: true,
               fillColor: const Color(0xffF9FAFB),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           ),
         ],
@@ -157,11 +175,19 @@ class _UnitScreenState extends ConsumerState<UnitScreen> {
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xffEA2A33),
           minimumSize: const Size.fromHeight(55),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
         ),
         onPressed: _save,
-        child: const Text('ذخیره تغییرات',
-            style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+        child: const Text(
+          'ذخیره تغییرات',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
     );
   }

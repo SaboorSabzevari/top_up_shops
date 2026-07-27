@@ -51,7 +51,9 @@ class AppStyles {
 }
 
 // --- Providers ---
-final profileInfoProvider = FutureProvider.autoDispose<Map<String, String>>((ref) async {
+final profileInfoProvider = FutureProvider.autoDispose<Map<String, String>>((
+  ref,
+) async {
   final prefs = await SharedPreferences.getInstance();
   return {
     'name': prefs.getString('store_name') ?? 'فروشگاه من',
@@ -59,7 +61,6 @@ final profileInfoProvider = FutureProvider.autoDispose<Map<String, String>>((ref
     'image': prefs.getString('store_image_path') ?? '',
   };
 });
-
 
 final isSyncingProvider = StateProvider<bool>((ref) => false);
 
@@ -92,7 +93,11 @@ class DashboardScreen extends ConsumerWidget {
     }
   }
 
-  void _showSnackBar(BuildContext context, String message, {bool isError = false}) {
+  void _showSnackBar(
+    BuildContext context,
+    String message, {
+    bool isError = false,
+  }) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message, style: AppStyles.fontVazir),
@@ -113,31 +118,47 @@ class DashboardScreen extends ConsumerWidget {
     final isSyncing = ref.watch(isSyncingProvider);
     final double yesterdaySales = 4109285;
     final double percentChange = -53.96;
-    final List<double> currentWeekData = [1200, 1000, 1500, 2200, 2600, 1900, 2400];
-    final List<double> prevWeekData = [1000, 1400, 1100, 1900, 2100, 1600, 1800];
+    final List<double> currentWeekData = [
+      1200,
+      1000,
+      1500,
+      2200,
+      2600,
+      1900,
+      2400,
+    ];
+    final List<double> prevWeekData = [
+      1000,
+      1400,
+      1100,
+      1900,
+      2100,
+      1600,
+      1800,
+    ];
 
     final chartDataAsync = ref.watch(chartDataProvider);
 
-
-
-
     return SafeArea(
       child: Scaffold(
-        appBar: PreferredSize(preferredSize: const Size.fromHeight(70), child:  Container(
-          height: 110,
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(70),
+          child: Container(
+            height: 110,
 
-          decoration: const BoxDecoration(
-            color: AppColors.primary,
-            borderRadius: BorderRadius.only(
-              bottomLeft: Radius.circular(40),
-              bottomRight: Radius.circular(40),
-
-            ),),
-          child:  _buildHeaderContent(context, ref, profileAsync, isSyncing),)),
+            decoration: const BoxDecoration(
+              color: AppColors.primary,
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(40),
+                bottomRight: Radius.circular(40),
+              ),
+            ),
+            child: _buildHeaderContent(context, ref, profileAsync, isSyncing),
+          ),
+        ),
         backgroundColor: AppColors.dashboardBg,
         body: Stack(
           children: [
-
             // 2. Scrollable Content
             SafeArea(
               bottom: false,
@@ -156,30 +177,33 @@ class DashboardScreen extends ConsumerWidget {
                   child: Column(
                     children: [
                       // Header Content
-
-                      const SizedBox(height: 10), // فاصله برای ایجاد افکت روی هم افتادن (-mt-10)
-
+                      const SizedBox(
+                        height: 10,
+                      ), // فاصله برای ایجاد افکت روی هم افتادن (-mt-10)
                       // Sales Chart Section
-                    chartDataAsync.when(
-                      data: (data) => _buildChartSection(data['current']!, data['prev']!),
-                      loading: () => const CircularProgressIndicator(),
-                      error: (err, stack) => Text("خطا در بارگذاری نمودار"),
-                    ),
-                      // _buildChartSection(currentWeekData, prevWeekData),
+                      chartDataAsync.when(
+                        data: (data) =>
+                            _buildChartSection(data['current']!, data['prev']!),
+                        loading: () => const CircularProgressIndicator(),
+                        error: (err, stack) => Text("خطا در بارگذاری نمودار"),
+                      ),
 
+                      // _buildChartSection(currentWeekData, prevWeekData),
                       const SizedBox(height: 16),
-                   summaryAsync.when(
-                    data: (data) => _buildSalesSummary(
-                data['today'],
-                data['yesterday'],
-                data['percent'],
-              ),
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (err, stack) => const Text("خطا در بارگذاری اطلاعات"),
-        ),
+                      summaryAsync.when(
+                        data: (data) => _buildSalesSummary(
+                          data['today'],
+                          data['yesterday'],
+                          data['percent'],
+                        ),
+                        loading: () =>
+                            const Center(child: CircularProgressIndicator()),
+                        error: (err, stack) =>
+                            const Text("خطا در بارگذاری اطلاعات"),
+                      ),
+
                       // Sales Summary Stats
                       // _buildSalesSummary(todaySales.value ?? 0, yesterdaySales, percentChange),
-
                       const SizedBox(height: 14),
 
                       // Quick Access Menu
@@ -201,7 +225,12 @@ class DashboardScreen extends ConsumerWidget {
   }
 
   // --- Header ---
-  Widget _buildHeaderContent(BuildContext context, WidgetRef ref, AsyncValue<Map<String, String>> profileAsync, bool isSyncing) {
+  Widget _buildHeaderContent(
+    BuildContext context,
+    WidgetRef ref,
+    AsyncValue<Map<String, String>> profileAsync,
+    bool isSyncing,
+  ) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -216,19 +245,32 @@ class DashboardScreen extends ConsumerWidget {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: Colors.white.withOpacity(0.2),
-                  border: Border.all(color: Colors.white.withOpacity(0.3), width: 1),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.3),
+                    width: 1,
+                  ),
                 ),
                 child: ClipOval(
                   child: profileAsync.when(
                     data: (data) {
                       final imagePath = data['image'];
-                      if (imagePath != null && imagePath.isNotEmpty && File(imagePath).existsSync()) {
+                      if (imagePath != null &&
+                          imagePath.isNotEmpty &&
+                          File(imagePath).existsSync()) {
                         return Image.file(File(imagePath), fit: BoxFit.cover);
                       }
-                      return const Icon(Icons.store, color: Colors.white, size: 28);
+                      return const Icon(
+                        Icons.store,
+                        color: Colors.white,
+                        size: 28,
+                      );
                     },
-                    loading: () => const CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                    error: (_, __) => const Icon(Icons.person, color: Colors.white),
+                    loading: () => const CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                    error: (_, __) =>
+                        const Icon(Icons.person, color: Colors.white),
                   ),
                 ),
               ),
@@ -241,21 +283,25 @@ class DashboardScreen extends ConsumerWidget {
                     data: (data) => Text(
                       data['name'] ?? "فروشگاه بدون نام",
                       style: AppStyles.fontVazir.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
                       ),
                     ),
-                    loading: () => Container(width: 80, height: 12, color: Colors.white24),
-                    error: (_, __) => const Text("خطا در بارگذاری", style: TextStyle(color: Colors.white)),
+                    loading: () =>
+                        Container(width: 80, height: 12, color: Colors.white24),
+                    error: (_, __) => const Text(
+                      "خطا در بارگذاری",
+                      style: TextStyle(color: Colors.white),
+                    ),
                   ),
                   // نمایش دیتای واقعی به جای متن ثابت
                   profileAsync.when(
                     data: (data) => Text(
                       data['phone'] ?? "بدون شماره",
                       style: AppStyles.fontVazir.copyWith(
-                          color: Colors.white.withOpacity(0.8),
-                          fontSize: 10
+                        color: Colors.white.withOpacity(0.8),
+                        fontSize: 10,
                       ),
                     ),
                     loading: () => const SizedBox.shrink(),
@@ -267,25 +313,28 @@ class DashboardScreen extends ConsumerWidget {
           ),
         ),
         // بخش سمت راست (Sync & More) که بدون تغییر می‌ماند...
-IconButton(onPressed: () => _handleSync(context, ref), icon: isSyncing ? const CircularProgressIndicator(color: Colors.white,padding: EdgeInsets.all(10),): const Icon(Icons.sync, color: Colors.white)),
+        IconButton(
+          onPressed: () => _handleSync(context, ref),
+          icon: isSyncing
+              ? const CircularProgressIndicator(
+                  color: Colors.white,
+                  padding: EdgeInsets.all(10),
+                )
+              : const Icon(Icons.sync, color: Colors.white),
+        ),
       ],
     );
   }
+
   // --- Chart Section ---
-  Widget _buildChartSection(
-      List<double> currentData,
-      List<double> prevData,
-      ) {
+  Widget _buildChartSection(List<double> currentData, List<double> prevData) {
     const int daysCount = 7;
 
     List<double> normalize(List<double> data) {
       if (data.length >= daysCount) {
         return data.take(daysCount).toList();
       }
-      return [
-        ...data,
-        ...List.filled(daysCount - data.length, 0),
-      ];
+      return [...data, ...List.filled(daysCount - data.length, 0)];
     }
 
     final curr = normalize(currentData);
@@ -294,15 +343,13 @@ IconButton(onPressed: () => _handleSync(context, ref), icon: isSyncing ? const C
 
     double maxVal = 100;
     if (allData.isNotEmpty) {
-      final calculatedMax =
-      allData.reduce((a, b) => a > b ? a : b);
+      final calculatedMax = allData.reduce((a, b) => a > b ? a : b);
       if (calculatedMax > 0) {
         maxVal = calculatedMax;
       }
     }
 
-    final double interval =
-    (maxVal / 4).clamp(1, double.infinity);
+    final double interval = (maxVal / 4).clamp(1, double.infinity);
 
     final today = DateTime.now();
     final lastUpdate = DateTime.now();
@@ -339,30 +386,22 @@ IconButton(onPressed: () => _handleSync(context, ref), icon: isSyncing ? const C
             ],
           ),
           child: Column(
-            crossAxisAlignment:
-            CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-
               /// ================= HEADER =================
               Row(
-                crossAxisAlignment:
-                CrossAxisAlignment.start,
-                mainAxisAlignment:
-                MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Column(
-                    crossAxisAlignment:
-                    CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         "تحلیل فروش ۷ روز اخیر",
-                        style: AppStyles.fontVazir
-                            .copyWith(
+                        style: AppStyles.fontVazir.copyWith(
                           fontSize: titleSize,
-                          fontWeight:
-                          FontWeight.w700,
-                          color:
-                          AppColors.textMain,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textMain,
                         ),
                       ),
                       const SizedBox(height: 6),
@@ -370,12 +409,10 @@ IconButton(onPressed: () => _handleSync(context, ref), icon: isSyncing ? const C
                       /// آخرین بروزرسانی
                       Text(
                         "آخرین بروزرسانی: "
-                            "${lastUpdate.hour}:${lastUpdate.minute.toString().padLeft(2, '0')}",
-                        style: AppStyles.fontVazir
-                            .copyWith(
+                        "${lastUpdate.hour}:${lastUpdate.minute.toString().padLeft(2, '0')}",
+                        style: AppStyles.fontVazir.copyWith(
                           fontSize: labelSize,
-                          color:
-                          AppColors.textMuted,
+                          color: AppColors.textMuted,
                         ),
                       ),
 
@@ -402,24 +439,19 @@ IconButton(onPressed: () => _handleSync(context, ref), icon: isSyncing ? const C
                   /// تاریخ امروز
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6),
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
-                      color: AppColors.primary
-                          .withOpacity(0.08),
-                      borderRadius:
-                      BorderRadius.circular(
-                          12),
+                      color: AppColors.primary.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
                       "${today.day}/${today.month}/${today.year}",
-                      style: AppStyles.fontVazir
-                          .copyWith(
+                      style: AppStyles.fontVazir.copyWith(
                         fontSize: labelSize,
-                        fontWeight:
-                        FontWeight.w600,
-                        color:
-                        AppColors.primary,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primary,
                       ),
                     ),
                   ),
@@ -440,131 +472,75 @@ IconButton(onPressed: () => _handleSync(context, ref), icon: isSyncing ? const C
 
                     gridData: FlGridData(
                       show: true,
-                      horizontalInterval:
-                      interval,
+                      horizontalInterval: interval,
                       drawVerticalLine: false,
-                      getDrawingHorizontalLine:
-                          (value) => FlLine(
-                        color: AppColors
-                            .textMuted
-                            .withOpacity(0.08),
+                      getDrawingHorizontalLine: (value) => FlLine(
+                        color: AppColors.textMuted.withOpacity(0.08),
                         strokeWidth: 1,
                       ),
                     ),
 
-                    borderData:
-                    FlBorderData(show: false),
+                    borderData: FlBorderData(show: false),
 
-                    lineTouchData:
-                    LineTouchData(
-                      touchTooltipData:
-                      LineTouchTooltipData(
-                        tooltipBorderRadius:BorderRadius.circular(12),
-                        tooltipPadding:
-                        const EdgeInsets
-                            .all(12),
-                        getTooltipItems:
-                            (spots) {
-                          return spots.map(
-                                  (spot) {
-                                final isCurrent =
-                                    spot.barIndex ==
-                                        1;
+                    lineTouchData: LineTouchData(
+                      touchTooltipData: LineTouchTooltipData(
+                        tooltipBorderRadius: BorderRadius.circular(12),
+                        tooltipPadding: const EdgeInsets.all(12),
+                        getTooltipItems: (spots) {
+                          return spots.map((spot) {
+                            final isCurrent = spot.barIndex == 1;
 
-                                return LineTooltipItem(
-                                  "${isCurrent ? "این هفته" : "هفته قبل"}\n"
-                                      "${spot.y.toStringAsFixed(0)}",
-                                  const TextStyle(
-                                    color:
-                                    Colors.white,
-                                    fontWeight:
-                                    FontWeight
-                                        .bold,
-                                  ),
-                                );
-                              }).toList();
+                            return LineTooltipItem(
+                              "${isCurrent ? "این هفته" : "هفته قبل"}\n"
+                              "${spot.y.toStringAsFixed(0)}",
+                              const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            );
+                          }).toList();
                         },
                       ),
                     ),
 
                     titlesData: FlTitlesData(
                       leftTitles: AxisTitles(
-                        sideTitles:
-                        SideTitles(
+                        sideTitles: SideTitles(
                           showTitles: true,
-                          interval:
-                          interval,
-                          reservedSize:
-                          40,
-                          getTitlesWidget:
-                              (value,
-                              meta) =>
-                              Text(
-                                value
-                                    .toInt()
-                                    .toString(),
-                                style: AppStyles
-                                    .fontVazir
-                                    .copyWith(
-                                  fontSize:
-                                  labelSize,
-                                  color:
-                                  AppColors
-                                      .textMuted,
-                                ),
-                              ),
+                          interval: interval,
+                          reservedSize: 40,
+                          getTitlesWidget: (value, meta) => Text(
+                            value.toInt().toString(),
+                            style: AppStyles.fontVazir.copyWith(
+                              fontSize: labelSize,
+                              color: AppColors.textMuted,
+                            ),
+                          ),
                         ),
                       ),
-                      rightTitles:
-                      AxisTitles(
-                          sideTitles:
-                          SideTitles(
-                              showTitles:
-                              false)),
-                      topTitles:
-                      AxisTitles(
-                          sideTitles:
-                          SideTitles(
-                              showTitles:
-                              false)),
-                      bottomTitles:
-                      AxisTitles(
-                        sideTitles:
-                        SideTitles(
-                          showTitles:
-                          true,
+                      rightTitles: AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
+                      topTitles: AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
+                      bottomTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
                           interval: 1,
-                          reservedSize:
-                          50,
-                          getTitlesWidget:
-                              (value,
-                              meta) {
-                            if (value <
-                                0 ||
-                                value >
-                                    6) {
-                              return const SizedBox
-                                  .shrink();
+                          reservedSize: 50,
+                          getTitlesWidget: (value, meta) {
+                            if (value < 0 || value > 6) {
+                              return const SizedBox.shrink();
                             }
 
-                            final date =
-                            today.subtract(
-                              Duration(
-                                  days:
-                                  6 -
-                                      value
-                                          .toInt()),
+                            final date = today.subtract(
+                              Duration(days: 6 - value.toInt()),
                             );
 
-                            final isToday =
-                                date.day ==
-                                    today
-                                        .day;
+                            final isToday = date.day == today.day;
 
-                            final dayName =
-                            weekDays[
-                            date.weekday -
-                                1];
+                            final dayName = weekDays[date.weekday - 1];
 
                             return SideTitleWidget(
                               meta: meta,
@@ -573,40 +549,22 @@ IconButton(onPressed: () => _handleSync(context, ref), icon: isSyncing ? const C
                                 children: [
                                   Text(
                                     dayName,
-                                    style: AppStyles
-                                        .fontVazir
-                                        .copyWith(
-                                      fontSize:
-                                      labelSize,
-                                      fontWeight:
-                                      isToday
-                                          ? FontWeight
-                                          .bold
-                                          : FontWeight
-                                          .normal,
-                                      color:
-                                      isToday
-                                          ? AppColors
-                                          .primary
-                                          : AppColors
-                                          .textMuted,
+                                    style: AppStyles.fontVazir.copyWith(
+                                      fontSize: labelSize,
+                                      fontWeight: isToday
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
+                                      color: isToday
+                                          ? AppColors.primary
+                                          : AppColors.textMuted,
                                     ),
                                   ),
-                                  const SizedBox(
-                                      height:
-                                      4),
+                                  const SizedBox(height: 4),
                                   Text(
-                                    date.day
-                                        .toString(),
-                                    style:
-                                    AppStyles
-                                        .fontVazir
-                                        .copyWith(
-                                      fontSize:
-                                      valueSize,
-                                      color:
-                                      AppColors
-                                          .textMuted,
+                                    date.day.toString(),
+                                    style: AppStyles.fontVazir.copyWith(
+                                      fontSize: valueSize,
+                                      color: AppColors.textMuted,
                                     ),
                                   ),
                                 ],
@@ -618,26 +576,17 @@ IconButton(onPressed: () => _handleSync(context, ref), icon: isSyncing ? const C
                     ),
 
                     lineBarsData: [
-
                       /// هفته قبل
                       LineChartBarData(
                         spots: prev
                             .asMap()
                             .entries
-                            .map((e) =>
-                            FlSpot(
-                              e.key
-                                  .toDouble(),
-                              e.value,
-                            ))
+                            .map((e) => FlSpot(e.key.toDouble(), e.value))
                             .toList(),
                         isCurved: true,
-                        color:
-                        Colors.grey.shade400,
+                        color: Colors.grey.shade400,
                         barWidth: 2,
-                        dotData:
-                        FlDotData(
-                            show: false),
+                        dotData: FlDotData(show: false),
                       ),
 
                       /// هفته فعلی
@@ -645,44 +594,24 @@ IconButton(onPressed: () => _handleSync(context, ref), icon: isSyncing ? const C
                         spots: curr
                             .asMap()
                             .entries
-                            .map((e) =>
-                            FlSpot(
-                              e.key
-                                  .toDouble(),
-                              e.value,
-                            ))
+                            .map((e) => FlSpot(e.key.toDouble(), e.value))
                             .toList(),
                         isCurved: true,
-                        color:
-                        AppColors.primary,
+                        color: AppColors.primary,
                         barWidth: 3,
-                        dotData:
-                        FlDotData(
+                        dotData: FlDotData(
                           show: true,
-                          getDotPainter:
-                              (spot,
-                              percent,
-                              barData,
-                              index) =>
+                          getDotPainter: (spot, percent, barData, index) =>
                               FlDotCirclePainter(
                                 radius: 4,
-                                color:
-                                Colors.white,
-                                strokeWidth:
-                                2,
-                                strokeColor:
-                                AppColors
-                                    .primary,
+                                color: Colors.white,
+                                strokeWidth: 2,
+                                strokeColor: AppColors.primary,
                               ),
                         ),
-                        belowBarData:
-                        BarAreaData(
+                        belowBarData: BarAreaData(
                           show: true,
-                          color:
-                          AppColors
-                              .primary
-                              .withOpacity(
-                              0.08),
+                          color: AppColors.primary.withOpacity(0.08),
                         ),
                       ),
                     ],
@@ -696,20 +625,13 @@ IconButton(onPressed: () => _handleSync(context, ref), icon: isSyncing ? const C
     );
   }
 
-  Widget _buildLegendDot(
-      Color color,
-      String text,
-      double fontSize,
-      ) {
+  Widget _buildLegendDot(Color color, String text, double fontSize) {
     return Row(
       children: [
         Container(
           width: 8,
           height: 8,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-          ),
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 6),
         Text(
@@ -726,7 +648,6 @@ IconButton(onPressed: () => _handleSync(context, ref), icon: isSyncing ? const C
     );
   }
 
-
   // --- Sales Summary Section ---
   Widget _buildSalesSummary(int today, double yesterday, double percentChange) {
     final isNegative = percentChange < 0;
@@ -735,9 +656,11 @@ IconButton(onPressed: () => _handleSync(context, ref), icon: isSyncing ? const C
       children: [
         Row(
           children: [
-            Expanded(child: _buildStatCard("فروش امروز (افغانی)",today.toDouble(), )), // Mock decimal
+            Expanded(
+              child: _buildStatCard("فروش امروز (افغانی)", today.toDouble()),
+            ), // Mock decimal
             const SizedBox(width: 12),
-            Expanded(child: _buildStatCard("فروش دیروز (افغانی)", yesterday,)),
+            Expanded(child: _buildStatCard("فروش دیروز (افغانی)", yesterday)),
           ],
         ),
         const SizedBox(height: 12),
@@ -751,8 +674,11 @@ IconButton(onPressed: () => _handleSync(context, ref), icon: isSyncing ? const C
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(isNegative ? Icons.trending_down : Icons.trending_up,
-                  color: AppColors.primary, size: 16),
+              Icon(
+                isNegative ? Icons.trending_down : Icons.trending_up,
+                color: AppColors.primary,
+                size: 16,
+              ),
               const SizedBox(width: 6),
               Text(
                 "${percentChange.abs().toStringAsFixed(2)}% ${isNegative ? 'کاهش' : 'افزایش'} نسبت به دیروز",
@@ -764,7 +690,7 @@ IconButton(onPressed: () => _handleSync(context, ref), icon: isSyncing ? const C
               ),
             ],
           ),
-        )
+        ),
       ],
     );
   }
@@ -772,7 +698,9 @@ IconButton(onPressed: () => _handleSync(context, ref), icon: isSyncing ? const C
   Widget _buildStatCard(String title, double value) {
     // جدا کردن بخش صحیح و اعشار برای نمایش زیبا
     String mainValue = value.toInt().toString();
-    String subValue = (value - value.toInt()).toStringAsFixed(2).substring(1); // گرفتن فقط بخش اعشار مثل .25
+    String subValue = (value - value.toInt())
+        .toStringAsFixed(2)
+        .substring(1); // گرفتن فقط بخش اعشار مثل .25
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -783,24 +711,49 @@ IconButton(onPressed: () => _handleSync(context, ref), icon: isSyncing ? const C
       ),
       child: Column(
         children: [
-          Text(title, style: AppStyles.fontVazir.copyWith(fontSize: 10, color: AppColors.textMuted)),
+          Text(
+            title,
+            style: AppStyles.fontVazir.copyWith(
+              fontSize: 10,
+              color: AppColors.textMuted,
+            ),
+          ),
           const SizedBox(height: 4),
-          Text(mainValue, style: AppStyles.fontVazir.copyWith(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textMain, height: 1.2)),
+          Text(
+            mainValue,
+            style: AppStyles.fontVazir.copyWith(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textMain,
+              height: 1.2,
+            ),
+          ),
           // نمایش اعشار واقعی اگر بزرگتر از صفر بود، در غیر این صورت 00.
-          ],
+        ],
       ),
     );
   }
+
   // --- Quick Access Section ---
   Widget _buildQuickAccessSection(BuildContext context) {
     return Column(
       children: [
         Row(
           children: [
-            const Icon(Icons.dashboard_customize_outlined, size: 20, color: AppColors.textMuted),
+            const Icon(
+              Icons.dashboard_customize_outlined,
+              size: 20,
+              color: AppColors.textMuted,
+            ),
             const SizedBox(width: 8),
-            Text("منوی دسترسی سریع",
-                style: AppStyles.fontVazir.copyWith(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textMain)),
+            Text(
+              "منوی دسترسی سریع",
+              style: AppStyles.fontVazir.copyWith(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textMain,
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 12),
@@ -817,28 +770,40 @@ IconButton(onPressed: () => _handleSync(context, ref), icon: isSyncing ? const C
               "فروش داشتید؟ ثبت کنید",
               Icons.add_shopping_cart,
               AppColors.primary,
-                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DigitalTopupSalePage())),
+              () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const DigitalTopupSalePage()),
+              ),
             ),
             _buildQuickActionCard(
               "خرید جدید",
               "خرید اعتبار برای دکان",
               Icons.input,
               Colors.blue,
-                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PurchaseScreen())),
+              () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PurchaseScreen()),
+              ),
             ),
             _buildQuickActionCard(
               "فروش کاغذی",
               "فروش کارت فیزیکی",
               Icons.receipt_long,
               Colors.amber[700]!,
-                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PaperTopupSalePage())),
+              () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PaperTopupSalePage()),
+              ),
             ),
             _buildQuickActionCard(
               "انبار",
               "مدیریت موجودی",
               Icons.inventory_2_outlined,
               Colors.teal,
-                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const InventoryScreen())),
+              () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const InventoryScreen()),
+              ),
             ),
           ],
         ),
@@ -846,7 +811,13 @@ IconButton(onPressed: () => _handleSync(context, ref), icon: isSyncing ? const C
     );
   }
 
-  Widget _buildQuickActionCard(String title, String subtitle, IconData icon, Color color, VoidCallback onTap) {
+  Widget _buildQuickActionCard(
+    String title,
+    String subtitle,
+    IconData icon,
+    Color color,
+    VoidCallback onTap,
+  ) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -873,13 +844,25 @@ IconButton(onPressed: () => _handleSync(context, ref), icon: isSyncing ? const C
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(title,
-                      style: AppStyles.fontVazir.copyWith(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textMain)),
+                  Text(
+                    title,
+                    style: AppStyles.fontVazir.copyWith(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textMain,
+                    ),
+                  ),
                   const SizedBox(height: 2),
-                  Text(subtitle,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppStyles.fontVazir.copyWith(fontSize: 9, color: AppColors.textMuted, height: 1.1)),
+                  Text(
+                    subtitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppStyles.fontVazir.copyWith(
+                      fontSize: 9,
+                      color: AppColors.textMuted,
+                      height: 1.1,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -891,7 +874,7 @@ IconButton(onPressed: () => _handleSync(context, ref), icon: isSyncing ? const C
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(icon, size: 18, color: color),
-            )
+            ),
           ],
         ),
       ),
@@ -899,7 +882,10 @@ IconButton(onPressed: () => _handleSync(context, ref), icon: isSyncing ? const C
   }
 
   // --- Recent Transactions ---
-  Widget _buildTransactionsSection(BuildContext context, AsyncValue<List<TransactionModel>> transactions) {
+  Widget _buildTransactionsSection(
+    BuildContext context,
+    AsyncValue<List<TransactionModel>> transactions,
+  ) {
     return Column(
       children: [
         Row(
@@ -909,13 +895,31 @@ IconButton(onPressed: () => _handleSync(context, ref), icon: isSyncing ? const C
               children: [
                 const Icon(Icons.history, size: 20, color: AppColors.textMuted),
                 const SizedBox(width: 8),
-                Text("تراکنش‌های اخیر",
-                    style: AppStyles.fontVazir.copyWith(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textMain)),
+                Text(
+                  "تراکنش‌های اخیر",
+                  style: AppStyles.fontVazir.copyWith(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textMain,
+                  ),
+                ),
               ],
             ),
             GestureDetector(
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TransactionHistoryPage())),
-              child: Text("مشاهده همه", style: AppStyles.fontVazir.copyWith(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.bold)),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const TransactionHistoryPage(),
+                ),
+              ),
+              child: Text(
+                "مشاهده همه",
+                style: AppStyles.fontVazir.copyWith(
+                  color: AppColors.primary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ],
         ),
@@ -932,7 +936,10 @@ IconButton(onPressed: () => _handleSync(context, ref), icon: isSyncing ? const C
             },
           ),
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (_, __) => Text("خطا در دریافت اطلاعات", style: TextStyle(color: AppColors.textMuted)),
+          error: (_, __) => Text(
+            "خطا در دریافت اطلاعات",
+            style: TextStyle(color: AppColors.textMuted),
+          ),
         ),
       ],
     );
@@ -944,11 +951,16 @@ IconButton(onPressed: () => _handleSync(context, ref), icon: isSyncing ? const C
     String? assetPath;
     Color iconBg = AppColors.primary.withOpacity(0.1);
 
-    if (op.contains('awcc')) assetPath = 'assets/svg/awcc.svg';
-    else if (op.contains('roshan')) assetPath = 'assets/svg/roshan.svg';
-    else if (op.contains('etisalat')) assetPath = 'assets/svg/etisalat.svg';
-    else if (op.contains('mtn') || op.contains('atoma')) assetPath = 'assets/svg/atoma.svg';
-    else if (op.contains('salaam')) assetPath = 'assets/svg/salaam.svg';
+    if (op.contains('awcc'))
+      assetPath = 'assets/svg/awcc.svg';
+    else if (op.contains('roshan'))
+      assetPath = 'assets/svg/roshan.svg';
+    else if (op.contains('etisalat'))
+      assetPath = 'assets/svg/etisalat.svg';
+    else if (op.contains('mtn') || op.contains('atoma'))
+      assetPath = 'assets/svg/atoma.svg';
+    else if (op.contains('salaam'))
+      assetPath = 'assets/svg/salaam.svg';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -964,7 +976,9 @@ IconButton(onPressed: () => _handleSync(context, ref), icon: isSyncing ? const C
             height: 40,
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: t.transactionType == 'PAPER' ? Colors.grey.shade100 : iconBg,
+              color: t.transactionType == 'PAPER'
+                  ? Colors.grey.shade100
+                  : iconBg,
               shape: BoxShape.circle,
             ),
             child: assetPath != null
@@ -976,19 +990,45 @@ IconButton(onPressed: () => _handleSync(context, ref), icon: isSyncing ? const C
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(t.operator, style: AppStyles.fontVazir.copyWith(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textMain)),
-                Text(_cleanPhoneNumberDisplay(t.phoneNumber),
-                    style: AppStyles.fontVazir.copyWith(fontSize: 11, color: AppColors.textMuted)),
+                Text(
+                  t.operator,
+                  style: AppStyles.fontVazir.copyWith(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textMain,
+                  ),
+                ),
+                Text(
+                  _cleanPhoneNumberDisplay(t.phoneNumber),
+                  style: AppStyles.fontVazir.copyWith(
+                    fontSize: 11,
+                    color: AppColors.textMuted,
+                  ),
+                ),
               ],
             ),
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text("${t.receivedAmount}؋", style: AppStyles.fontVazir.copyWith(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textMain)),
-              const Text("موفق", style: TextStyle(fontSize: 10, color: Colors.green, fontWeight: FontWeight.bold)),
+              Text(
+                "${t.receivedAmount}؋",
+                style: AppStyles.fontVazir.copyWith(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textMain,
+                ),
+              ),
+              const Text(
+                "موفق",
+                style: TextStyle(
+                  fontSize: 10,
+                  color: Colors.green,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ],
-          )
+          ),
         ],
       ),
     );
@@ -1027,10 +1067,7 @@ IconButton(onPressed: () => _handleSync(context, ref), icon: isSyncing ? const C
                   ),
                   Text(
                     "مدیریت بخش‌های مختلف",
-                    style: TextStyle(
-                      fontSize: 10.sp,
-                      color: Colors.grey,
-                    ),
+                    style: TextStyle(fontSize: 10.sp, color: Colors.grey),
                   ),
                 ],
               ),
@@ -1092,17 +1129,19 @@ IconButton(onPressed: () => _handleSync(context, ref), icon: isSyncing ? const C
     required Color color,
     required VoidCallback onTap,
   }) {
-
     return Container(
       margin: EdgeInsets.only(bottom: 12.h),
       child: Material(
-         elevation: 0,color: Colors.white,
+        elevation: 0,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12.r),
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(12.r),
           child: Container(
-            padding: EdgeInsets.all(12.w), // کمی پدینگ کمتر نسبت به HTML برای موبایل
+            padding: EdgeInsets.all(
+              12.w,
+            ), // کمی پدینگ کمتر نسبت به HTML برای موبایل
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12.r),
               boxShadow: [
@@ -1112,9 +1151,7 @@ IconButton(onPressed: () => _handleSync(context, ref), icon: isSyncing ? const C
                   offset: const Offset(0, 4),
                 ),
               ],
-              border: Border.all(
-                  color:  Colors.transparent
-              ),
+              border: Border.all(color: Colors.transparent),
             ),
             child: Row(
               children: [
@@ -1124,7 +1161,9 @@ IconButton(onPressed: () => _handleSync(context, ref), icon: isSyncing ? const C
                   height: 35.h,
                   decoration: BoxDecoration(
                     color: color,
-                    borderRadius: BorderRadius.horizontal(left: Radius.circular(4.r)), // در حالت RTL
+                    borderRadius: BorderRadius.horizontal(
+                      left: Radius.circular(4.r),
+                    ), // در حالت RTL
                   ),
                 ),
                 SizedBox(width: 12.w),
@@ -1143,10 +1182,7 @@ IconButton(onPressed: () => _handleSync(context, ref), icon: isSyncing ? const C
                       SizedBox(height: 2.h),
                       Text(
                         subtitle,
-                        style: TextStyle(
-                          fontSize: 10.sp,
-                          color: Colors.grey,
-                        ),
+                        style: TextStyle(fontSize: 10.sp, color: Colors.grey),
                       ),
                     ],
                   ),
@@ -1164,6 +1200,4 @@ IconButton(onPressed: () => _handleSync(context, ref), icon: isSyncing ? const C
       ),
     );
   }
-
-
 }

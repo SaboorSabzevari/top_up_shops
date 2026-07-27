@@ -32,6 +32,7 @@ class UserModel {
     );
   }
 }
+
 class SessionService {
   static final SessionService instance = SessionService._internal();
   SessionService._internal();
@@ -46,6 +47,7 @@ class SessionService {
     _currentUser = user;
   }
 }
+
 class SessionNotifier extends StateNotifier<UserModel?> {
   SessionNotifier() : super(null) {
     _loadSession();
@@ -53,6 +55,7 @@ class SessionNotifier extends StateNotifier<UserModel?> {
 
   Future<void> setUser(UserModel user) async {
     state = user;
+    SessionService.instance.update(user);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('user_session', jsonEncode(user.toMap()));
 
@@ -87,11 +90,13 @@ class SessionNotifier extends StateNotifier<UserModel?> {
         role: prefs.getString('user_role') ?? 'STAFF',
         shopId: prefs.getString('shop_id') ?? '',
       );
+      SessionService.instance.update(state);
     }
   }
 }
 
-
-final currentUserProvider = StateNotifierProvider<SessionNotifier, UserModel?>((ref) {
+final currentUserProvider = StateNotifierProvider<SessionNotifier, UserModel?>((
+  ref,
+) {
   return SessionNotifier();
 });

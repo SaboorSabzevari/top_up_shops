@@ -18,13 +18,11 @@ import 'src/presentation/screens/home/home_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  runApp(const ProviderScope(child: MyApp()));
+  SystemChrome.setSystemUIOverlayStyle(
+    SystemUiOverlayStyle(statusBarColor: Colors.transparent),
   );
-  runApp(
-      const ProviderScope(child: MyApp()));
-  SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(statusBarColor: Colors.transparent));
-
 }
 
 class MyApp extends ConsumerWidget {
@@ -44,10 +42,7 @@ class MyApp extends ConsumerWidget {
             debugShowCheckedModeBanner: false,
             home: const StartupScreen(),
             locale: const Locale('fa', 'IR'),
-            supportedLocales: const [
-              Locale('fa', 'IR'),
-              Locale('ps', 'AF'),
-            ],
+            supportedLocales: const [Locale('fa', 'IR'), Locale('ps', 'AF')],
             localizationsDelegates: const [
               AppLocalizations.delegate,
               GlobalMaterialLocalizations.delegate,
@@ -73,10 +68,7 @@ class MyApp extends ConsumerWidget {
         return MaterialApp(
           debugShowCheckedModeBanner: false,
           locale: currentLocale,
-          supportedLocales: const [
-            Locale('fa', 'IR'),
-            Locale('ps', 'AF'),
-          ],
+          supportedLocales: const [Locale('fa', 'IR'), Locale('ps', 'AF')],
           localizationsDelegates: [
             AppLocalizations.delegate,
             GlobalMaterialLocalizations.delegate,
@@ -87,7 +79,8 @@ class MyApp extends ConsumerWidget {
               GlobalCupertinoLocalizations.delegate,
           ],
           builder: (context, child) {
-            final isRTL = currentLocale.languageCode == 'fa' ||
+            final isRTL =
+                currentLocale.languageCode == 'fa' ||
                 currentLocale.languageCode == 'ps';
 
             return Directionality(

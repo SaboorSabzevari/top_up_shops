@@ -12,16 +12,12 @@ const auth = admin.auth();
 const OWNER_EMAIL = "admin@shop.com";
 const OWNER_PASS = "12345678";
 
-// تنظیمات کارمند
 const STAFF_EMAIL = "staff@shop.com";
 const STAFF_PASS = "12345678";
 
 async function seedFirestore() {
   console.log("🚀 شروع عملیات Seed دیتابیس با ساختار جدید...");
 
-  /* =========================
-     1. ایجاد مدیر (OWNER)
-     ========================= */
   let owner;
   try {
     owner = await auth.createUser({
@@ -39,9 +35,7 @@ async function seedFirestore() {
     }
   }
 
-  /* =========================
-     2. ایجاد فروشگاه (SHOP)
-     ========================= */
+
   const shopRef = await db.collection("shops").add({
     info: {
       name: "فروشگاه مرکزی",
@@ -52,11 +46,7 @@ async function seedFirestore() {
   });
   const shopId = shopRef.id;
   console.log(`🆔 Shop ID ایجاد شد: ${shopId}`);
-
-  /* =========================
-     3. ذخیره اطلاعات مدیر
-     ========================= */
-  const ownerData = {
+const ownerData = {
     uid: owner.uid,
     name: "مدیر فروشگاه",
     email: OWNER_EMAIL,

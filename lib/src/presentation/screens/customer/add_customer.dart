@@ -101,73 +101,87 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
         ? CustomerType.normal
         : CustomerType.shopkeeper;
 
-    DatabaseHelper.instance.getCustomerFullDetails(widget.customerData!['id']).then((details) {
-      if (mounted) {
-        setState(() {
-          normalPhones.clear();
-          dealers.clear();
+    DatabaseHelper.instance
+        .getCustomerFullDetails(widget.customerData!['id'])
+        .then((details) {
+          if (mounted) {
+            setState(() {
+              normalPhones.clear();
+              dealers.clear();
 
-          // پارس کردن phones از JSON
-          List<dynamic> phonesData = [];
-          if (details['phones'] is String) {
-            try {
-              phonesData = jsonDecode(details['phones'] as String);
-            } catch (e) {
-              phonesData = [];
-            }
-          } else if (details['phones'] is List) {
-            phonesData = details['phones'] as List<dynamic>;
-          }
-
-          if (phonesData.isNotEmpty) {
-            for (var p in phonesData) {
-              if (p is Map) {
-                normalPhones.add(TextEditingController(text: p['phone_number']?.toString() ?? ''));
-              } else if (p is String) {
-                normalPhones.add(TextEditingController(text: p));
+              // پارس کردن phones از JSON
+              List<dynamic> phonesData = [];
+              if (details['phones'] is String) {
+                try {
+                  phonesData = jsonDecode(details['phones'] as String);
+                } catch (e) {
+                  phonesData = [];
+                }
+              } else if (details['phones'] is List) {
+                phonesData = details['phones'] as List<dynamic>;
               }
-            }
-          } else if (_customerType == CustomerType.normal) {
-            normalPhones.add(TextEditingController());
-          }
 
-          // پارس کردن wholesale_codes از JSON
-          List<dynamic> codesData = [];
-          if (details['wholesale_codes'] is String) {
-            try {
-              codesData = jsonDecode(details['wholesale_codes'] as String);
-            } catch (e) {
-              codesData = [];
-            }
-          } else if (details['wholesale_codes'] is List) {
-            codesData = details['wholesale_codes'] as List<dynamic>;
-          }
-
-          if (codesData.isNotEmpty) {
-            for (var c in codesData) {
-              final item = _DealerItem();
-              if (c is Map) {
-                item.companyType = c['company']?.toString() ?? c['company_name']?.toString();
-                item.codeCtrl.text = c['code']?.toString() ?? c['company_code']?.toString() ?? '';
+              if (phonesData.isNotEmpty) {
+                for (var p in phonesData) {
+                  if (p is Map) {
+                    normalPhones.add(
+                      TextEditingController(
+                        text: p['phone_number']?.toString() ?? '',
+                      ),
+                    );
+                  } else if (p is String) {
+                    normalPhones.add(TextEditingController(text: p));
+                  }
+                }
+              } else if (_customerType == CustomerType.normal) {
+                normalPhones.add(TextEditingController());
               }
-              dealers.add(item);
-            }
-          } else if (_customerType == CustomerType.shopkeeper) {
-            dealers.add(_DealerItem());
-          }
 
-          // برای مشتری عمده، اولین شماره را در فیلد اصلی قرار بده
-          if (_customerType == CustomerType.shopkeeper && phonesData.isNotEmpty) {
-            if (phonesData[0] is Map) {
-              wholesaleMainPhone.text = phonesData[0]['phone_number']?.toString() ?? '';
-            } else if (phonesData[0] is String) {
-              wholesaleMainPhone.text = phonesData[0] as String;
-            }
+              // پارس کردن wholesale_codes از JSON
+              List<dynamic> codesData = [];
+              if (details['wholesale_codes'] is String) {
+                try {
+                  codesData = jsonDecode(details['wholesale_codes'] as String);
+                } catch (e) {
+                  codesData = [];
+                }
+              } else if (details['wholesale_codes'] is List) {
+                codesData = details['wholesale_codes'] as List<dynamic>;
+              }
+
+              if (codesData.isNotEmpty) {
+                for (var c in codesData) {
+                  final item = _DealerItem();
+                  if (c is Map) {
+                    item.companyType =
+                        c['company']?.toString() ??
+                        c['company_name']?.toString();
+                    item.codeCtrl.text =
+                        c['code']?.toString() ??
+                        c['company_code']?.toString() ??
+                        '';
+                  }
+                  dealers.add(item);
+                }
+              } else if (_customerType == CustomerType.shopkeeper) {
+                dealers.add(_DealerItem());
+              }
+
+              // برای مشتری عمده، اولین شماره را در فیلد اصلی قرار بده
+              if (_customerType == CustomerType.shopkeeper &&
+                  phonesData.isNotEmpty) {
+                if (phonesData[0] is Map) {
+                  wholesaleMainPhone.text =
+                      phonesData[0]['phone_number']?.toString() ?? '';
+                } else if (phonesData[0] is String) {
+                  wholesaleMainPhone.text = phonesData[0] as String;
+                }
+              }
+            });
           }
         });
-      }
-    });
   }
+
   void _changeCustomerType(CustomerType newType) {
     if (newType == _customerType) return;
 
@@ -227,8 +241,12 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
                 normalPhones.clear();
 
                 for (var phone in fullContact.phones) {
-                  String cleanPhone = phone.number.replaceAll(RegExp(r'[^\d+]'), '');
-                  if (cleanPhone.startsWith('+93')) cleanPhone = '0${cleanPhone.substring(3)}';
+                  String cleanPhone = phone.number.replaceAll(
+                    RegExp(r'[^\d+]'),
+                    '',
+                  );
+                  if (cleanPhone.startsWith('+93'))
+                    cleanPhone = '0${cleanPhone.substring(3)}';
                   normalPhones.add(TextEditingController(text: cleanPhone));
                 }
 
@@ -236,8 +254,12 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
                   normalPhones.add(TextEditingController());
                 }
               } else {
-                String cleanPhone = fullContact.phones.first.number.replaceAll(RegExp(r'[^\d+]'), '');
-                if (cleanPhone.startsWith('+93')) cleanPhone = '0${cleanPhone.substring(3)}';
+                String cleanPhone = fullContact.phones.first.number.replaceAll(
+                  RegExp(r'[^\d+]'),
+                  '',
+                );
+                if (cleanPhone.startsWith('+93'))
+                  cleanPhone = '0${cleanPhone.substring(3)}';
                 wholesaleMainPhone.text = cleanPhone;
               }
             }
@@ -246,7 +268,7 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
       }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('اجازه دسترسی به مخاطبین داده نشد'))
+        const SnackBar(content: Text('اجازه دسترسی به مخاطبین داده نشد')),
       );
     }
   }
@@ -259,7 +281,10 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
       File selectedFile = File(image.path);
       String prefix = isProfile ? 'profile' : 'tazkira';
 
-      String? savedPath = await ImageService.saveAndCompressImage(selectedFile, prefix);
+      String? savedPath = await ImageService.saveAndCompressImage(
+        selectedFile,
+        prefix,
+      );
 
       if (savedPath != null) {
         setState(() {
@@ -284,7 +309,10 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
           children: [
             ListTile(
               leading: Icon(Icons.camera_alt, size: 24.w),
-              title: Text('گرفتن عکس با دوربین', style: TextStyle(fontSize: 16.sp)),
+              title: Text(
+                'گرفتن عکس با دوربین',
+                style: TextStyle(fontSize: 16.sp),
+              ),
               onTap: () {
                 Navigator.pop(context);
                 _pickImage(isProfile, ImageSource.camera);
@@ -311,13 +339,15 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
     final user = ref.read(currentUserProvider);
 
     if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('لطفاً دوباره وارد شوید')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('لطفاً دوباره وارد شوید')));
       return;
     }
 
-    final typeStr = _customerType == CustomerType.normal ? 'ORDINARY' : 'WHOLESALE';
+    final typeStr = _customerType == CustomerType.normal
+        ? 'ORDINARY'
+        : 'WHOLESALE';
 
     List<String> validPhones = [];
 
@@ -336,13 +366,17 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
     }
 
     if (_customerType == CustomerType.shopkeeper) {
-      bool hasDealerCode = dealers.any((d) => d.companyType != null && d.codeCtrl.text.isNotEmpty);
+      bool hasDealerCode = dealers.any(
+        (d) => d.companyType != null && d.codeCtrl.text.isNotEmpty,
+      );
       bool hasValidPhone = validPhones.isNotEmpty;
 
       if (!hasDealerCode && !hasValidPhone) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('برای مشتری عمده، درج شماره تماس صحیح یا حداقل یک کد دیلری الزامی است'),
+            content: Text(
+              'برای مشتری عمده، درج شماره تماس صحیح یا حداقل یک کد دیلری الزامی است',
+            ),
             backgroundColor: Colors.orange,
           ),
         );
@@ -351,16 +385,19 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
     }
 
     List<Map<String, String>> wholesaleCodes = dealers
-        .where((d) => d.companyType != null && d.companyType!.isNotEmpty && d.codeCtrl.text.isNotEmpty)
-        .map((e) => {
-      'company': e.companyType!,
-      'code': e.codeCtrl.text
-    })
+        .where(
+          (d) =>
+              d.companyType != null &&
+              d.companyType!.isNotEmpty &&
+              d.codeCtrl.text.isNotEmpty,
+        )
+        .map((e) => {'company': e.companyType!, 'code': e.codeCtrl.text})
         .toList();
 
     final customer = Customer(
       name: fullNameCtrl.text,
-      customerCode: widget.customerData?['customer_code'] ??
+      customerCode:
+          widget.customerData?['customer_code'] ??
           'CUST-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}',
       type: typeStr,
       shopId: user.shopId, // ✅ اضافه شد
@@ -387,19 +424,19 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
         final int customerId = id as int;
         // اگر متد updateCustomer را هم تغییر داده‌اید، کاربر را به آن هم پاس دهید
         await DatabaseHelper.instance.updateCustomer(
-            customerId,
-            customer,
-            validPhones,
-            wholesaleCodes,
-            user // اضافه کردن آرگومان کاربر
+          customerId,
+          customer,
+          validPhones,
+          wholesaleCodes,
+          user, // اضافه کردن آرگومان کاربر
         );
       } else {
         // ۲. پاس دادن آرگومان چهارم (user) برای رفع خطا
         await DatabaseHelper.instance.addCustomer(
-            customer,
-            validPhones,
-            wholesaleCodes,
-            user // این همان آرگومانی است که جایش خالی بود
+          customer,
+          validPhones,
+          wholesaleCodes,
+          user, // این همان آرگومانی است که جایش خالی بود
         );
       }
 
@@ -410,7 +447,10 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطا در ذخیره‌سازی: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('خطا در ذخیره‌سازی: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -428,8 +468,14 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          widget.customerData == null ? 'افزودن مشتری جدید' : 'ویرایش اطلاعات مشتری',
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: 18.sp),
+          widget.customerData == null
+              ? 'افزودن مشتری جدید'
+              : 'ویرایش اطلاعات مشتری',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
+            fontSize: 18.sp,
+          ),
         ),
         centerTitle: true,
       ),
@@ -447,7 +493,9 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
               SizedBox(height: 24.h),
               _buildFullName(),
               SizedBox(height: 20.h),
-              _customerType == CustomerType.normal ? _buildNormalCustomerSection() : _buildWholesaleSection(),
+              _customerType == CustomerType.normal
+                  ? _buildNormalCustomerSection()
+                  : _buildWholesaleSection(),
               SizedBox(height: 24.h),
               _buildNationalIdUpload(),
               SizedBox(height: 24.h),
@@ -464,34 +512,56 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
   Widget _buildCustomerTypeSwitch() {
     return Container(
       padding: EdgeInsets.all(4.w),
-      decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(14.r)),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade300,
+        borderRadius: BorderRadius.circular(14.r),
+      ),
       child: Row(
         children: [
-          _typeButton('مشتری عادی', _customerType == CustomerType.normal,
-                  () => _changeCustomerType(CustomerType.normal)),
-          _typeButton('عمده', _customerType == CustomerType.shopkeeper,
-                  () => _changeCustomerType(CustomerType.shopkeeper), primary: true),
+          _typeButton(
+            'مشتری عادی',
+            _customerType == CustomerType.normal,
+            () => _changeCustomerType(CustomerType.normal),
+          ),
+          _typeButton(
+            'عمده',
+            _customerType == CustomerType.shopkeeper,
+            () => _changeCustomerType(CustomerType.shopkeeper),
+            primary: true,
+          ),
         ],
       ),
     );
   }
 
-  Widget _typeButton(String title, bool selected, VoidCallback onTap, {bool primary = false}) {
+  Widget _typeButton(
+    String title,
+    bool selected,
+    VoidCallback onTap, {
+    bool primary = false,
+  }) {
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
         child: Container(
           height: 42.h,
           decoration: BoxDecoration(
-            color: selected ? (primary ? const Color(0xffEA2A33) : Colors.white) : Colors.transparent,
+            color: selected
+                ? (primary ? const Color(0xffEA2A33) : Colors.white)
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(12.r),
           ),
           alignment: Alignment.center,
-          child: Text(title, style: TextStyle(
+          child: Text(
+            title,
+            style: TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 14.sp,
-              color: selected ? (primary ? Colors.white : Colors.black) : Colors.grey.shade600
-          )),
+              color: selected
+                  ? (primary ? Colors.white : Colors.black)
+                  : Colors.grey.shade600,
+            ),
+          ),
         ),
       ),
     );
@@ -505,11 +575,18 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
           CircleAvatar(
             radius: 46.r,
             backgroundColor: Colors.grey.shade200,
-            backgroundImage: _profilePath != null ? FileImage(File(_profilePath!)) : null,
-            child: _profilePath == null ? Icon(Icons.add_a_photo, size: 32.w, color: kPrimaryColor) : null,
+            backgroundImage: _profilePath != null
+                ? FileImage(File(_profilePath!))
+                : null,
+            child: _profilePath == null
+                ? Icon(Icons.add_a_photo, size: 32.w, color: kPrimaryColor)
+                : null,
           ),
           SizedBox(height: 8.h),
-          Text('آواتار (برای آپلود کلیک کنید)', style: TextStyle(color: Colors.grey, fontSize: 12.sp)),
+          Text(
+            'آواتار (برای آپلود کلیک کنید)',
+            style: TextStyle(color: Colors.grey, fontSize: 12.sp),
+          ),
         ],
       ),
     );
@@ -519,7 +596,14 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('نام کامل', style: TextStyle(fontWeight: FontWeight.w500, color: Colors.black54, fontSize: 14.sp)),
+        Text(
+          'نام کامل',
+          style: TextStyle(
+            fontWeight: FontWeight.w500,
+            color: Colors.black54,
+            fontSize: 14.sp,
+          ),
+        ),
         SizedBox(height: 6.h),
         TextFormField(
           cursorColor: kPrimaryColor,
@@ -532,7 +616,11 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
           decoration: InputDecoration(
             prefixIcon: Icon(Icons.person, size: 24.w),
             suffixIcon: IconButton(
-              icon: Icon(Icons.contact_phone, color: const Color(0xffEA2A33), size: 24.w),
+              icon: Icon(
+                Icons.contact_phone,
+                color: const Color(0xffEA2A33),
+                size: 24.w,
+              ),
               onPressed: _pickContact,
               tooltip: 'انتخاب از مخاطبین گوشی',
             ),
@@ -541,8 +629,8 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
             filled: true,
             fillColor: Colors.white,
             border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14.r),
-                borderSide: BorderSide.none
+              borderRadius: BorderRadius.circular(14.r),
+              borderSide: BorderSide.none,
             ),
           ),
         ),
@@ -553,22 +641,30 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
   Widget _buildNormalCustomerSection() {
     return Column(
       children: [
-        _sectionHeader('شماره‌های تماس', onAdd: () => setState(() => normalPhones.add(TextEditingController()))),
-        ...List.generate(normalPhones.length, (i) => Padding(
-          padding: EdgeInsets.only(bottom: 8.h),
-          child: Row(
-            children: [
-              Expanded(child: _phoneInput(normalPhones[i])),
-              if (normalPhones.length > 1) IconButton(
-                  icon: Icon(Icons.delete, color: Colors.grey, size: 24.w),
-                  onPressed: () => setState(() {
-                    normalPhones[i].dispose();
-                    normalPhones.removeAt(i);
-                  })
-              ),
-            ],
+        _sectionHeader(
+          'شماره‌های تماس',
+          onAdd: () =>
+              setState(() => normalPhones.add(TextEditingController())),
+        ),
+        ...List.generate(
+          normalPhones.length,
+          (i) => Padding(
+            padding: EdgeInsets.only(bottom: 8.h),
+            child: Row(
+              children: [
+                Expanded(child: _phoneInput(normalPhones[i])),
+                if (normalPhones.length > 1)
+                  IconButton(
+                    icon: Icon(Icons.delete, color: Colors.grey, size: 24.w),
+                    onPressed: () => setState(() {
+                      normalPhones[i].dispose();
+                      normalPhones.removeAt(i);
+                    }),
+                  ),
+              ],
+            ),
           ),
-        )),
+        ),
       ],
     );
   }
@@ -576,34 +672,47 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
   Widget _buildWholesaleSection() {
     return Column(
       children: [
-        _input(controller: wholesaleMainPhone, label: 'شماره تماس اصلی', icon: Icons.call, isPhone: true, hint: '07XXXXXXXX'),
+        _input(
+          controller: wholesaleMainPhone,
+          label: 'شماره تماس اصلی',
+          icon: Icons.call,
+          isPhone: true,
+          hint: '07XXXXXXXX',
+        ),
         SizedBox(height: 16.h),
-        _sectionHeader('لیست کدهای دیلری', onAdd: () => setState(() => dealers.add(_DealerItem()))),
-        ...List.generate(dealers.length, (i) => Padding(
-          padding: EdgeInsets.only(bottom: 8.h),
-          child: Row(
-            children: [
-              Flexible(
-                flex: 3, // 60% فضای ردیف
-                child: dealers[i].buildCompany(ref, () {
-                  setState(() {});
-                }),
-              ),
-              SizedBox(width: 8.w),
-              Flexible(
-                flex: 2, // 40% فضای ردیف
-                child: dealers[i].buildCode(),
-              ),
-              if (dealers.length > 1) IconButton(
-                  icon: Icon(Icons.delete, color: Colors.grey, size: 24.w),
-                  onPressed: () => setState(() {
-                    dealers[i].dispose();
-                    dealers.removeAt(i);
-                  })
-              ),
-            ],
+        _sectionHeader(
+          'لیست کدهای دیلری',
+          onAdd: () => setState(() => dealers.add(_DealerItem())),
+        ),
+        ...List.generate(
+          dealers.length,
+          (i) => Padding(
+            padding: EdgeInsets.only(bottom: 8.h),
+            child: Row(
+              children: [
+                Flexible(
+                  flex: 3, // 60% فضای ردیف
+                  child: dealers[i].buildCompany(ref, () {
+                    setState(() {});
+                  }),
+                ),
+                SizedBox(width: 8.w),
+                Flexible(
+                  flex: 2, // 40% فضای ردیف
+                  child: dealers[i].buildCode(),
+                ),
+                if (dealers.length > 1)
+                  IconButton(
+                    icon: Icon(Icons.delete, color: Colors.grey, size: 24.w),
+                    onPressed: () => setState(() {
+                      dealers[i].dispose();
+                      dealers.removeAt(i);
+                    }),
+                  ),
+              ],
+            ),
           ),
-        )),
+        ),
       ],
     );
   }
@@ -613,14 +722,22 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
       onTap: () => _showImageSourceSheet(false),
       child: _dashedBox(
         icon: Icons.badge,
-        title: _tazkiraPath == null ? 'برای آپلود تذکره کلیک کنید' : 'عکس تذکره بارگذاری شد',
+        title: _tazkiraPath == null
+            ? 'برای آپلود تذکره کلیک کنید'
+            : 'عکس تذکره بارگذاری شد',
         subtitle: 'JPG, PNG (حداکثر 2MB)',
       ),
     );
   }
 
   Widget _buildAddress() {
-    return _input(controller: addressCtrl, label: 'آدرس دقیق', icon: Icons.location_on, hint: 'آدرس محل سکونت یا دکان...', maxLines: 3);
+    return _input(
+      controller: addressCtrl,
+      label: 'آدرس دقیق',
+      icon: Icons.location_on,
+      hint: 'آدرس محل سکونت یا دکان...',
+      maxLines: 3,
+    );
   }
 
   Widget _buildSaveButton() {
@@ -631,13 +748,19 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xffEA2A33),
           minimumSize: Size.fromHeight(54.h),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14.r)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14.r),
+          ),
         ),
         onPressed: _saveData,
         icon: Icon(Icons.save, color: Colors.white, size: 24.w),
         label: Text(
           widget.customerData == null ? 'ذخیره اطلاعات' : 'بروزرسانی تغییرات',
-          style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold, color: Colors.white),
+          style: TextStyle(
+            fontSize: 16.sp,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
       ),
     );
@@ -647,21 +770,42 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.sp)),
+        Text(
+          title,
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.sp),
+        ),
         TextButton.icon(
-            onPressed: onAdd,
-            icon: Icon(Icons.add, color: kPrimaryColor, size: 18.w),
-            label: Text('افزودن', style: TextStyle(color: kPrimaryColor, fontSize: 14.sp))
+          onPressed: onAdd,
+          icon: Icon(Icons.add, color: kPrimaryColor, size: 18.w),
+          label: Text(
+            'افزودن',
+            style: TextStyle(color: kPrimaryColor, fontSize: 14.sp),
+          ),
         ),
       ],
     );
   }
 
-  Widget _input({required TextEditingController controller, required String label, required IconData icon, String? hint, bool enabled = true, bool isPhone = false, int maxLines = 1}) {
+  Widget _input({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    String? hint,
+    bool enabled = true,
+    bool isPhone = false,
+    int maxLines = 1,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(fontWeight: FontWeight.w500, color: Colors.black54, fontSize: 14.sp)),
+        Text(
+          label,
+          style: TextStyle(
+            fontWeight: FontWeight.w500,
+            color: Colors.black54,
+            fontSize: 14.sp,
+          ),
+        ),
         SizedBox(height: 6.h),
         TextFormField(
           cursorColor: kPrimaryColor,
@@ -676,7 +820,10 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
             hintStyle: TextStyle(fontSize: 14.sp),
             filled: true,
             fillColor: enabled ? Colors.white : Colors.grey.shade200,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14.r), borderSide: BorderSide.none),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14.r),
+              borderSide: BorderSide.none,
+            ),
           ),
         ),
       ],
@@ -696,26 +843,39 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
         hintStyle: TextStyle(fontSize: 14.sp),
         filled: true,
         fillColor: Colors.white,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14.r), borderSide: BorderSide.none),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14.r),
+          borderSide: BorderSide.none,
+        ),
       ),
     );
   }
 
-  Widget _dashedBox({required IconData icon, required String title, required String subtitle}) {
+  Widget _dashedBox({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+  }) {
     return Container(
       height: 120.h,
       width: double.infinity,
       decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14.r),
-          border: Border.all(color: Colors.grey.shade400)
+        borderRadius: BorderRadius.circular(14.r),
+        border: Border.all(color: Colors.grey.shade400),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(icon, size: 30.w, color: Colors.grey),
           SizedBox(height: 8.h),
-          Text(title, style: TextStyle(color: kPrimaryColor, fontSize: 14.sp)),
-          Text(subtitle, style: TextStyle(fontSize: 12.sp, color: Colors.grey)),
+          Text(
+            title,
+            style: TextStyle(color: kPrimaryColor, fontSize: 14.sp),
+          ),
+          Text(
+            subtitle,
+            style: TextStyle(fontSize: 12.sp, color: Colors.grey),
+          ),
         ],
       ),
     );
@@ -727,7 +887,6 @@ class _DealerItem {
   final TextEditingController codeCtrl = TextEditingController();
   String? companyType;
   int? companyTypeId;
-
 
   Widget buildCompany(WidgetRef ref, VoidCallback onUpdate) {
     final providersAsync = ref.watch(providersListProvider);
@@ -747,7 +906,7 @@ class _DealerItem {
 
         // اگر مقدار companyType در لیست وجود ندارد، آن را null قرار بده
         final String? currentValue =
-        companyType != null && seenNames.contains(companyType)
+            companyType != null && seenNames.contains(companyType)
             ? companyType
             : null;
 
@@ -755,14 +914,18 @@ class _DealerItem {
           isExpanded: true,
           dropdownColor: Colors.white,
           value: currentValue,
-          items: uniqueList.map((p) => DropdownMenuItem(
-            value: p['name'].toString(),
-            child: Text(
-              p['name'].toString(),
-              style: TextStyle(fontSize: 14.sp, color: Colors.black),
-              overflow: TextOverflow.ellipsis,
-            ),
-          )).toList(),
+          items: uniqueList
+              .map(
+                (p) => DropdownMenuItem(
+                  value: p['name'].toString(),
+                  child: Text(
+                    p['name'].toString(),
+                    style: TextStyle(fontSize: 14.sp, color: Colors.black),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              )
+              .toList(),
           onChanged: (v) {
             companyType = v;
             onUpdate();
@@ -777,14 +940,21 @@ class _DealerItem {
               borderRadius: BorderRadius.circular(14.r),
               borderSide: BorderSide.none,
             ),
-            contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 16.h),
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: 12.w,
+              vertical: 16.h,
+            ),
           ),
         );
       },
       loading: () => Center(child: CircularProgressIndicator(strokeWidth: 2.w)),
-      error: (_, __) => Text('خطا در بارگذاری', style: TextStyle(fontSize: 14.sp, color: Colors.red)),
+      error: (_, __) => Text(
+        'خطا در بارگذاری',
+        style: TextStyle(fontSize: 14.sp, color: Colors.red),
+      ),
     );
   }
+
   Widget buildCode() {
     return TextField(
       keyboardType: TextInputType.number,

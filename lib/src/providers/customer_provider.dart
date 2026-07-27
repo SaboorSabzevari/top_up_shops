@@ -10,7 +10,9 @@ final customerSearchQueryProvider = StateProvider<String>((ref) => "");
 final customerFilterProvider = StateProvider<String?>((ref) => null);
 
 // ۳. پروایدر اصلی که لیست مشتریان را از دیتابیس لوکال می‌گیرد
-final customerSearchResults = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+final customerSearchResults = FutureProvider<List<Map<String, dynamic>>>((
+  ref,
+) async {
   final query = ref.watch(customerSearchQueryProvider);
   final filter = ref.watch(customerFilterProvider);
   final user = ref.watch(currentUserProvider);
@@ -18,8 +20,8 @@ final customerSearchResults = FutureProvider<List<Map<String, dynamic>>>((ref) a
   if (user == null) return [];
 
   // دریافت اطلاعات از دیتابیس با ShopID (امنیت آفلاین)
-  List<Map<String, dynamic>> customers =
-  await DatabaseHelper.instance.searchCustomers(query, user.shopId);
+  List<Map<String, dynamic>> customers = await DatabaseHelper.instance
+      .searchCustomers(query, user.shopId);
 
   // اعمال فیلتر نوع مشتری (عادی/عمده)
   if (filter != null) {

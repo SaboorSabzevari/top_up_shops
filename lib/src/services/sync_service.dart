@@ -2,296 +2,316 @@ import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:sqflite/sqflite.dart';
+
 import '../data/local/app_database.dart';
 
 class SyncService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // متد اصلی همگام‌سازی
+  static const List<String> _collections = [
+    'providers',
+    'units',
+    'provider_balances',
+    'customers',
+    'purchases',
+    'paper_stock',
+    'transactions',
+  ];
+
   Future<void> syncAll(String shopId) async {
-    try {
-      print("🔄 شروع همگام‌سازی برای shopId: $shopId");
-
-      // ۱. ابتدا آپلود داده‌های محلی (گوشی به سرور)
-      await _uploadAll(shopId);
-
-      // ۲. سپس دانلود تمام داده‌ها از فایربیس (سرور به گوشی)
-      await _downloadAll(shopId);
-
-      print("✅ همگام‌سازی با موفقیت کامل شد");
-    } catch (e) {
-      print("❌ خطا در همگام‌سازی: $e");
-      rethrow;
+    if (shopId.isEmpty) {
+      throw Exception(
+        'shopId خالی است؛ ابتدا نشست کاربر باید درست بارگذاری شود.',
+      );
     }
+
+    final db = await DatabaseHelper.instance.database;
+    await _pushOutbox(db, shopId);
+    await _pullIncremental(db, shopId);
   }
 
-  // ---------------------------------------------------------
-  // بخش اول: آپلود (گوشی به سرور)
-  // ---------------------------------------------------------
-  Future<void> _uploadAll(String shopId) async {
-    final db = await DatabaseHelper.instance.database;
+  Future<void> _pushOutbox(Database db, String shopId) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final rows = await db.query(
+      'outbox',
+      where:
+          'shop_id = ? AND status IN (?, ?) AND (next_attempt_at_ms IS NULL OR next_attempt_at_ms <= ?)',
+      whereArgs: [shopId, 'pending', 'failed', now],
+      orderBy: 'created_at_ms ASC',
+      limit: 100,
+    );
 
-    // لیست جداولی که باید آپلود شوند (به‌روزرسانی شده)
-    final syncMap = {
-      'customers': 'customers',           // ✅ فقط جدول اصلی مشتری
-      'transactions': 'transactions',
-      'purchases': 'purchases',
-      'units': 'units',
-      'paper_stock': 'paper_stock',
-      'provider_balances': 'provider_balances',
-      'providers': 'providers',
-    };
+    for (final row in rows) {
+      final opId = row['op_id'] as String;
+      final entity = row['entity'] as String;
+      final entityId = row['entity_id'] as String;
+      final opType = row['op_type'] as String;
+      final attempts = ((row['attempts'] as num?)?.toInt() ?? 0) + 1;
 
-    // ❌ جداول قدیمی را حذف کردیم:
-    // - 'customer_phones'
-    // - 'customer_wholesale_codes'
-
-    for (var entry in syncMap.entries) {
-      final localTable = entry.value;
-      final remoteCol = entry.key;
-
-      print("📤 در حال آپلود جدول: $localTable به collection: $remoteCol");
+      await db.update(
+        'outbox',
+        {'status': 'syncing', 'attempts': attempts},
+        where: 'op_id = ?',
+        whereArgs: [opId],
+      );
 
       try {
-        final List<Map<String, dynamic>> records = await db.query(
-          localTable,
-          where: 'shop_id = ?',
-          whereArgs: [shopId],
-        );
+        final payload =
+            jsonDecode(row['payload_json'] as String) as Map<String, dynamic>;
+        final docRef = _firestore
+            .collection('shops')
+            .doc(shopId)
+            .collection(entity)
+            .doc(entityId);
 
-        if (records.isEmpty) {
-          print("ℹ️ جدول $localTable خالی است، صرف نظر می‌شود");
-          continue;
+        final cleanPayload = _cleanForFirestore(payload);
+        cleanPayload.remove('created_at_server');
+        cleanPayload.remove('updated_at_server');
+        cleanPayload['remote_id'] = entityId;
+        cleanPayload['shop_id'] = shopId;
+        cleanPayload['updated_at_server'] = FieldValue.serverTimestamp();
+        cleanPayload['version'] = FieldValue.increment(1);
+        cleanPayload['last_op_id'] = opId;
+
+        if (opType == 'increment') {
+          await _applyIncrementOperation(
+            docRef: docRef,
+            opId: opId,
+            payload: cleanPayload,
+            deltaBalance: (payload['_delta_balance'] as num?)?.toDouble(),
+            deltaQuantity: (payload['_delta_quantity'] as num?)?.toInt(),
+          );
+        } else if (opType == 'delete') {
+          cleanPayload['deleted_at'] =
+              payload['deleted_at'] ?? DateTime.now().toUtc().toIso8601String();
+          await docRef.set(cleanPayload, SetOptions(merge: true));
+        } else {
+          if (opType == 'create') {
+            cleanPayload['created_at_server'] = FieldValue.serverTimestamp();
+          }
+          await docRef.set(cleanPayload, SetOptions(merge: true));
         }
 
-        for (var record in records) {
-          // پاکسازی و تبدیل داده‌ها
-          final Map<String, dynamic> cleanedData = _cleanDataForUpload(record);
-
-          // استفاده از ID محلی به عنوان نام داکیومنت در فایربیس
-          await _firestore
-              .collection('shops')
-              .doc(shopId)
-              .collection(remoteCol)
-              .doc(record['id'].toString())
-              .set(cleanedData, SetOptions(merge: true));
-        }
-
-        print("✅ آپلود جدول $localTable با موفقیت انجام شد. تعداد: ${records.length}");
+        await db.delete('outbox', where: 'op_id = ?', whereArgs: [opId]);
       } catch (e) {
-        print("❌ خطا در آپلود جدول $localTable: $e");
+        final delayMs = _backoffMs(attempts);
+        await db.update(
+          'outbox',
+          {
+            'status': 'failed',
+            'next_attempt_at_ms':
+                DateTime.now().millisecondsSinceEpoch + delayMs,
+          },
+          where: 'op_id = ?',
+          whereArgs: [opId],
+        );
       }
     }
   }
 
-  // پاکسازی داده‌ها قبل از آپلود
-  Map<String, dynamic> _cleanDataForUpload(Map<String, dynamic> data) {
-    final Map<String, dynamic> cleaned = Map<String, dynamic>.from(data);
+  Future<void> _applyIncrementOperation({
+    required DocumentReference<Map<String, dynamic>> docRef,
+    required String opId,
+    required Map<String, dynamic> payload,
+    double? deltaBalance,
+    int? deltaQuantity,
+  }) {
+    return _firestore.runTransaction((transaction) async {
+      final snap = await transaction.get(docRef);
+      final data = snap.data();
+      final appliedOps = data?['applied_ops'];
+      if (appliedOps is Map && appliedOps[opId] == true) {
+        return;
+      }
 
-    // حذف مقادیر null (برای جلوگیری از خطا در فایربیس)
-    cleaned.removeWhere((key, value) => value == null);
+      final update = Map<String, dynamic>.from(payload)
+        ..remove('_delta_balance')
+        ..remove('_delta_quantity')
+        ..remove('current_balance')
+        ..remove('quantity');
 
-    // تبدیل Timestamp اگر وجود دارد (البته در دیتابیس محلی ما Timestamp نداریم)
-    cleaned.forEach((key, value) {
-      if (value is DateTime) {
-        cleaned[key] = value.toIso8601String();
+      if (deltaBalance != null) {
+        update['current_balance'] = FieldValue.increment(deltaBalance);
+      }
+      if (deltaQuantity != null) {
+        update['quantity'] = FieldValue.increment(deltaQuantity);
+      }
+      if (appliedOps is Map && appliedOps.length >= 200) {
+        final keysToPrune = appliedOps.keys.whereType<String>().take(
+          appliedOps.length - 199,
+        );
+        for (final key in keysToPrune) {
+          update['applied_ops.$key'] = FieldValue.delete();
+        }
+      }
+      update['applied_ops.$opId'] = true;
+
+      transaction.set(docRef, update, SetOptions(merge: true));
+    });
+  }
+
+  Future<void> _pullIncremental(Database db, String shopId) async {
+    for (final collection in _collections) {
+      final columns = await _getTableColumns(db, collection);
+      var cursor = await _lastPulledCursor(db, collection);
+
+      for (var page = 0; page < 20; page++) {
+        Query<Map<String, dynamic>> query = _firestore
+            .collection('shops')
+            .doc(shopId)
+            .collection(collection)
+            .orderBy('updated_at_server')
+            .orderBy(FieldPath.documentId)
+            .limit(500);
+
+        if (cursor != null) {
+          query = query.startAfter([
+            Timestamp.fromDate(cursor.timestamp),
+            cursor.docId,
+          ]);
+        }
+
+        final snap = await query.get();
+        if (snap.docs.isEmpty) break;
+
+        for (final doc in snap.docs) {
+          try {
+            final data = Map<String, dynamic>.from(doc.data());
+            data['remote_id'] = doc.id;
+            data['shop_id'] = shopId;
+
+            final updatedAt = data['updated_at_server'];
+            if (updatedAt is! Timestamp) continue;
+
+            final localRow = _toLocalRow(data, columns, collection);
+            await db.transaction((txn) async {
+              await _upsertByRemoteId(txn, collection, localRow);
+            });
+
+            cursor = _SyncCursor(updatedAt.toDate().toUtc(), doc.id);
+            await db.insert('sync_state', {
+              'entity': collection,
+              'last_pulled_at': cursor.timestamp.toIso8601String(),
+              'last_pulled_doc_id': cursor.docId,
+            }, conflictAlgorithm: ConflictAlgorithm.replace);
+          } catch (_) {
+            continue;
+          }
+        }
+
+        if (snap.docs.length < 500) break;
+      }
+    }
+  }
+
+  Future<_SyncCursor?> _lastPulledCursor(Database db, String entity) async {
+    final rows = await db.query(
+      'sync_state',
+      columns: ['last_pulled_at', 'last_pulled_doc_id'],
+      where: 'entity = ?',
+      whereArgs: [entity],
+      limit: 1,
+    );
+    if (rows.isEmpty || rows.first['last_pulled_at'] == null) return null;
+    final timestamp = DateTime.tryParse(rows.first['last_pulled_at'] as String);
+    final docId = rows.first['last_pulled_doc_id'] as String?;
+    if (timestamp == null || docId == null || docId.isEmpty) return null;
+    return _SyncCursor(timestamp, docId);
+  }
+
+  Future<void> _upsertByRemoteId(
+    DatabaseExecutor txn,
+    String table,
+    Map<String, dynamic> row,
+  ) async {
+    final existing = await txn.query(
+      table,
+      columns: ['id'],
+      where: 'remote_id = ?',
+      whereArgs: [row['remote_id']],
+      limit: 1,
+    );
+
+    if (existing.isEmpty) {
+      await txn.insert(table, row, conflictAlgorithm: ConflictAlgorithm.ignore);
+    } else {
+      await txn.update(
+        table,
+        row..remove('id'),
+        where: 'remote_id = ?',
+        whereArgs: [row['remote_id']],
+      );
+    }
+  }
+
+  Map<String, dynamic> _toLocalRow(
+    Map<String, dynamic> data,
+    List<String> columns,
+    String collection,
+  ) {
+    final row = Map<String, dynamic>.from(data);
+    row.forEach((key, value) {
+      if (value is Timestamp) {
+        row[key] = value.toDate().toUtc().toIso8601String();
+      } else if (value is List || value is Map) {
+        row[key] = jsonEncode(value);
       }
     });
 
+    if (collection == 'customers') {
+      row['phones'] ??= '[]';
+      row['wholesale_codes'] ??= '[]';
+    }
+
+    row.removeWhere((key, value) => !columns.contains(key));
+    return row;
+  }
+
+  Map<String, dynamic> _cleanForFirestore(Map<String, dynamic> data) {
+    final cleaned = Map<String, dynamic>.from(data);
+    cleaned.remove('id');
+    cleaned.removeWhere((key, value) => value == null);
+    cleaned.updateAll((key, value) {
+      if ((key == 'phones' || key == 'wholesale_codes') && value is String) {
+        try {
+          return jsonDecode(value);
+        } catch (_) {
+          return [];
+        }
+      }
+      return value;
+    });
     return cleaned;
   }
 
-  // ---------------------------------------------------------
-  // بخش دوم: دانلود (سرور به گوشی)
-  // ---------------------------------------------------------
-  Future<void> _downloadAll(String shopId) async {
-    final db = await DatabaseHelper.instance.database;
-
-    // 🔥 ترتیب دانلود با ساختار جدید
-    final List<String> orderedCollections = [
-      'providers',           // اول: تامین‌کنندگان
-      'units',               // دوم: واحدها
-      'provider_balances',   // سوم: موجودی تامین‌کنندگان
-      'customers',           // چهارم: مشتریان (با تلفن‌ها و کدها در JSON)
-      'purchases',           // پنجم: خریدها
-      'paper_stock',         // ششم: موجودی کارت کاغذی
-      'transactions',        // هفتم: تراکنش‌ها
-    ];
-
-    for (var colName in orderedCollections) {
-      print("📥 در حال دانلود collection: $colName");
-
-      try {
-        final snap = await _firestore
-            .collection('shops')
-            .doc(shopId)
-            .collection(colName)
-            .get();
-
-        if (snap.docs.isEmpty) {
-          print("ℹ️ collection $colName خالی است.");
-          continue;
-        }
-
-        final String localTable = colName;
-        final List<String> tableColumns = await _getTableColumns(db, localTable);
-
-        int successCount = 0;
-        int errorCount = 0;
-
-        for (var doc in snap.docs) {
-          try {
-            Map<String, dynamic> data = Map<String, dynamic>.from(doc.data());
-
-            // ۱. تبدیل Timestamp به String
-            data.forEach((key, value) {
-              if (value is Timestamp) {
-                data[key] = value.toDate().toIso8601String();
-              }
-            });
-
-            // ۲. مدیریت ID (تبدیل آی‌دی داکیومنت به عدد)
-            if (tableColumns.contains('id')) {
-              int? docId = int.tryParse(doc.id);
-              if (docId != null) {
-                data['id'] = docId;
-              } else {
-                // اگر ID عددی نیست، از فیلد id در دیتا استفاده کن
-                if (data.containsKey('id') && data['id'] is String) {
-                  data['id'] = int.tryParse(data['id'] as String) ?? 0;
-                }
-              }
-            }
-
-            // ۳. پردازش ویژه برای جدول customers (JSON fields)
-            if (colName == 'customers') {
-              data = _processCustomerData(data);
-            }
-
-            // ۴. حذف ستون‌های اضافی که در SQLite وجود ندارند
-            data.removeWhere((key, value) => !tableColumns.contains(key));
-
-            // ۵. درج در دیتابیس
-            await db.insert(
-              localTable,
-              data,
-              conflictAlgorithm: ConflictAlgorithm.replace,
-            );
-
-            successCount++;
-          } catch (e) {
-            errorCount++;
-            print("❌ خطا در پردازش داکیومنت ${doc.id} از $colName: $e");
-          }
-        }
-
-        print("✅ دانلود $colName: $successCount موفق, $errorCount خطا");
-      } catch (e) {
-        print("❌ خطا در دانلود collection $colName: $e");
-      }
-    }
-  }
-
-  // پردازش ویژه داده‌های مشتری (JSON fields)
-  Map<String, dynamic> _processCustomerData(Map<String, dynamic> data) {
-    // اطمینان از وجود فیلدهای JSON
-    if (!data.containsKey('phones')) {
-      data['phones'] = '[]';
-    }
-
-    if (!data.containsKey('wholesale_codes')) {
-      data['wholesale_codes'] = '[]';
-    }
-
-    // تبدیل JSON string اگر به صورت object است (ممکن است در فایربیس به صورت لیست ذخیره شده باشد)
-    try {
-      // اگر phones یک List است، آن را به JSON string تبدیل کن
-      if (data['phones'] is List) {
-        data['phones'] = jsonEncode(data['phones']);
-      }
-
-      // اگر wholesale_codes یک List است، آن را به JSON string تبدیل کن
-      if (data['wholesale_codes'] is List) {
-        data['wholesale_codes'] = jsonEncode(data['wholesale_codes']);
-      }
-    } catch (e) {
-      print("⚠️ خطا در تبدیل JSON fields: $e");
-      // در صورت خطا، مقادیر پیش‌فرض قرار بده
-      data['phones'] = '[]';
-      data['wholesale_codes'] = '[]';
-    }
-
-    return data;
-  }
-
-  // متد کمکی برای خواندن ساختار جدول از SQLite
   Future<List<String>> _getTableColumns(Database db, String tableName) async {
-    try {
-      var result = await db.rawQuery('PRAGMA table_info($tableName)');
-      return result.map((row) => row['name'] as String).toList();
-    } catch (e) {
-      print("❌ خطا در خواندن ساختار جدول $tableName: $e");
-      return [];
-    }
+    final result = await db.rawQuery('PRAGMA table_info($tableName)');
+    return result.map((row) => row['name'] as String).toList();
   }
 
-  // ---------------------------------------------------------
-  // متدهای کمکی اضافی برای مدیریت بهتر
-  // ---------------------------------------------------------
+  int _backoffMs(int attempts) {
+    final capped = attempts.clamp(1, 6);
+    return Duration(seconds: 5 * capped * capped).inMilliseconds;
+  }
 
-  // بررسی وجود shop در فایربیس
   Future<bool> checkShopExists(String shopId) async {
-    try {
-      final doc = await _firestore.collection('shops').doc(shopId).get();
-      return doc.exists;
-    } catch (e) {
-      print("❌ خطا در بررسی وجود shop: $e");
-      return false;
-    }
+    final doc = await _firestore.collection('shops').doc(shopId).get();
+    return doc.exists;
   }
 
-  // دریافت تعداد pending operations
   Future<int> getPendingOperations(String shopId) async {
-    try {
-      // می‌توانید اینجا منطق خاص خود را پیاده‌سازی کنید
-      return 0;
-    } catch (e) {
-      return 0;
-    }
+    final db = await DatabaseHelper.instance.database;
+    final rows = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM outbox WHERE shop_id = ?',
+      [shopId],
+    );
+    return (rows.first['count'] as int?) ?? 0;
   }
+}
 
-  // پاکسازی داده‌های قدیمی در فایربیس (اختیاری)
-  Future<void> cleanupFirestore(String shopId) async {
-    try {
-      print("🧹 در حال پاکسازی داده‌های قدیمی در فایربیس...");
+class _SyncCursor {
+  final DateTime timestamp;
+  final String docId;
 
-      // پاکسازی collection‌های قدیمی که دیگر استفاده نمی‌شوند
-      final oldCollections = ['customer_phones', 'customer_wholesale_codes'];
-
-      for (var collection in oldCollections) {
-        try {
-          final snap = await _firestore
-              .collection('shops')
-              .doc(shopId)
-              .collection(collection)
-              .get();
-
-          // حذف تمام داکیومنت‌ها
-          final batch = _firestore.batch();
-          for (var doc in snap.docs) {
-            batch.delete(doc.reference);
-          }
-
-          if (snap.docs.isNotEmpty) {
-            await batch.commit();
-            print("✅ collection $collection پاکسازی شد (${snap.docs.length} داکیومنت)");
-          }
-        } catch (e) {
-          print("⚠️ خطا در پاکسازی $collection: $e");
-        }
-      }
-    } catch (e) {
-      print("❌ خطا در پاکسازی کلی: $e");
-    }
-  }
+  const _SyncCursor(this.timestamp, this.docId);
 }

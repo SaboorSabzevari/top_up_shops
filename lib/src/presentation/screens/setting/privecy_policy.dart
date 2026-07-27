@@ -67,7 +67,10 @@ class TermsAndConditionsPage extends StatelessWidget {
                         borderRadius: BorderRadius.circular(12.r),
                       ),
                       child: IconButton(
-                        icon: const Icon(Icons.chevron_right, color: Colors.white),
+                        icon: const Icon(
+                          Icons.chevron_right,
+                          color: Colors.white,
+                        ),
                         onPressed: () => Navigator.pop(context),
                       ),
                     ),
@@ -126,7 +129,11 @@ class TermsAndConditionsPage extends StatelessWidget {
                             SizedBox(height: 4.h),
                             Row(
                               children: [
-                                Icon(Icons.calendar_today_outlined, size: 12.sp, color: AppColors.textMuted),
+                                Icon(
+                                  Icons.calendar_today_outlined,
+                                  size: 12.sp,
+                                  color: AppColors.textMuted,
+                                ),
                                 SizedBox(width: 4.w),
                                 Text(
                                   'بروزرسانی: ۱۴۰۳/۰۸/۱۵',
@@ -138,13 +145,16 @@ class TermsAndConditionsPage extends StatelessWidget {
                               ],
                             ),
                           ],
-                        )
+                        ),
                       ],
                     ),
 
                     Padding(
                       padding: EdgeInsets.symmetric(vertical: 20.h),
-                      child: Divider(color: AppColors.borderLight, thickness: 1),
+                      child: Divider(
+                        color: AppColors.borderLight,
+                        thickness: 1,
+                      ),
                     ),
 
                     // محتوای متنی
@@ -152,31 +162,31 @@ class TermsAndConditionsPage extends StatelessWidget {
                       number: '۱',
                       title: 'مقدمه',
                       text:
-                      'به سیستم مدیریت فروشگاه شارژ خوش آمدید. با استفاده از این برنامه، شما موافقت می‌کنید که به تمام قوانین و مقررات زیر پایبند باشید. این شرایط برای اطمینان از امنیت و کیفیت خدمات برای همه کاربران وضع شده است.',
+                          'به سیستم مدیریت فروشگاه شارژ خوش آمدید. با استفاده از این برنامه، شما موافقت می‌کنید که به تمام قوانین و مقررات زیر پایبند باشید. این شرایط برای اطمینان از امنیت و کیفیت خدمات برای همه کاربران وضع شده است.',
                     ),
                     const _Section(
                       number: '۲',
                       title: 'حساب کاربری و امنیت',
                       text:
-                      'کاربران مسئول حفظ محرمانگی اطلاعات حساب کاربری و رمز عبور خود هستند. هرگونه فعالیت انجام شده تحت حساب کاربری شما، مسئولیتش با شماست. در صورت مشاهده هرگونه دسترسی غیرمجاز، فوراً به پشتیبانی اطلاع دهید.',
+                          'کاربران مسئول حفظ محرمانگی اطلاعات حساب کاربری و رمز عبور خود هستند. هرگونه فعالیت انجام شده تحت حساب کاربری شما، مسئولیتش با شماست. در صورت مشاهده هرگونه دسترسی غیرمجاز، فوراً به پشتیبانی اطلاع دهید.',
                     ),
                     const _Section(
                       number: '۳',
                       title: 'تراکنش‌های مالی',
                       text:
-                      'تمامی تراکنش‌های خرید و فروش شارژ در سیستم ثبت می‌شود. مسئولیت دقت در وارد کردن شماره تلفن و مبلغ شارژ بر عهده کاربر است. در صورت بروز خطاهای خارج از کنترل سیستم، پشتیبانی پیگیری لازم را انجام خواهد داد.',
+                          'تمامی تراکنش‌های خرید و فروش شارژ در سیستم ثبت می‌شود. مسئولیت دقت در وارد کردن شماره تلفن و مبلغ شارژ بر عهده کاربر است. در صورت بروز خطاهای خارج از کنترل سیستم، پشتیبانی پیگیری لازم را انجام خواهد داد.',
                     ),
                     const _Section(
                       number: '۴',
                       title: 'حریم خصوصی',
                       text:
-                      'ما متعهد به حفظ حریم خصوصی کاربران هستیم. اطلاعات شخصی تنها برای ارائه خدمات بهتر استفاده می‌شود و بدون اجازه شما در اختیار اشخاص ثالث قرار نمی‌گیرد.',
+                          'ما متعهد به حفظ حریم خصوصی کاربران هستیم. اطلاعات شخصی تنها برای ارائه خدمات بهتر استفاده می‌شود و بدون اجازه شما در اختیار اشخاص ثالث قرار نمی‌گیرد.',
                     ),
                     const _Section(
                       number: '۵',
                       title: 'تغییرات',
                       text:
-                      'مدیریت سیستم حق دارد در هر زمان قوانین را تغییر دهد. ادامه استفاده از برنامه به منزله پذیرش شرایط جدید خواهد بود.',
+                          'مدیریت سیستم حق دارد در هر زمان قوانین را تغییر دهد. ادامه استفاده از برنامه به منزله پذیرش شرایط جدید خواهد بود.',
                     ),
 
                     SizedBox(height: 20.h), // فضای خالی انتهای متن
@@ -196,7 +206,7 @@ class TermsAndConditionsPage extends StatelessWidget {
                   color: Colors.black.withOpacity(0.05),
                   offset: const Offset(0, -4),
                   blurRadius: 10,
-                )
+                ),
               ],
             ),
             child: SizedBox(
@@ -218,7 +228,10 @@ class TermsAndConditionsPage extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.check_circle_outline_rounded, color: Colors.white),
+                    const Icon(
+                      Icons.check_circle_outline_rounded,
+                      color: Colors.white,
+                    ),
                     SizedBox(width: 8.w),
                     Text(
                       'قبول شرایط و ادامه',

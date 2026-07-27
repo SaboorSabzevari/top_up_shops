@@ -72,7 +72,7 @@ class AppLocalizationsFa extends AppLocalizations {
 
   @override
   // TODO: implement email
-  String get email =>" ایمیل";
+  String get email => " ایمیل";
 
   @override
   // TODO: implement password
@@ -81,7 +81,7 @@ class AppLocalizationsFa extends AppLocalizations {
   @override
   // TODO: implement appSubTitle
   String get appSubTitle => "برای مدیریت فروشگاه خود وارد شوید";
-  String get memorizeMe=> "مرا به خاطر بسپار";
+  String get memorizeMe => "مرا به خاطر بسپار";
 
   @override
   // TODO: implement forgotPassword
@@ -155,5 +155,4 @@ class AppLocalizationsFa extends AppLocalizations {
   String get transactionSaveAndSubmit => "ذخیره و ثبت تراکنش";
   String get customerNotFound => "مشتری یافت نشد";
   String get submitNewCustomer => "ثبت مشتری جدید";
-
 }

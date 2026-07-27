@@ -48,10 +48,7 @@ class StartupScreen extends ConsumerWidget {
             // Subtitle
             Text(
               'در حال راه‌اندازی...',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey.shade600,
-              ),
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
             ),
 
             const SizedBox(height: 24),
@@ -79,7 +76,11 @@ class StartupScreen extends ConsumerWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.error_outline, color: Colors.red, size: 20),
+                    const Icon(
+                      Icons.error_outline,
+                      color: Colors.red,
+                      size: 20,
+                    ),
                     const SizedBox(width: 8),
                     Flexible(
                       child: Text(
