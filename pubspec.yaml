@@ -45,7 +45,7 @@ dependencies:
   cloud_firestore:
   connectivity_plus:
   flutter_riverpod:
-  sqflite:
+  cached_network_image:
   fl_chart:
   path:
   path_provider:

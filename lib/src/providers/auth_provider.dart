@@ -121,7 +121,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       if (doc.exists && doc.data() != null) {
         final data = doc.data()!;
 
-          print('📋 تعداد فیلدهای پروفایل: ${data.keys.length}');
+        print('📋 تعداد فیلدهای پروفایل: ${data.keys.length}');
 
 
         // بررسی فیلدهای ضروری
@@ -131,7 +131,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         final shopId = data['shopId']?.toString();
 
 
-          print('🔍 بررسی فیلدهای حیاتی: role=$hasRole, shopId=$hasShopId');
+        print('🔍 بررسی فیلدهای حیاتی: role=$hasRole, shopId=$hasShopId');
 
 
         if (!hasRole || !hasShopId) {
@@ -164,8 +164,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
         print('🔎 تعداد کاربران با این ایمیل: ${allUsers.docs.length}');
 
-          for (var doc in allUsers.docs) {
-            print('   - ID: ${doc.id}');
+        for (var doc in allUsers.docs) {
+          print('   - ID: ${doc.id}');
 
         }
       }

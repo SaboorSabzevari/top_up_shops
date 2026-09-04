@@ -1,8 +1,11 @@
+// مسیر پیشنهادی: lib/src/domain/entity/transaction.dart
+// تغییر کلیدی نسبت به نسخه‌ی قبلی: id و customerId اکنون String هستند
+// (چون آیدی سند در Firestore رشته است، نه عدد auto-increment مثل SQLite).
 class TransactionModel {
-  final int id;
-  final String shopId; // اضافه شد
-  final String createdBy; // اضافه شد (UID کارمند یا مدیر)
-  final int? customerId;
+  final String id;
+  final String shopId;
+  final String createdBy;
+  final String? customerId;
   final String? customerRemoteId;
   final String customerName;
   final String customerType;
@@ -23,8 +26,8 @@ class TransactionModel {
 
   TransactionModel({
     required this.id,
-    required this.shopId, // اضافه شد
-    required this.createdBy, // اضافه شد
+    required this.shopId,
+    required this.createdBy,
     this.customerId,
     this.customerRemoteId,
     required this.customerName,
@@ -45,11 +48,11 @@ class TransactionModel {
 
   factory TransactionModel.fromMap(Map<String, dynamic> map) {
     return TransactionModel(
-      id: map['id'] as int,
-      shopId: (map['shop_id'] ?? '') as String, // خواندن از دیتابیس
-      createdBy: (map['created_by'] ?? '') as String, // خواندن از دیتابیس
-      customerId: map['customer_id'] as int?,
-      customerRemoteId: map['customer_remote_id'] as String?,
+      id: (map['id'] ?? '').toString(),
+      shopId: (map['shop_id'] ?? '') as String,
+      createdBy: (map['created_by'] ?? '') as String,
+      customerId: map['customer_id']?.toString(),
+      customerRemoteId: map['customer_remote_id']?.toString(),
       customerName: (map['customer_name'] ?? 'نامشخص') as String,
       customerType: (map['customer_type'] ?? 'WALK_IN') as String,
       transactionType: (map['transaction_type'] ?? 'DIGITAL') as String,
@@ -60,8 +63,8 @@ class TransactionModel {
       sentAmount: (map['sent_amount'] as num? ?? 0).toInt(),
       totalPrice: (map['total_price'] as num? ?? 0).toDouble(),
       paidAmount:
-          (map['paid_amount'] as num? ?? map['received_amount'] as num? ?? 0)
-              .toDouble(),
+      (map['paid_amount'] as num? ?? map['received_amount'] as num? ?? 0)
+          .toDouble(),
       remainingAmount: (map['remaining_amount'] as num? ?? 0).toDouble(),
       costPrice: (map['cost_price'] as num? ?? 0).toDouble(),
       profit: (map['profit'] as num? ?? 0).toInt(),

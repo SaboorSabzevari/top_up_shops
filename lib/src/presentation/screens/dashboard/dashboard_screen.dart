@@ -12,8 +12,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:top_up_shops/src/presentation/screens/dashboard/invetory.dart';
 import 'package:top_up_shops/src/presentation/screens/dashboard/sell_paper_card/paper_card_screen.dart';
 import 'package:top_up_shops/src/presentation/screens/dashboard/send_credit/send_credit_screen.dart';
+import '../../../data/premissions.dart';
 import '../../../domain/entity/transaction.dart';
+import '../../../providers/premission_provider.dart';
 import '../../../providers/session_provider.dart';
+import '../../../services/app_notifier.dart';
 import '../../../providers/sync_provider.dart';
 import '../../../providers/transaction_provider.dart';
 import '../../../services/internet_chek.dart';
@@ -52,8 +55,8 @@ class AppStyles {
 
 // --- Providers ---
 final profileInfoProvider = FutureProvider.autoDispose<Map<String, String>>((
-  ref,
-) async {
+    ref,
+    ) async {
   final prefs = await SharedPreferences.getInstance();
   return {
     'name': prefs.getString('store_name') ?? 'فروشگاه من',
@@ -94,17 +97,16 @@ class DashboardScreen extends ConsumerWidget {
   }
 
   void _showSnackBar(
-    BuildContext context,
-    String message, {
-    bool isError = false,
-  }) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message, style: AppStyles.fontVazir),
-        backgroundColor: isError ? AppColors.primary : Colors.green,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+      BuildContext context,
+      String message, {
+        bool isError = false,
+      }) {
+    // 🔁 toast عمومی و یکسان در کل اپ
+    if (isError) {
+      AppToast.error(message);
+    } else {
+      AppToast.success(message);
+    }
   }
 
   @override
@@ -197,9 +199,9 @@ class DashboardScreen extends ConsumerWidget {
                           data['percent'],
                         ),
                         loading: () =>
-                            const Center(child: CircularProgressIndicator()),
+                        const Center(child: CircularProgressIndicator()),
                         error: (err, stack) =>
-                            const Text("خطا در بارگذاری اطلاعات"),
+                        const Text("خطا در بارگذاری اطلاعات"),
                       ),
 
                       // Sales Summary Stats
@@ -207,7 +209,7 @@ class DashboardScreen extends ConsumerWidget {
                       const SizedBox(height: 14),
 
                       // Quick Access Menu
-                      _buildQuickAccessSection(context),
+                      _buildQuickAccessSection(context, ref),
 
                       const SizedBox(height: 24),
                       _buildManagementSection(),
@@ -226,11 +228,11 @@ class DashboardScreen extends ConsumerWidget {
 
   // --- Header ---
   Widget _buildHeaderContent(
-    BuildContext context,
-    WidgetRef ref,
-    AsyncValue<Map<String, String>> profileAsync,
-    bool isSyncing,
-  ) {
+      BuildContext context,
+      WidgetRef ref,
+      AsyncValue<Map<String, String>> profileAsync,
+      bool isSyncing,
+      ) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -270,7 +272,7 @@ class DashboardScreen extends ConsumerWidget {
                       strokeWidth: 2,
                     ),
                     error: (_, __) =>
-                        const Icon(Icons.person, color: Colors.white),
+                    const Icon(Icons.person, color: Colors.white),
                   ),
                 ),
               ),
@@ -317,9 +319,9 @@ class DashboardScreen extends ConsumerWidget {
           onPressed: () => _handleSync(context, ref),
           icon: isSyncing
               ? const CircularProgressIndicator(
-                  color: Colors.white,
-                  padding: EdgeInsets.all(10),
-                )
+            color: Colors.white,
+            padding: EdgeInsets.all(10),
+          )
               : const Icon(Icons.sync, color: Colors.white),
         ),
       ],
@@ -409,7 +411,7 @@ class DashboardScreen extends ConsumerWidget {
                       /// آخرین بروزرسانی
                       Text(
                         "آخرین بروزرسانی: "
-                        "${lastUpdate.hour}:${lastUpdate.minute.toString().padLeft(2, '0')}",
+                            "${lastUpdate.hour}:${lastUpdate.minute.toString().padLeft(2, '0')}",
                         style: AppStyles.fontVazir.copyWith(
                           fontSize: labelSize,
                           color: AppColors.textMuted,
@@ -492,7 +494,7 @@ class DashboardScreen extends ConsumerWidget {
 
                             return LineTooltipItem(
                               "${isCurrent ? "این هفته" : "هفته قبل"}\n"
-                              "${spot.y.toStringAsFixed(0)}",
+                                  "${spot.y.toStringAsFixed(0)}",
                               const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
@@ -735,7 +737,7 @@ class DashboardScreen extends ConsumerWidget {
   }
 
   // --- Quick Access Section ---
-  Widget _buildQuickAccessSection(BuildContext context) {
+  Widget _buildQuickAccessSection(BuildContext context, WidgetRef ref) {
     return Column(
       children: [
         Row(
@@ -770,7 +772,7 @@ class DashboardScreen extends ConsumerWidget {
               "فروش داشتید؟ ثبت کنید",
               Icons.add_shopping_cart,
               AppColors.primary,
-              () => Navigator.push(
+                  () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const DigitalTopupSalePage()),
               ),
@@ -780,17 +782,26 @@ class DashboardScreen extends ConsumerWidget {
               "خرید اعتبار برای دکان",
               Icons.input,
               Colors.blue,
-              () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const PurchaseScreen()),
-              ),
+                  () {
+                final canBuy = ref.read(
+                  hasPermissionProvider(PermissionKeys.canManageInventory),
+                );
+                if (!canBuy) {
+                  AppToast.warning('شما اجازه‌ی ثبت خرید را ندارید.');
+                  return;
+                }
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const PurchaseScreen()),
+                );
+              },
             ),
             _buildQuickActionCard(
               "فروش کاغذی",
               "فروش کارت فیزیکی",
               Icons.receipt_long,
               Colors.amber[700]!,
-              () => Navigator.push(
+                  () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const PaperTopupSalePage()),
               ),
@@ -800,7 +811,7 @@ class DashboardScreen extends ConsumerWidget {
               "مدیریت موجودی",
               Icons.inventory_2_outlined,
               Colors.teal,
-              () => Navigator.push(
+                  () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const InventoryScreen()),
               ),
@@ -812,12 +823,12 @@ class DashboardScreen extends ConsumerWidget {
   }
 
   Widget _buildQuickActionCard(
-    String title,
-    String subtitle,
-    IconData icon,
-    Color color,
-    VoidCallback onTap,
-  ) {
+      String title,
+      String subtitle,
+      IconData icon,
+      Color color,
+      VoidCallback onTap,
+      ) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -883,9 +894,9 @@ class DashboardScreen extends ConsumerWidget {
 
   // --- Recent Transactions ---
   Widget _buildTransactionsSection(
-    BuildContext context,
-    AsyncValue<List<TransactionModel>> transactions,
-  ) {
+      BuildContext context,
+      AsyncValue<List<TransactionModel>> transactions,
+      ) {
     return Column(
       children: [
         Row(

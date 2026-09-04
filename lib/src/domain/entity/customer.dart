@@ -1,7 +1,9 @@
-import 'dart:convert';
-
+// مسیر پیشنهادی: lib/src/domain/entity/customer.dart
+// تغییر کلیدی: id اکنون String است (آیدی سند Firestore) و phones /
+// wholesaleCodes به‌صورت لیست بومی ذخیره می‌شوند (نه رشته‌ی JSON)، چون
+// Firestore خودش از آرایه و مپ تودرتو پشتیبانی می‌کند.
 class Customer {
-  final int? id;
+  final String? id;
   final String? remoteId;
   final String name;
   final String customerCode;
@@ -11,8 +13,8 @@ class Customer {
   final String? profileImage;
   final String? address;
   final String? tazkiraImage;
-  final List<String> phones; // ✅ اضافه شد
-  final List<Map<String, String>> wholesaleCodes; // ✅ اضافه شد
+  final List<String> phones;
+  final List<Map<String, String>> wholesaleCodes;
 
   Customer({
     this.id,
@@ -25,14 +27,13 @@ class Customer {
     this.profileImage,
     this.address,
     this.tazkiraImage,
-    this.phones = const [], // ✅ مقدار پیش‌فرض
-    this.wholesaleCodes = const [], // ✅ مقدار پیش‌فرض
+    this.phones = const [],
+    this.wholesaleCodes = const [],
   });
 
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
-      'remote_id': remoteId,
+      if (id != null) 'id': id,
       'name': name,
       'customer_code': customerCode,
       'type': type,
@@ -41,51 +42,39 @@ class Customer {
       'address': address,
       'profile_image': profileImage,
       'tazkira_image': tazkiraImage,
-      'phones': phones.isNotEmpty ? jsonEncode(phones) : '[]',
-      'wholesale_codes': wholesaleCodes.isNotEmpty
-          ? jsonEncode(wholesaleCodes)
-          : '[]',
+      'phones': phones,
+      'wholesale_codes': wholesaleCodes,
     };
   }
 
   factory Customer.fromMap(Map<String, dynamic> map) {
-    // پارس کردن phones
     List<String> phonesList = [];
-    try {
-      if (map['phones'] != null && (map['phones'] as String).isNotEmpty) {
-        final parsed = jsonDecode(map['phones'] as String);
-        if (parsed is List) {
-          phonesList = List<String>.from(parsed);
-        }
-      }
-    } catch (e) {
-      phonesList = [];
+    final rawPhones = map['phones'];
+    if (rawPhones is List) {
+      phonesList = rawPhones
+          .map((p) => p is Map ? (p['phone_number']?.toString() ?? '') : p.toString())
+          .where((s) => s.isNotEmpty)
+          .cast<String>()
+          .toList();
     }
 
-    // پارس کردن wholesale_codes
     List<Map<String, String>> wholesaleList = [];
-    try {
-      if (map['wholesale_codes'] != null &&
-          (map['wholesale_codes'] as String).isNotEmpty) {
-        final parsed = jsonDecode(map['wholesale_codes'] as String);
-        if (parsed is List) {
-          wholesaleList = List<Map<String, String>>.from(
-            parsed.map((item) => Map<String, String>.from(item)),
-          );
-        }
-      }
-    } catch (e) {
-      wholesaleList = [];
+    final rawCodes = map['wholesale_codes'];
+    if (rawCodes is List) {
+      wholesaleList = rawCodes
+          .whereType<Map>()
+          .map((item) => item.map((k, v) => MapEntry(k.toString(), v?.toString() ?? '')))
+          .toList();
     }
 
     return Customer(
-      id: map['id'] as int?,
-      remoteId: map['remote_id'] as String?,
-      name: map['name'] as String,
-      customerCode: map['customer_code'] as String,
-      type: map['type'] as String,
-      shopId: map['shop_id'] as String,
-      createdBy: map['created_by'] as String,
+      id: map['id']?.toString(),
+      remoteId: map['id']?.toString(),
+      name: (map['name'] ?? '') as String,
+      customerCode: (map['customer_code'] ?? '') as String,
+      type: (map['type'] ?? 'ORDINARY') as String,
+      shopId: (map['shop_id'] ?? '') as String,
+      createdBy: (map['created_by'] ?? '') as String,
       profileImage: map['profile_image'] as String?,
       address: map['address'] as String?,
       tazkiraImage: map['tazkira_image'] as String?,

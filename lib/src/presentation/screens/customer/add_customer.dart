@@ -12,8 +12,11 @@ import '../../../domain/entity/customer.dart';
 import '../../../providers/app_providers.dart';
 import '../../../providers/customer_provider.dart';
 import '../../../providers/session_provider.dart';
+import '../../../services/app_notifier.dart';
+import '../../../services/async_helper.dart';
 import '../../../services/file_helper.dart';
-import '../../../utils/debuge.dart';
+import '../../../services/image_upload_service.dart';
+import '../../../services/smart_avatar.dart';
 
 enum CustomerType { normal, shopkeeper }
 
@@ -101,85 +104,89 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
         ? CustomerType.normal
         : CustomerType.shopkeeper;
 
+    final _initUser = SessionService.instance.user;
     DatabaseHelper.instance
-        .getCustomerFullDetails(widget.customerData!['id'])
+        .getCustomerFullDetails(
+      widget.customerData!['id'].toString(),
+      _initUser?.shopId ?? '',
+    )
         .then((details) {
-          if (mounted) {
-            setState(() {
-              normalPhones.clear();
-              dealers.clear();
+      if (mounted) {
+        setState(() {
+          normalPhones.clear();
+          dealers.clear();
 
-              // پارس کردن phones از JSON
-              List<dynamic> phonesData = [];
-              if (details['phones'] is String) {
-                try {
-                  phonesData = jsonDecode(details['phones'] as String);
-                } catch (e) {
-                  phonesData = [];
-                }
-              } else if (details['phones'] is List) {
-                phonesData = details['phones'] as List<dynamic>;
+          // پارس کردن phones از JSON
+          List<dynamic> phonesData = [];
+          if (details['phones'] is String) {
+            try {
+              phonesData = jsonDecode(details['phones'] as String);
+            } catch (e) {
+              phonesData = [];
+            }
+          } else if (details['phones'] is List) {
+            phonesData = details['phones'] as List<dynamic>;
+          }
+
+          if (phonesData.isNotEmpty) {
+            for (var p in phonesData) {
+              if (p is Map) {
+                normalPhones.add(
+                  TextEditingController(
+                    text: p['phone_number']?.toString() ?? '',
+                  ),
+                );
+              } else if (p is String) {
+                normalPhones.add(TextEditingController(text: p));
               }
+            }
+          } else if (_customerType == CustomerType.normal) {
+            normalPhones.add(TextEditingController());
+          }
 
-              if (phonesData.isNotEmpty) {
-                for (var p in phonesData) {
-                  if (p is Map) {
-                    normalPhones.add(
-                      TextEditingController(
-                        text: p['phone_number']?.toString() ?? '',
-                      ),
-                    );
-                  } else if (p is String) {
-                    normalPhones.add(TextEditingController(text: p));
-                  }
-                }
-              } else if (_customerType == CustomerType.normal) {
-                normalPhones.add(TextEditingController());
-              }
+          // پارس کردن wholesale_codes از JSON
+          List<dynamic> codesData = [];
+          if (details['wholesale_codes'] is String) {
+            try {
+              codesData = jsonDecode(details['wholesale_codes'] as String);
+            } catch (e) {
+              codesData = [];
+            }
+          } else if (details['wholesale_codes'] is List) {
+            codesData = details['wholesale_codes'] as List<dynamic>;
+          }
 
-              // پارس کردن wholesale_codes از JSON
-              List<dynamic> codesData = [];
-              if (details['wholesale_codes'] is String) {
-                try {
-                  codesData = jsonDecode(details['wholesale_codes'] as String);
-                } catch (e) {
-                  codesData = [];
-                }
-              } else if (details['wholesale_codes'] is List) {
-                codesData = details['wholesale_codes'] as List<dynamic>;
-              }
-
-              if (codesData.isNotEmpty) {
-                for (var c in codesData) {
-                  final item = _DealerItem();
-                  if (c is Map) {
-                    item.companyType =
-                        c['company']?.toString() ??
+          if (codesData.isNotEmpty) {
+            for (var c in codesData) {
+              final item = _DealerItem();
+              if (c is Map) {
+                item.companyType =
+                    c['company']?.toString() ??
                         c['company_name']?.toString();
-                    item.codeCtrl.text =
-                        c['code']?.toString() ??
+                item.codeCtrl.text =
+                    c['code']?.toString() ??
                         c['company_code']?.toString() ??
                         '';
-                  }
-                  dealers.add(item);
-                }
-              } else if (_customerType == CustomerType.shopkeeper) {
-                dealers.add(_DealerItem());
               }
+              dealers.add(item);
+            }
+          } else if (_customerType == CustomerType.shopkeeper) {
+            dealers.add(_DealerItem());
+          }
 
-              // برای مشتری عمده، اولین شماره را در فیلد اصلی قرار بده
-              if (_customerType == CustomerType.shopkeeper &&
-                  phonesData.isNotEmpty) {
-                if (phonesData[0] is Map) {
-                  wholesaleMainPhone.text =
-                      phonesData[0]['phone_number']?.toString() ?? '';
-                } else if (phonesData[0] is String) {
-                  wholesaleMainPhone.text = phonesData[0] as String;
-                }
-              }
-            });
+          // برای مشتری عمده، اولین شماره را در فیلد اصلی قرار بده
+          if (_customerType == CustomerType.shopkeeper &&
+              phonesData.isNotEmpty) {
+            if (phonesData[0] is Map) {
+              wholesaleMainPhone.text =
+                  phonesData[0]['phone_number']?.toString() ?? '';
+            } else if (phonesData[0] is String) {
+              wholesaleMainPhone.text = phonesData[0] as String;
+            }
           }
         });
+      }
+    });
   }
 
   void _changeCustomerType(CustomerType newType) {
@@ -339,9 +346,7 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
     final user = ref.read(currentUserProvider);
 
     if (user == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('لطفاً دوباره وارد شوید')));
+      AppToast.warning('لطفاً دوباره وارد شوید');
       return;
     }
 
@@ -367,18 +372,13 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
 
     if (_customerType == CustomerType.shopkeeper) {
       bool hasDealerCode = dealers.any(
-        (d) => d.companyType != null && d.codeCtrl.text.isNotEmpty,
+            (d) => d.companyType != null && d.codeCtrl.text.isNotEmpty,
       );
       bool hasValidPhone = validPhones.isNotEmpty;
 
       if (!hasDealerCode && !hasValidPhone) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'برای مشتری عمده، درج شماره تماس صحیح یا حداقل یک کد دیلری الزامی است',
-            ),
-            backgroundColor: Colors.orange,
-          ),
+        AppToast.warning(
+          'برای مشتری عمده، درج شماره تماس صحیح یا حداقل یک کد دیلری الزامی است',
         );
         return;
       }
@@ -387,72 +387,67 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
     List<Map<String, String>> wholesaleCodes = dealers
         .where(
           (d) =>
-              d.companyType != null &&
-              d.companyType!.isNotEmpty &&
-              d.codeCtrl.text.isNotEmpty,
-        )
+      d.companyType != null &&
+          d.companyType!.isNotEmpty &&
+          d.codeCtrl.text.isNotEmpty,
+    )
         .map((e) => {'company': e.companyType!, 'code': e.codeCtrl.text})
         .toList();
 
-    final customer = Customer(
-      name: fullNameCtrl.text,
-      customerCode:
-          widget.customerData?['customer_code'] ??
-          'CUST-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}',
-      type: typeStr,
-      shopId: user.shopId, // ✅ اضافه شد
-      createdBy: user.uid, // ✅ اضافه شد
-      address: addressCtrl.text,
-      profileImage: _profilePath,
-      tazkiraImage: _tazkiraPath,
-      phones: validPhones, // ✅ اضافه شد
-      wholesaleCodes: wholesaleCodes, // ✅ اضافه شد
-    );
-    try {
-      // ۱. دریافت اطلاعات کاربر فعلی از Riverpod
-      final user = ref.read(currentUserProvider);
+    final isEdit = widget.customerData != null;
 
-      if (user == null) {
-        // مدیریت خطا در صورت نبود کاربر
-        return;
-      }
+    final ok = await runGuarded<bool>(() async {
+      // آپلود عکس‌های محلی به Cloudinary (اگر از قبل URL باشند، دوباره آپلود نمی‌شوند)
+      final profileUrl = await ImageUploadService.uploadIfLocal(
+        _profilePath,
+        folder: 'customers',
+      );
+      final tazkiraUrl = await ImageUploadService.uploadIfLocal(
+        _tazkiraPath,
+        folder: 'tazkira',
+      );
 
-      if (widget.customerData != null) {
+      final customer = Customer(
+        name: fullNameCtrl.text,
+        customerCode:
+        widget.customerData?['customer_code'] ??
+            'CUST-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}',
+        type: typeStr,
+        shopId: user.shopId,
+        createdBy: user.uid,
+        address: addressCtrl.text,
+        profileImage: profileUrl.isNotEmpty ? profileUrl : null,
+        tazkiraImage: tazkiraUrl.isNotEmpty ? tazkiraUrl : null,
+        phones: validPhones,
+        wholesaleCodes: wholesaleCodes,
+      );
+
+      if (isEdit) {
         final id = widget.customerData?['id'];
-        if (id == null) return;
-
-        final int customerId = id as int;
-        // اگر متد updateCustomer را هم تغییر داده‌اید، کاربر را به آن هم پاس دهید
+        if (id == null) return false;
         await DatabaseHelper.instance.updateCustomer(
-          customerId,
+          id.toString(),
           customer,
           validPhones,
           wholesaleCodes,
-          user, // اضافه کردن آرگومان کاربر
+          user,
         );
       } else {
-        // ۲. پاس دادن آرگومان چهارم (user) برای رفع خطا
         await DatabaseHelper.instance.addCustomer(
           customer,
           validPhones,
           wholesaleCodes,
-          user, // این همان آرگومانی است که جایش خالی بود
+          user,
         );
       }
+      return true;
+    },
+        loadingText: 'در حال ذخیره‌سازی...',
+        successMessage: isEdit ? 'اطلاعات مشتری بروزرسانی شد' : 'مشتری جدید ذخیره شد');
 
-      if (mounted) {
-        ref.refresh(customerSearchResults);
-        Navigator.pop(context);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('خطا در ذخیره‌سازی: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+    if (ok == true && mounted) {
+      ref.refresh(customerSearchResults);
+      Navigator.pop(context);
     }
   }
 
@@ -521,12 +516,12 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
           _typeButton(
             'مشتری عادی',
             _customerType == CustomerType.normal,
-            () => _changeCustomerType(CustomerType.normal),
+                () => _changeCustomerType(CustomerType.normal),
           ),
           _typeButton(
             'عمده',
             _customerType == CustomerType.shopkeeper,
-            () => _changeCustomerType(CustomerType.shopkeeper),
+                () => _changeCustomerType(CustomerType.shopkeeper),
             primary: true,
           ),
         ],
@@ -535,11 +530,11 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
   }
 
   Widget _typeButton(
-    String title,
-    bool selected,
-    VoidCallback onTap, {
-    bool primary = false,
-  }) {
+      String title,
+      bool selected,
+      VoidCallback onTap, {
+        bool primary = false,
+      }) {
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
@@ -572,15 +567,16 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
       onTap: () => _showImageSourceSheet(true),
       child: Column(
         children: [
-          CircleAvatar(
+          _profilePath == null
+              ? CircleAvatar(
             radius: 46.r,
             backgroundColor: Colors.grey.shade200,
-            backgroundImage: _profilePath != null
-                ? FileImage(File(_profilePath!))
-                : null,
-            child: _profilePath == null
-                ? Icon(Icons.add_a_photo, size: 32.w, color: kPrimaryColor)
-                : null,
+            child: Icon(Icons.add_a_photo, size: 32.w, color: kPrimaryColor),
+          )
+              : SmartAvatar(
+            path: _profilePath,
+            fallbackText: fullNameCtrl.text,
+            radius: 46.r,
           ),
           SizedBox(height: 8.h),
           Text(
@@ -648,7 +644,7 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
         ),
         ...List.generate(
           normalPhones.length,
-          (i) => Padding(
+              (i) => Padding(
             padding: EdgeInsets.only(bottom: 8.h),
             child: Row(
               children: [
@@ -686,7 +682,7 @@ class _AddCustomerPageState extends ConsumerState<AddCustomerPage> {
         ),
         ...List.generate(
           dealers.length,
-          (i) => Padding(
+              (i) => Padding(
             padding: EdgeInsets.only(bottom: 8.h),
             child: Row(
               children: [
@@ -906,7 +902,7 @@ class _DealerItem {
 
         // اگر مقدار companyType در لیست وجود ندارد، آن را null قرار بده
         final String? currentValue =
-            companyType != null && seenNames.contains(companyType)
+        companyType != null && seenNames.contains(companyType)
             ? companyType
             : null;
 
@@ -917,14 +913,14 @@ class _DealerItem {
           items: uniqueList
               .map(
                 (p) => DropdownMenuItem(
-                  value: p['name'].toString(),
-                  child: Text(
-                    p['name'].toString(),
-                    style: TextStyle(fontSize: 14.sp, color: Colors.black),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              )
+              value: p['name'].toString(),
+              child: Text(
+                p['name'].toString(),
+                style: TextStyle(fontSize: 14.sp, color: Colors.black),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          )
               .toList(),
           onChanged: (v) {
             companyType = v;

@@ -3,8 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../../data/local/app_database.dart';
+import '../../../../data/premissions.dart';
 import '../../../../providers/auth_provider.dart';
+import '../../../../providers/premission_provider.dart';
 import '../../../../providers/session_provider.dart';
+import '../../../../services/app_notifier.dart';
+import '../../../../services/internet_chek.dart';
 import '../../../theme/colors.dart';
 
 enum PurchaseType { paperCard, sentCredit }
@@ -41,13 +45,7 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
           _digitalProviders = [];
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('لطفاً دوباره وارد شوید'),
-            backgroundColor: Colors.red,
-            duration: Duration(seconds: 2),
-          ),
-        );
+        AppToast.error('لطفاً دوباره وارد شوید');
       }
       return;
     }
@@ -465,6 +463,13 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
   }
 
   Future<void> _savePurchase() async {
+    final hasInternet = await checkInternetConnection();
+    if (!hasInternet) {
+      AppToast.error('اتصال اینترنت برقرار نیست. لطفاً دوباره تلاش کنید.');
+      return;
+    }
+
+    AppLoader.show('در حال ثبت خرید...');
     try {
       final user = ref.read(currentUserProvider);
       if (user == null) {
@@ -534,14 +539,9 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
         _showSuccessMessage(purchaseData);
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('❌ خطا در ثبت: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      AppToast.error('خطا در ثبت: ${e.toString()}');
+    } finally {
+      AppLoader.hide();
     }
   }
 
@@ -720,6 +720,24 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
     // مقداردهی اولیه ScreenUtil
     ScreenUtil.init(context, designSize: const Size(360, 800));
 
+    // 🔒 این صفحه (ثبت خرید) نیاز به دسترسی «مدیریت خرید/انبار» دارد
+    final canManageInventory =
+    ref.watch(hasPermissionProvider(PermissionKeys.canManageInventory));
+    if (!canManageInventory) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('ثبت خرید')),
+        body: const Center(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Text(
+              'شما اجازه‌ی دسترسی به این بخش را ندارید.\nدر صورت نیاز از مدیر فروشگاه بخواهید.',
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      );
+    }
+
     final totalAmount = _getTotalAmount();
     final nominalValue = _selectedType == PurchaseType.paperCard
         ? (_selectedFaceValue * (int.tryParse(_quantityController.text) ?? 0))
@@ -783,7 +801,7 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
                 'شرکت تأمین‌کننده',
                 _providers,
                 _selectedProvider,
-                (value) {
+                    (value) {
                   setState(() {
                     _selectedProvider = value!;
                     _supplierNameController.text = value;
@@ -1172,12 +1190,12 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
                   borderRadius: BorderRadius.circular(8.r), // ریسپانسیو
                   boxShadow: _selectedType == PurchaseType.paperCard
                       ? [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 2,
-                            offset: const Offset(0, 1),
-                          ),
-                        ]
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 2,
+                      offset: const Offset(0, 1),
+                    ),
+                  ]
                       : null,
                 ),
                 child: Text(
@@ -1214,12 +1232,12 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
                   borderRadius: BorderRadius.circular(8.r), // ریسپانسیو
                   boxShadow: _selectedType == PurchaseType.sentCredit
                       ? [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 2,
-                            offset: const Offset(0, 1),
-                          ),
-                        ]
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 2,
+                      offset: const Offset(0, 1),
+                    ),
+                  ]
                       : null,
                 ),
                 child: Text(
@@ -1286,28 +1304,28 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
                           ),
                           boxShadow: isSelected
                               ? [
-                                  BoxShadow(
-                                    color: const Color(
-                                      0xFFEA2A33,
-                                    ).withOpacity(0.05),
-                                    blurRadius: 20,
-                                    offset: const Offset(0, -2),
-                                  ),
-                                ]
+                            BoxShadow(
+                              color: const Color(
+                                0xFFEA2A33,
+                              ).withOpacity(0.05),
+                              blurRadius: 20,
+                              offset: const Offset(0, -2),
+                            ),
+                          ]
                               : null,
                         ),
                         child: ClipOval(
                           child:
-                              operator['useSvg'] == true &&
-                                  operator['svgPath'] != null
+                          operator['useSvg'] == true &&
+                              operator['svgPath'] != null
                               ? SvgPicture.asset(
-                                  operator['svgPath'] as String,
-                                  fit: BoxFit.contain,
-                                )
+                            operator['svgPath'] as String,
+                            fit: BoxFit.contain,
+                          )
                               : Container(
-                                  color: Colors.white,
-                                  child: const Icon(Icons.signal_cellular_alt),
-                                ),
+                            color: Colors.white,
+                            child: const Icon(Icons.signal_cellular_alt),
+                          ),
                         ),
                       ),
                       SizedBox(height: 8.h), // ریسپانسیو
@@ -1375,12 +1393,12 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
                   ),
                   boxShadow: isSelected
                       ? [
-                          BoxShadow(
-                            color: const Color(0xFFEA2A33).withOpacity(0.1),
-                            blurRadius: 4,
-                            spreadRadius: 1,
-                          ),
-                        ]
+                    BoxShadow(
+                      color: const Color(0xFFEA2A33).withOpacity(0.1),
+                      blurRadius: 4,
+                      spreadRadius: 1,
+                    ),
+                  ]
                       : null,
                 ),
                 child: Center(
@@ -1404,12 +1422,12 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
   }
 
   Widget _buildTextField(
-    String label,
-    TextEditingController controller, {
-    Function(String)? onChanged,
-    bool isNumber = false,
-    bool isReadOnly = false,
-  }) {
+      String label,
+      TextEditingController controller, {
+        Function(String)? onChanged,
+        bool isNumber = false,
+        bool isReadOnly = false,
+      }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1454,7 +1472,7 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
                 child: TextField(
                   controller: controller,
                   readOnly:
-                      label.contains('قیمت فی واحد') &&
+                  label.contains('قیمت فی واحد') &&
                       _selectedType == PurchaseType.sentCredit,
                   keyboardType: isNumber
                       ? TextInputType.numberWithOptions(decimal: true)
@@ -1471,13 +1489,13 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
                       horizontal: 16.w,
                     ), // ریسپانسیو
                     suffixIcon:
-                        label.contains('قیمت فی واحد') &&
-                            _selectedType == PurchaseType.sentCredit
+                    label.contains('قیمت فی واحد') &&
+                        _selectedType == PurchaseType.sentCredit
                         ? Icon(
-                            Icons.lock,
-                            size: 16.sp,
-                            color: Colors.grey,
-                          ) // ریسپانسیو
+                      Icons.lock,
+                      size: 16.sp,
+                      color: Colors.grey,
+                    ) // ریسپانسیو
                         : null,
                   ),
                   style: TextStyle(
@@ -1506,11 +1524,11 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
   }
 
   Widget _buildDropdown(
-    String label,
-    List<String> items,
-    String value,
-    Function(String?) onChanged,
-  ) {
+      String label,
+      List<String> items,
+      String value,
+      Function(String?) onChanged,
+      ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1539,16 +1557,16 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
                 items: items
                     .map(
                       (e) => DropdownMenuItem(
-                        value: e,
-                        child: Text(
-                          e,
-                          style: TextStyle(
-                            fontSize: 16.sp, // ریسپانسیو
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
+                    value: e,
+                    child: Text(
+                      e,
+                      style: TextStyle(
+                        fontSize: 16.sp, // ریسپانسیو
+                        fontWeight: FontWeight.w500,
                       ),
-                    )
+                    ),
+                  ),
+                )
                     .toList(),
                 onChanged: onChanged,
               ),

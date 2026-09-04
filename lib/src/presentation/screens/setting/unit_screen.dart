@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'; // اضافه شد
 import '../../../data/local/app_database.dart';
 import '../../../providers/session_provider.dart'; // اضافه شد
-
+import '../../../services/async_helper.dart';
 class UnitScreen extends ConsumerStatefulWidget {
   // تغییر به ConsumerStatefulWidget
   const UnitScreen({super.key});
@@ -46,20 +46,11 @@ class _UnitScreenState extends ConsumerState<UnitScreen> {
     double buy = double.tryParse(buyCtrl.text) ?? 0.0;
     double sell = double.tryParse(sellCtrl.text) ?? 0.0;
 
-    // استفاده از متد اصلاح شده در دیتابیس که shopId می‌گیرد
-    await DatabaseHelper.instance.updateUnitByShop(buy, sell, user.shopId);
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'تنظیمات واحد با موفقیت برای فروشگاه شما ذخیره شد',
-            textAlign: TextAlign.center,
-          ),
-          backgroundColor: Colors.green,
-        ),
-      );
-    }
+    await runGuarded(() async {
+      await DatabaseHelper.instance.updateUnitByShop(buy, sell, user.shopId);
+    },
+        loadingText: 'در حال ذخیره‌سازی...',
+        successMessage: 'تنظیمات واحد با موفقیت برای فروشگاه شما ذخیره شد');
   }
 
   @override
@@ -79,31 +70,31 @@ class _UnitScreenState extends ConsumerState<UnitScreen> {
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : Column(
+        children: [
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.all(16),
               children: [
-                Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.all(16),
-                    children: [
-                      const Text(
-                        'تعیین نرخ واحد سیستم',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'این نرخ‌ها فقط برای فروشگاه شما و بر اساس واحد پولی شما محاسبه می‌شوند.',
-                        style: TextStyle(color: Colors.grey, fontSize: 13),
-                      ),
-                      const SizedBox(height: 24),
-                      _buildSettingsCard(),
-                    ],
+                const Text(
+                  'تعیین نرخ واحد سیستم',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-                _buildBottomButton(),
+                const SizedBox(height: 8),
+                const Text(
+                  'این نرخ‌ها فقط برای فروشگاه شما و بر اساس واحد پولی شما محاسبه می‌شوند.',
+                  style: TextStyle(color: Colors.grey, fontSize: 13),
+                ),
+                const SizedBox(height: 24),
+                _buildSettingsCard(),
               ],
             ),
+          ),
+          _buildBottomButton(),
+        ],
+      ),
     );
   }
 

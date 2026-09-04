@@ -8,6 +8,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart'; // اضافه کر�
 import 'package:top_up_shops/src/presentation/screens/auth/start_up_screen.dart';
 import 'package:top_up_shops/src/providers/local_provider.dart';
 import 'package:top_up_shops/src/providers/start_up_provider.dart';
+import 'package:top_up_shops/src/services/app_navigation.dart';
 
 import 'firebase_options.dart';
 import 'l10n/app_localizations.dart';
@@ -39,6 +40,7 @@ class MyApp extends ConsumerWidget {
         splitScreenMode: true,
         builder: (_, child) {
           return MaterialApp(
+            navigatorKey: appNavigatorKey,
             debugShowCheckedModeBanner: false,
             home: const StartupScreen(),
             locale: const Locale('fa', 'IR'),
@@ -66,6 +68,7 @@ class MyApp extends ConsumerWidget {
       splitScreenMode: true,
       builder: (_, child) {
         return MaterialApp(
+          navigatorKey: appNavigatorKey,
           debugShowCheckedModeBanner: false,
           locale: currentLocale,
           supportedLocales: const [Locale('fa', 'IR'), Locale('ps', 'AF')],
@@ -81,7 +84,7 @@ class MyApp extends ConsumerWidget {
           builder: (context, child) {
             final isRTL =
                 currentLocale.languageCode == 'fa' ||
-                currentLocale.languageCode == 'ps';
+                    currentLocale.languageCode == 'ps';
 
             return Directionality(
               textDirection: isRTL ? TextDirection.rtl : TextDirection.ltr,

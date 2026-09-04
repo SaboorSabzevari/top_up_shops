@@ -9,7 +9,9 @@ import '../../../../data/local/app_database.dart';
 import '../../../../providers/app_providers.dart';
 import '../../../../providers/session_provider.dart';
 import '../../../../providers/transaction_provider.dart';
+import '../../../../services/app_notifier.dart';
 import '../../../../utils/colors.dart';
+import '../../../../services/internet_chek.dart';
 import '../../../theme/colors.dart';
 import '../../customer/add_customer.dart';
 import '../invetory.dart';
@@ -23,7 +25,7 @@ class DigitalTopupSalePage extends ConsumerStatefulWidget {
 }
 
 class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
-  int? selectedCustomerId;
+  String? selectedCustomerId;
   String? selectedCustomerRemoteId;
   late final l10n = AppLocalizations.of(context)!;
   static const platform = MethodChannel('com.example.top_up_shops/ussd');
@@ -98,7 +100,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
 
   int get total =>
       (int.tryParse(creditCtrl.text) ?? 0) -
-      (int.tryParse(discountCtrl.text) ?? 0);
+          (int.tryParse(discountCtrl.text) ?? 0);
 
   @override
   void initState() {
@@ -218,9 +220,9 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
       if (currentBalance < creditAmount) {
         _showErrorDialog(
           'موجودی شرکت "$selectedOperator" کافی نیست!\n'
-          'موجودی فعلی: $currentBalance\n'
-          'مبلغ درخواستی: $creditAmount\n\n'
-          'لطفاً ابتدا موجودی شرکت را افزایش دهید.',
+              'موجودی فعلی: $currentBalance\n'
+              'مبلغ درخواستی: $creditAmount\n\n'
+              'لطفاً ابتدا موجودی شرکت را افزایش دهید.',
         );
         return;
       }
@@ -244,7 +246,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
           throw PlatformException(
             code: 'PERMISSION_DENIED',
             message:
-                'برای ارسال کد دستوری و مدیریت سیم‌کارت، تایید مجوز تماس الزامی است.',
+            'برای ارسال کد دستوری و مدیریت سیم‌کارت، تایید مجوز تماس الزامی است.',
           );
         }
       }
@@ -367,36 +369,48 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
 
       // محاسبه مانده حساب (بدهی)
       double remainingAmount = totalPrice - paidCash;
-      // ۵. ذخیره تراکنش و کسر موجودی در یک transaction اتمیک
-      await DatabaseHelper.instance.recordDigitalSale(
-        providerName: selectedOperator,
-        amount: sentAmount,
-        user: user,
-        transactionData: {
-          'customer_id': selectedCustomerId,
-          'customer_remote_id': selectedCustomerRemoteId,
-          'customer_name': customerNameCtrl.text,
-          'customer_type': customerType,
-          'transaction_type': 'DIGITAL', // نوع تراکنش دیجیتال
-          'operator_name': selectedOperator,
-          'company_code': companyCodeCtrl.text,
-          'phone_number': finalPhone,
-          'sent_amount': sentAmount,
-          'quantity': 1,
+      // ۵. بررسی اتصال اینترنت قبل از هر عملیات شبکه‌ای
+      final hasInternet = await checkInternetConnection();
+      if (!hasInternet) {
+        _showSnackBar('اتصال اینترنت برقرار نیست. لطفاً دوباره تلاش کنید.', Colors.red);
+        return;
+      }
 
-          // مالی
-          'discount': discount,
-          'total_price': totalPrice,
-          'paid_amount': paidCash,
-          'remaining_amount': remainingAmount,
-          'received_amount': paidCash,
-          'cost_price': costPrice,
-          'profit': netProfit,
+      // ۶. ذخیره تراکنش و کسر موجودی در یک transaction اتمیک
+      AppLoader.show('در حال ثبت تراکنش...');
+      try {
+        await DatabaseHelper.instance.recordDigitalSale(
+          providerName: selectedOperator,
+          amount: sentAmount,
+          user: user,
+          transactionData: {
+            'customer_id': selectedCustomerId,
+            'customer_remote_id': selectedCustomerRemoteId,
+            'customer_name': customerNameCtrl.text,
+            'customer_type': customerType,
+            'transaction_type': 'DIGITAL', // نوع تراکنش دیجیتال
+            'operator_name': selectedOperator,
+            'company_code': companyCodeCtrl.text,
+            'phone_number': finalPhone,
+            'sent_amount': sentAmount,
+            'quantity': 1,
 
-          'ussd_command': _buildUSSDCode(),
-          'created_at': DateTime.now().toIso8601String(),
-        },
-      );
+            // مالی
+            'discount': discount,
+            'total_price': totalPrice,
+            'paid_amount': paidCash,
+            'remaining_amount': remainingAmount,
+            'received_amount': paidCash,
+            'cost_price': costPrice,
+            'profit': netProfit,
+
+            'ussd_command': _buildUSSDCode(),
+            'created_at': DateTime.now().toIso8601String(),
+          },
+        );
+      } finally {
+        AppLoader.hide();
+      }
 
       // ۷. بروزرسانی UI و پاکسازی
       if (mounted) {
@@ -441,9 +455,16 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
   }
 
   void _showSnackBar(String message, Color color) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message), backgroundColor: color));
+    // 🔁 حالا از toast عمومی اپ استفاده می‌کند (۳ ثانیه، یکسان در همه‌جا)
+    if (color == Colors.red) {
+      AppToast.error(message);
+    } else if (color == Colors.orange) {
+      AppToast.warning(message);
+    } else if (color == Colors.green) {
+      AppToast.success(message);
+    } else {
+      AppToast.info(message);
+    }
   }
 
   void _invalidateAllProviders() {
@@ -528,28 +549,28 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
               child: _searchResults.isEmpty
                   ? _buildNotFoundWidget()
                   : ListView.separated(
-                      padding: EdgeInsets.zero,
-                      shrinkWrap: true,
-                      itemCount: _searchResults.length,
-                      separatorBuilder: (_, __) => const Divider(height: 1),
-                      itemBuilder: (context, index) {
-                        final customer = _searchResults[index];
-                        return ListTile(
-                          leading: const Icon(
-                            Icons.person_search,
-                            color: Color(0xFF6B7280),
-                          ),
-                          title: Text(
-                            customer['name'],
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          subtitle: Text(
-                            "کد: ${customer['customer_code']} | ${customer['type'] == 'WHOLESALE' ? 'عمده' : 'عادی'}",
-                          ),
-                          onTap: () => _selectCustomer(customer),
-                        );
-                      },
+                padding: EdgeInsets.zero,
+                shrinkWrap: true,
+                itemCount: _searchResults.length,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (context, index) {
+                  final customer = _searchResults[index];
+                  return ListTile(
+                    leading: const Icon(
+                      Icons.person_search,
+                      color: Color(0xFF6B7280),
                     ),
+                    title: Text(
+                      customer['name'],
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Text(
+                      "کد: ${customer['customer_code']} | ${customer['type'] == 'WHOLESALE' ? 'عمده' : 'عادی'}",
+                    ),
+                    onTap: () => _selectCustomer(customer),
+                  );
+                },
+              ),
             ),
           ),
         ),
@@ -600,8 +621,10 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
     _removeOverlay();
     FocusScope.of(context).unfocus();
 
+    final currentUser = ref.read(currentUserProvider);
     final fullDetails = await DatabaseHelper.instance.getCustomerFullDetails(
-      customer['id'],
+      customer['id'].toString(),
+      currentUser?.shopId ?? '',
     );
 
     setState(() {
@@ -704,9 +727,9 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
       } else {
         filtered = providersData
             .where((provider) {
-              final providerName = provider['name']?.toString().trim() ?? '';
-              return customerCompanyNames.contains(providerName);
-            })
+          final providerName = provider['name']?.toString().trim() ?? '';
+          return customerCompanyNames.contains(providerName);
+        })
             .cast<Map<String, dynamic>>()
             .toList();
       }
@@ -763,16 +786,16 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
         if (foundCompanyData != null && foundCompanyData.isNotEmpty) {
           final companyCode =
               foundCompanyData['company_code']?.toString() ??
-              foundCompanyData['dealer_code']?.toString() ??
-              foundCompanyData['code']?.toString() ??
-              '';
+                  foundCompanyData['dealer_code']?.toString() ??
+                  foundCompanyData['code']?.toString() ??
+                  '';
 
           companyCodeCtrl.text = companyCode;
           isCompanySelectionLocked = true;
 
           final customerPhone =
               foundCompanyData['phone']?.toString() ??
-              foundCompanyData['contact_number']?.toString();
+                  foundCompanyData['contact_number']?.toString();
           if (customerPhone != null && customerPhone.isNotEmpty) {
             wholesalePhoneCtrl.text = customerPhone;
             _selectedBulkPhone = customerPhone;
@@ -1034,27 +1057,27 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
       ),
       child: _isUssdLoading
           ? const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: Colors.white,
-              ),
-            )
+        width: 20,
+        height: 20,
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          color: Colors.white,
+        ),
+      )
           : Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, size: 18),
-                const SizedBox(width: 6),
-                Text(
-                  "SIM $simNumber",
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 18),
+          const SizedBox(width: 6),
+          Text(
+            "SIM $simNumber",
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
             ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1296,11 +1319,11 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
   }
 
   Widget _operatorItem(
-    String title,
-    String type, {
-    Map<String, dynamic>? provider,
-    bool isOther = false,
-  }) {
+      String title,
+      String type, {
+        Map<String, dynamic>? provider,
+        bool isOther = false,
+      }) {
     final isSelected = selectedOperator == title;
 
     return GestureDetector(
@@ -1309,7 +1332,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
           if (_filteredProviders.isEmpty) return;
 
           final provider = _filteredProviders.firstWhere(
-            (p) => p['name']?.toString() == title,
+                (p) => p['name']?.toString() == title,
             orElse: () => {},
           );
 
@@ -1351,12 +1374,12 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
           ),
           boxShadow: isSelected
               ? [
-                  BoxShadow(
-                    color: primary.withOpacity(0.1),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
+            BoxShadow(
+              color: primary.withOpacity(0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ]
               : [],
         ),
         child: Column(
@@ -1820,10 +1843,10 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
   }
 
   Widget _amountInput(
-    String label,
-    TextEditingController ctrl,
-    String? suffixText,
-  ) {
+      String label,
+      TextEditingController ctrl,
+      String? suffixText,
+      ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2013,18 +2036,18 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
               // نمایش لودینگ چرخان هنگام درخواست و تیک سبز بعد از دریافت پاسخ
               _isUssdLoading
                   ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.blue,
-                      ),
-                    )
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.blue,
+                ),
+              )
                   : const Icon(
-                      Icons.quickreply_outlined,
-                      color: Colors.green,
-                      size: 24,
-                    ),
+                Icons.quickreply_outlined,
+                color: Colors.green,
+                size: 24,
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -2051,7 +2074,7 @@ class _DigitalTopupSalePageState extends ConsumerState<DigitalTopupSalePage> {
                         color: Colors.black87,
                         height: 1.5,
                         fontFamily:
-                            'monospace', // برای خوانایی بهتر کدهای عددی در پیام
+                        'monospace', // برای خوانایی بهتر کدهای عددی در پیام
                       ),
                     ),
                   ],

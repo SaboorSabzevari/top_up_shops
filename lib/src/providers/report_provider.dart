@@ -1,24 +1,38 @@
-import '../data/local/app_database.dart';
+// مسیر پیشنهادی: lib/src/providers/report_provider.dart
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 Future<List<Map<String, dynamic>>> getFilteredReport({
   required String companyName,
-  required String startDate,
-  required String endDate,
-  required String shopId, // اضافه شدن shopId الزامی است
+  required String startDate, // 'YYYY-MM-DD'
+  required String endDate, // 'YYYY-MM-DD'
+  required String shopId,
 }) async {
-  final db = await DatabaseHelper.instance.database;
+  final start = DateTime.parse(startDate);
+  final end = DateTime.parse(endDate).add(const Duration(days: 1));
 
-  return await db.rawQuery(
-    '''
-    SELECT *, 
-    (sent_amount - paid_amount) as debt 
-    FROM transactions 
-    WHERE operator_name = ? 
-    AND shop_id = ? 
-    AND deleted_at IS NULL
-    AND date(created_at) BETWEEN ? AND ?
-    ORDER BY created_at DESC
-  ''',
-    [companyName, shopId, startDate, endDate],
-  );
+  final snap = await FirebaseFirestore.instance
+      .collection('shops')
+      .doc(shopId)
+      .collection('transactions')
+      .where('operator_name', isEqualTo: companyName)
+      .where('created_at', isGreaterThanOrEqualTo: start.toIso8601String())
+      .where('created_at', isLessThan: end.toIso8601String())
+      .get();
+
+  final rows = snap.docs
+      .where((d) => d.data()['deleted_at'] == null)
+      .map((d) {
+    final data = Map<String, dynamic>.from(d.data());
+    data['id'] = d.id;
+    final sent = (data['sent_amount'] as num? ?? 0).toDouble();
+    final paid = (data['paid_amount'] as num? ?? 0).toDouble();
+    data['debt'] = sent - paid;
+    return data;
+  })
+      .toList();
+
+  rows.sort((a, b) => (b['created_at'] ?? '').toString().compareTo(
+    (a['created_at'] ?? '').toString(),
+  ));
+  return rows;
 }

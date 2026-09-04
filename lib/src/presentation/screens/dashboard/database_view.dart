@@ -1,46 +1,40 @@
+// مسیر پیشنهادی: lib/src/presentation/screens/.../database_view.dart
+// تبدیل به ConsumerStatefulWidget چون حالا برای خواندن از Firestore به
+// shopId کاربر جاری نیاز داریم (که فقط از طریق currentUserProvider در
+// دسترس است).
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:top_up_shops/src/data/local/app_database.dart';
+import 'package:top_up_shops/src/providers/session_provider.dart';
 
-class DatabaseViewerScreen extends StatefulWidget {
+class DatabaseViewerScreen extends ConsumerStatefulWidget {
   const DatabaseViewerScreen({super.key});
 
   @override
-  State<DatabaseViewerScreen> createState() => _DatabaseViewerScreenState();
+  ConsumerState<DatabaseViewerScreen> createState() => _DatabaseViewerScreenState();
 }
 
-class _DatabaseViewerScreenState extends State<DatabaseViewerScreen> {
+class _DatabaseViewerScreenState extends ConsumerState<DatabaseViewerScreen> {
   List<Map<String, dynamic>> _purchases = [];
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadPurchases();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadPurchases());
   }
 
   Future<void> _loadPurchases() async {
+    final user = ref.read(currentUserProvider);
+    if (user == null) return;
+
     setState(() => _isLoading = true);
-
     try {
-      final db = await DatabaseHelper.instance.database;
-
-      // روش 1: استفاده از query مستقیم
-      _purchases = await db.query(
-        'purchases',
-        orderBy: 'id DESC', // جدیدترین اول
-      );
-
-      // روش 2: یا از rawQuery برای جزئیات بیشتر
-      // _purchases = await db.rawQuery('''
-      //   SELECT * FROM purchases
-      //   ORDER BY created_at DESC
-      // ''');
-
-      print('✅ تعداد خریدهای یافت شده: ${_purchases.length}');
+      _purchases = await DatabaseHelper.instance.getAllPurchases(user.shopId);
     } catch (e) {
-      print('❌ خطا در خواندن purchases: $e');
+      debugPrint('❌ خطا در خواندن purchases: $e');
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -85,7 +79,6 @@ class _DatabaseViewerScreenState extends State<DatabaseViewerScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // هدر کارت
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -102,19 +95,10 @@ class _DatabaseViewerScreenState extends State<DatabaseViewerScreen> {
                 ),
               ],
             ),
-
             const SizedBox(height: 12),
-
-            // اطلاعات اصلی
             if (isPaper) ...[
-              _buildInfoRow(
-                '🏢 تأمین‌کننده:',
-                purchase['provider_name']?.toString() ?? '-',
-              ),
-              _buildInfoRow(
-                '📞 اپراتور:',
-                purchase['operator_name']?.toString() ?? '-',
-              ),
+              _buildInfoRow('🏢 تأمین‌کننده:', purchase['provider_name']?.toString() ?? '-'),
+              _buildInfoRow('📞 اپراتور:', purchase['operator_name']?.toString() ?? '-'),
               _buildInfoRow('💰 مقدار کارت:', '${purchase['face_value']} AFN'),
               _buildInfoRow('🔢 تعداد:', '${purchase['quantity']} عدد'),
               _buildInfoRow(
@@ -122,27 +106,13 @@ class _DatabaseViewerScreenState extends State<DatabaseViewerScreen> {
                 '${(purchase['face_value'] as int? ?? 0) * (purchase['quantity'] as int? ?? 1)} AFN',
               ),
             ] else ...[
-              _buildInfoRow(
-                '🏢 تأمین‌کننده:',
-                purchase['provider_name']?.toString() ?? '-',
-              ),
-              _buildInfoRow(
-                '💰 مقدار کریدیت:',
-                '${purchase['total_credit']} AFN',
-              ),
+              _buildInfoRow('🏢 تأمین‌کننده:', purchase['provider_name']?.toString() ?? '-'),
+              _buildInfoRow('💰 مقدار کریدیت:', '${purchase['total_credit']} AFN'),
             ],
-
             const SizedBox(height: 8),
-
-            // اطلاعات مالی
             const Divider(),
             const SizedBox(height: 8),
-
-            _buildInfoRow(
-              '💵 قیمت فی واحد:',
-              '${purchase['cost_per_unit']} AFN',
-            ),
-
+            _buildInfoRow('💵 قیمت فی واحد:', '${purchase['cost_per_unit']} AFN'),
             if (purchase['actual_paid'] != null)
               _buildInfoRow(
                 '💳 مبلغ پرداختی واقعی:',
@@ -150,33 +120,23 @@ class _DatabaseViewerScreenState extends State<DatabaseViewerScreen> {
                 isBold: true,
                 color: Colors.green,
               ),
-
-            if (purchase['nominal_price'] != null &&
-                purchase['actual_paid'] != null)
+            if (purchase['nominal_price'] != null && purchase['actual_paid'] != null)
               _buildInfoRow(
                 '🎁 تخفیف:',
                 '${(purchase['nominal_price'] as num? ?? 0) - (purchase['actual_paid'] as num? ?? 0)} AFN',
                 color: Colors.orange,
               ),
-
             if (purchase['payment_status'] != null)
               _buildInfoRow(
                 '📊 وضعیت پرداخت:',
                 _getPaymentStatusText(purchase['payment_status']),
                 color: _getPaymentStatusColor(purchase['payment_status']),
               ),
-
             const SizedBox(height: 8),
-
-            // تاریخ
             if (purchase['created_at'] != null)
               Row(
                 children: [
-                  const Icon(
-                    Icons.calendar_today,
-                    size: 14,
-                    color: Colors.grey,
-                  ),
+                  const Icon(Icons.calendar_today, size: 14, color: Colors.grey),
                   const SizedBox(width: 6),
                   Text(
                     purchase['created_at'].toString(),
@@ -190,23 +150,14 @@ class _DatabaseViewerScreenState extends State<DatabaseViewerScreen> {
     );
   }
 
-  Widget _buildInfoRow(
-    String label,
-    String value, {
-    bool isBold = false,
-    Color? color,
-  }) {
+  Widget _buildInfoRow(String label, String value, {bool isBold = false, Color? color}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
         children: [
           Text(
             label,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: Colors.grey[700],
-            ),
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.grey[700]),
           ),
           const SizedBox(width: 8),
           Expanded(

@@ -6,6 +6,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../../data/local/app_database.dart';
 import '../../../../providers/session_provider.dart';
 import '../../../../providers/transaction_provider.dart';
+import '../../../../services/app_notifier.dart';
+import '../../../../services/internet_chek.dart';
 
 import '../../customer/add_customer.dart';
 
@@ -31,12 +33,12 @@ class _PaperTopupSalePageState extends ConsumerState<PaperTopupSalePage> {
   final TextEditingController customerNameCtrl = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   final LayerLink _layerLink =
-      LayerLink(); // کلید اصلی برای چسباندن لیست به فیلد
+  LayerLink(); // کلید اصلی برای چسباندن لیست به فیلد
 
   Timer? _debounce;
   List<Map<String, dynamic>> _searchResults = [];
   OverlayEntry? _overlayEntry;
-  int? selectedCustomerId;
+  String? selectedCustomerId;
   String? selectedCustomerRemoteId;
 
   // رنگ‌ها (برای هماهنگی با تم)
@@ -106,7 +108,7 @@ class _PaperTopupSalePageState extends ConsumerState<PaperTopupSalePage> {
     _overlayEntry = OverlayEntry(
       builder: (context) => Positioned(
         width:
-            size.width -
+        size.width -
             32.w, // تنظیم عرض متناسب با پدینگ صفحه (16 چپ + 16 راست)
         child: CompositedTransformFollower(
           link: _layerLink,
@@ -121,36 +123,36 @@ class _PaperTopupSalePageState extends ConsumerState<PaperTopupSalePage> {
               child: _searchResults.isEmpty
                   ? _buildNotFoundWidget()
                   : ListView.separated(
-                      padding: EdgeInsets.zero,
-                      shrinkWrap: true,
-                      itemCount: _searchResults.length,
-                      separatorBuilder: (_, __) => const Divider(height: 1),
-                      itemBuilder: (context, index) {
-                        final customer = _searchResults[index];
-                        return ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: Colors.red.shade50,
-                            child: Icon(
-                              Icons.person,
-                              color: primary,
-                              size: 20.sp,
-                            ),
-                          ),
-                          title: Text(
-                            customer['name'],
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14.sp,
-                            ),
-                          ),
-                          subtitle: Text(
-                            "کد: ${customer['customer_code'] ?? '---'}",
-                            style: TextStyle(fontSize: 12.sp, color: textMuted),
-                          ),
-                          onTap: () => _selectCustomer(customer),
-                        );
-                      },
+                padding: EdgeInsets.zero,
+                shrinkWrap: true,
+                itemCount: _searchResults.length,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (context, index) {
+                  final customer = _searchResults[index];
+                  return ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: Colors.red.shade50,
+                      child: Icon(
+                        Icons.person,
+                        color: primary,
+                        size: 20.sp,
+                      ),
                     ),
+                    title: Text(
+                      customer['name'],
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14.sp,
+                      ),
+                    ),
+                    subtitle: Text(
+                      "کد: ${customer['customer_code'] ?? '---'}",
+                      style: TextStyle(fontSize: 12.sp, color: textMuted),
+                    ),
+                    onTap: () => _selectCustomer(customer),
+                  );
+                },
+              ),
             ),
           ),
         ),
@@ -277,6 +279,13 @@ class _PaperTopupSalePageState extends ConsumerState<PaperTopupSalePage> {
       'created_at': DateTime.now().toIso8601String(),
     };
 
+    final hasInternet = await checkInternetConnection();
+    if (!hasInternet) {
+      AppToast.error('اتصال اینترنت برقرار نیست. لطفاً دوباره تلاش کنید.');
+      return;
+    }
+
+    AppLoader.show('در حال ثبت فروش...');
     try {
       await DatabaseHelper.instance.recordPaperSale(
         transactionData: transactionData,
@@ -292,15 +301,10 @@ class _PaperTopupSalePageState extends ConsumerState<PaperTopupSalePage> {
       ref.invalidate(todaySalesProvider);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              remaining > 0
-                  ? 'فروش ثبت شد. مانده بدهی: ${remaining.toStringAsFixed(0)}'
-                  : 'فروش نقدی با موفقیت ثبت شد',
-            ),
-            backgroundColor: Colors.green,
-          ),
+        AppToast.success(
+          remaining > 0
+              ? 'فروش ثبت شد. مانده بدهی: ${remaining.toStringAsFixed(0)}'
+              : 'فروش نقدی با موفقیت ثبت شد',
         );
 
         paidCtrl.clear();
@@ -312,6 +316,8 @@ class _PaperTopupSalePageState extends ConsumerState<PaperTopupSalePage> {
       }
     } catch (e) {
       _showErrorDialog('خطا در ثبت فروش: $e');
+    } finally {
+      AppLoader.hide();
     }
   }
 
@@ -366,16 +372,16 @@ class _PaperTopupSalePageState extends ConsumerState<PaperTopupSalePage> {
                     ),
                     suffixIcon: customerNameCtrl.text.isNotEmpty
                         ? IconButton(
-                            icon: const Icon(Icons.close, size: 18),
-                            onPressed: () {
-                              customerNameCtrl.clear();
-                              setState(() {
-                                selectedCustomerId = null;
-                                selectedCustomerRemoteId = null;
-                              });
-                              _removeOverlay();
-                            },
-                          )
+                      icon: const Icon(Icons.close, size: 18),
+                      onPressed: () {
+                        customerNameCtrl.clear();
+                        setState(() {
+                          selectedCustomerId = null;
+                          selectedCustomerRemoteId = null;
+                        });
+                        _removeOverlay();
+                      },
+                    )
                         : null,
                     border: InputBorder.none,
                     contentPadding: EdgeInsets.symmetric(
@@ -437,10 +443,10 @@ class _PaperTopupSalePageState extends ConsumerState<PaperTopupSalePage> {
   }
 
   Widget _amountInput(
-    String label,
-    TextEditingController ctrl,
-    String? suffixText,
-  ) {
+      String label,
+      TextEditingController ctrl,
+      String? suffixText,
+      ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -593,12 +599,12 @@ class _PaperTopupSalePageState extends ConsumerState<PaperTopupSalePage> {
               ),
               boxShadow: active
                   ? [
-                      BoxShadow(
-                        color: primary.withOpacity(0.3),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ]
+                BoxShadow(
+                  color: primary.withOpacity(0.3),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ]
                   : [],
             ),
             child: Text(

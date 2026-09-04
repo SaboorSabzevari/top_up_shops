@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -6,6 +5,7 @@ import 'package:top_up_shops/src/presentation/screens/transactions/transaction_s
 import '../../../data/local/app_database.dart';
 import '../../../providers/customer_provider.dart';
 import '../../../providers/session_provider.dart'; // اضافه شد
+import '../../../services/smart_avatar.dart';
 import '../../../utils/colors.dart';
 import 'add_customer.dart';
 
@@ -50,10 +50,10 @@ class CustomerListPage extends ConsumerWidget {
                       return const Center(child: Text("مشتری یافت نشد"));
                     }
 
-                    return _customerList(shopCustomers);
+                    return _customerList(shopCustomers, user?.shopId ?? '');
                   },
                   loading: () =>
-                      const Center(child: CircularProgressIndicator()),
+                  const Center(child: CircularProgressIndicator()),
                   error: (err, stack) => Center(child: Text('خطا: $err')),
                 ),
               ),
@@ -101,7 +101,7 @@ class CustomerListPage extends ConsumerWidget {
     );
   }
 
-  Widget _customerList(List<Map<String, dynamic>> customers) {
+  Widget _customerList(List<Map<String, dynamic>> customers, String shopId) {
     return ListView.separated(
       // پدینگ کل لیست مشابه لیست تراکنش‌ها
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -115,7 +115,10 @@ class CustomerListPage extends ConsumerWidget {
         return InkWell(
           onTap: () async {
             final fullData = await DatabaseHelper.instance
-                .getCustomerFullDetails(customer['id']);
+                .getCustomerFullDetails(
+              customer['id'].toString(),
+              shopId,
+            );
             if (context.mounted) {
               Navigator.push(
                 context,
@@ -205,19 +208,11 @@ class CustomerListPage extends ConsumerWidget {
   }
 
   Widget _buildCustomerAvatar(String name, String? profileImagePath) {
-    if (profileImagePath != null && profileImagePath.isNotEmpty) {
-      try {
-        final file = File(profileImagePath);
-        if (file.existsSync()) {
-          return CircleAvatar(backgroundImage: FileImage(file), radius: 20);
-        }
-      } catch (e) {}
-    }
-
-    final firstChar = name.isNotEmpty ? name[0] : '?';
-    return CircleAvatar(
+    return SmartAvatar(
+      path: profileImagePath,
+      fallbackText: name,
+      radius: 20,
       backgroundColor: primary.withOpacity(0.1),
-      child: Text(firstChar, style: const TextStyle(color: primary)),
     );
   }
 
@@ -256,7 +251,7 @@ class CustomerListPage extends ConsumerWidget {
           label: Text(label, style: TextStyle(fontSize: 12.sp)),
           selected: isSelected,
           onSelected: (_) =>
-              ref.read(customerFilterProvider.notifier).state = value,
+          ref.read(customerFilterProvider.notifier).state = value,
           labelStyle: TextStyle(
             color: isSelected
                 ? Colors.white

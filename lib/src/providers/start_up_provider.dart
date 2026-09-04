@@ -56,11 +56,18 @@ class StartupNotifier extends StateNotifier<StartupState> {
 
           if (doc.exists) {
             final data = doc.data()!;
+            Map<String, bool>? perms;
+            final rawPerms = data['permissions'];
+            if (rawPerms is Map) {
+              perms = rawPerms.map((k, v) => MapEntry(k.toString(), v == true));
+            }
             finalUser = UserModel(
               uid: currentUser.uid,
               email: currentUser.email ?? '',
               role: data['role'] ?? 'STAFF',
               shopId: data['shopId'] ?? '',
+              permissions: perms,
+              active: data['active'] == null ? true : data['active'] == true,
             );
 
             // 🔴 ذخیره در session provider
@@ -70,12 +77,12 @@ class StartupNotifier extends StateNotifier<StartupState> {
             await ref
                 .read(preferencesServiceProvider.notifier)
                 .saveFullLogin(
-                  email: finalUser.email,
-                  uid: finalUser.uid,
-                  role: finalUser.role,
-                  shopId: finalUser.shopId,
-                  rememberMe: true,
-                );
+              email: finalUser.email,
+              uid: finalUser.uid,
+              role: finalUser.role,
+              shopId: finalUser.shopId,
+              rememberMe: true,
+            );
           }
         } catch (e) {
           // استفاده از دیتای ذخیره شده
@@ -104,7 +111,7 @@ class StartupNotifier extends StateNotifier<StartupState> {
 }
 
 final startupProvider = StateNotifierProvider<StartupNotifier, StartupState>((
-  ref,
-) {
+    ref,
+    ) {
   return StartupNotifier(ref);
 });

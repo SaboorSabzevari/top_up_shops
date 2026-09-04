@@ -4,19 +4,23 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart'; // اضافه کردن پکیج
 import 'package:top_up_shops/src/presentation/screens/setting/privecy_policy.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../../data/premissions.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/local_provider.dart';
+import '../../../providers/premission_provider.dart';
+import '../../../providers/session_provider.dart';
 import '../../theme/colors.dart';
 import '../auth/login_screen.dart';
 
 import 'about_us_screen.dart';
 import 'call_with_support.dart';
 import 'edit_profile_screen.dart' hide kPrimaryColor;
+import 'manage_employee_screen.dart';
 import 'package:top_up_shops/src/presentation/screens/setting/unit_screen.dart';
 
 final profileInfoProvider = FutureProvider.autoDispose<Map<String, String>>((
-  ref,
-) async {
+    ref,
+    ) async {
   final prefs = await SharedPreferences.getInstance();
   return {
     'name': prefs.getString('store_name') ?? 'فروشگاه من',
@@ -31,6 +35,8 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final locale = ref.watch(localeProvider).locale;
+    final isOwner = ref.watch(isOwnerProvider);
+    final canManagePrices = ref.watch(hasPermissionProvider(PermissionKeys.canManagePrices));
     final l10n = AppLocalizations.of(context)!;
     final profileAsync = ref.watch(profileInfoProvider);
 
@@ -74,28 +80,53 @@ class SettingsScreen extends ConsumerWidget {
 
             const SizedBox(height: 20),
 
-            /// ================= Set Unit =================
-            _groupTitle(l10n.setUnitPrice),
-            _card(
-              children: [
-                _navigationTile(
-                  icon: Icons.pin,
-                  iconBg: Colors.green.shade50,
-                  iconColor: Colors.green,
-                  title: l10n.setUnit,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const UnitScreen(),
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
+            /// ================= Set Unit (فقط با دسترسی canManagePrices) =================
+            if (canManagePrices) ...[
+              _groupTitle(l10n.setUnitPrice),
+              _card(
+                children: [
+                  _navigationTile(
+                    icon: Icons.pin,
+                    iconBg: Colors.green.shade50,
+                    iconColor: Colors.green,
+                    title: l10n.setUnit,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const UnitScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+            ],
 
-            const SizedBox(height: 20),
+            /// ================= مدیریت (فقط مدیر) =================
+            if (isOwner) ...[
+              _groupTitle('مدیریت'),
+              _card(
+                children: [
+                  _navigationTile(
+                    icon: Icons.badge,
+                    iconBg: Colors.indigo.shade50,
+                    iconColor: Colors.indigo,
+                    title: 'مدیریت کارمندان و دسترسی‌ها',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ManageEmployeesScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+            ],
 
             /// ================= Support =================
             _groupTitle('پشتیبانی'),
@@ -159,7 +190,7 @@ class SettingsScreen extends ConsumerWidget {
                     if (context.mounted) {
                       Navigator.of(context).pushAndRemoveUntil(
                         MaterialPageRoute(builder: (_) => const LoginPage()),
-                        (route) => false,
+                            (route) => false,
                       );
                     }
                   },
@@ -201,10 +232,10 @@ class SettingsScreen extends ConsumerWidget {
 
   // 3. اصلاح ویجت هدر پروفایل برای نمایش اطلاعات واقعی
   Widget _profileHeader(
-    BuildContext context,
-    WidgetRef ref,
-    AsyncValue<Map<String, String>> profileAsync,
-  ) {
+      BuildContext context,
+      WidgetRef ref,
+      AsyncValue<Map<String, String>> profileAsync,
+      ) {
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Container(
@@ -225,15 +256,15 @@ class SettingsScreen extends ConsumerWidget {
                       radius: 40,
                       backgroundColor: Colors.grey.shade200,
                       backgroundImage:
-                          (imagePath != null && imagePath.isNotEmpty)
+                      (imagePath != null && imagePath.isNotEmpty)
                           ? FileImage(File(imagePath)) as ImageProvider
                           : null, // اگر عکس نبود نال برمی‌گرداند
                       child: (imagePath == null || imagePath.isEmpty)
                           ? const Icon(
-                              Icons.store,
-                              size: 40,
-                              color: Colors.grey,
-                            )
+                        Icons.store,
+                        size: 40,
+                        color: Colors.grey,
+                      )
                           : null,
                     );
                   },
@@ -242,7 +273,7 @@ class SettingsScreen extends ConsumerWidget {
                     child: CircularProgressIndicator(),
                   ),
                   error: (_, __) =>
-                      const CircleAvatar(radius: 40, child: Icon(Icons.error)),
+                  const CircleAvatar(radius: 40, child: Icon(Icons.error)),
                 ),
 
                 const Positioned(

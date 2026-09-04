@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import '../../../data/premissions.dart';
 import '../../../domain/entity/transaction.dart';
+import '../../../providers/premission_provider.dart';
 import '../../../providers/transaction_provider.dart';
 import 'package:intl/intl.dart' as intl;
 
@@ -46,7 +48,7 @@ class TransactionHistoryPage extends ConsumerWidget {
         },
         child: Column(
           children: [
-            _buildSummaryCards(todayProfitAsync, todayCountAsync),
+            _buildSummaryCards(ref, todayProfitAsync, todayCountAsync),
             _buildSearchBar(ref, isDark),
             _buildFilterChips(context, ref, isDark),
             if (ref.watch(filterDateProvider) != null)
@@ -75,7 +77,7 @@ class TransactionHistoryPage extends ConsumerWidget {
                     SizedBox(width: 8.w), // ریسپانسیو
                     GestureDetector(
                       onTap: () =>
-                          ref.read(filterDateProvider.notifier).state = null,
+                      ref.read(filterDateProvider.notifier).state = null,
                       child: Text(
                         "لغو فیلتر",
                         style: TextStyle(
@@ -127,8 +129,7 @@ class TransactionHistoryPage extends ConsumerWidget {
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: EdgeInsets.only(bottom: 100.h), // ریسپانسیو
                     key: ValueKey(
-                      transactions.length +
-                          (transactions.isNotEmpty ? transactions.first.id : 0),
+                      '${transactions.length}_${transactions.isNotEmpty ? transactions.first.id : ''}',
                     ),
                     itemCount: transactions.length,
                     itemBuilder: (context, index) {
@@ -151,13 +152,23 @@ class TransactionHistoryPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildSummaryCards(AsyncValue<int> profit, AsyncValue<int> count) {
+  Widget _buildSummaryCards(WidgetRef ref, AsyncValue<int> profit, AsyncValue<int> count) {
+    final canViewProfit = ref.watch(hasPermissionProvider(PermissionKeys.canViewProfit));
     return Padding(
       padding: EdgeInsets.all(16.w), // ریسپانسیو
       child: Row(
         children: [
           Expanded(
-            child: profit.when(
+            child: !canViewProfit
+                ? _summaryBox(
+              "سود خالص امروز",
+              "---",
+              "",
+              const Color(0xFF1E1E1E),
+              textColor: Colors.white,
+              subTextColor: Colors.white,
+            )
+                : profit.when(
               loading: () => _summaryBox(
                 "سود خالص امروز",
                 "...",
@@ -219,13 +230,13 @@ class TransactionHistoryPage extends ConsumerWidget {
   }
 
   Widget _summaryBox(
-    String title,
-    String amount,
-    String amountType,
-    Color bgColor, {
-    required Color textColor,
-    required Color subTextColor,
-  }) {
+      String title,
+      String amount,
+      String amountType,
+      Color bgColor, {
+        required Color textColor,
+        required Color subTextColor,
+      }) {
     return Container(
       padding: EdgeInsets.all(16.w), // ریسپانسیو
       decoration: BoxDecoration(
@@ -271,9 +282,9 @@ class TransactionHistoryPage extends ConsumerWidget {
   }
 
   Widget _buildTransactionCardFromModel(
-    BuildContext context,
-    TransactionModel t,
-  ) {
+      BuildContext context,
+      TransactionModel t,
+      ) {
     String formattedTime = t.createdAt;
     try {
       final dateTime = DateTime.parse(t.createdAt);
@@ -311,16 +322,16 @@ class TransactionHistoryPage extends ConsumerWidget {
   }
 
   Widget _buildTransactionCard(
-    BuildContext context, {
-    required String name,
-    required String type,
-    required String identityValue,
-    required IconData identityIcon,
-    required String time,
-    required String operator,
-    required String sent,
-    required String received,
-  }) {
+      BuildContext context, {
+        required String name,
+        required String type,
+        required String identityValue,
+        required IconData identityIcon,
+        required String time,
+        required String operator,
+        required String sent,
+        required String received,
+      }) {
     bool isDark = Theme.of(context).brightness == Brightness.dark;
     const Color brandRed = Color(0xFFEA2A33);
     const Color darkCard = Color(0xFF1E1E1E);
@@ -500,7 +511,7 @@ class TransactionHistoryPage extends ConsumerWidget {
           cursorColor: kPrimaryColor,
           cursorWidth: 1.5.w,
           onChanged: (value) =>
-              ref.read(transactionSearchQueryProvider.notifier).state = value,
+          ref.read(transactionSearchQueryProvider.notifier).state = value,
           decoration: InputDecoration(
             hintText: "جستجو (نام، شماره، کد شرکت)...",
             hintStyle: TextStyle(fontSize: 14.sp, color: Colors.grey.shade600),
@@ -540,7 +551,7 @@ class TransactionHistoryPage extends ConsumerWidget {
           ),
           selected: isSelected,
           onSelected: (_) =>
-              ref.read(filterCustomerTypeProvider.notifier).state = value,
+          ref.read(filterCustomerTypeProvider.notifier).state = value,
           labelStyle: TextStyle(
             color: isSelected
                 ? Colors.white

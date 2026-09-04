@@ -7,6 +7,8 @@ import 'package:top_up_shops/src/providers/auth_provider.dart';
 
 import '../../../../l10n/app_localizations.dart';
 import '../../../providers/local_provider.dart';
+import '../../../services/app_notifier.dart';
+import '../../../services/internet_chek.dart';
 import '../../../utils/colors.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
@@ -50,38 +52,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     IconData? icon,
     int durationSeconds = 3,
   }) {
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.clearSnackBars();
-
-    messenger.showSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
-        margin: EdgeInsets.all(16.r), // ریسپانسیو
-        backgroundColor: backgroundColor,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12.r), // ریسپانسیو
-        ),
-        duration: Duration(seconds: durationSeconds),
-        content: Row(
-          children: [
-            if (icon != null) ...[
-              Icon(icon, color: Colors.white),
-              SizedBox(width: 10.w), // ریسپانسیو
-            ],
-            Expanded(
-              child: Text(
-                message,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 14.sp, // ریسپانسیو
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    // 🔁 toast عمومی و یکسان در کل اپ (۳ ثانیه)
+    if (backgroundColor == Colors.red.shade600) {
+      AppToast.error(message);
+    } else if (backgroundColor == Colors.green.shade600) {
+      AppToast.success(message);
+    } else {
+      AppToast.info(message);
+    }
   }
 
   // ================= LOGIN =================
@@ -101,16 +79,26 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       return;
     }
 
+    final hasInternet = await checkInternetConnection();
+    if (!hasInternet) {
+      _showSnackBar(
+        message: 'اتصال اینترنت برقرار نیست. لطفاً دوباره تلاش کنید.',
+        backgroundColor: Colors.red.shade600,
+        icon: Icons.wifi_off,
+      );
+      return;
+    }
+
     try {
       _hasShownSuccessSnackBar = false;
 
       await ref
           .read(authProvider.notifier)
           .loginWithEmailAndPassword(
-            email: email,
-            password: password,
-            rememberMe: rememberMe,
-          );
+        email: email,
+        password: password,
+        rememberMe: rememberMe,
+      );
 
       if (!mounted) return;
 
@@ -132,7 +120,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (_) => HomeScreen()),
-          (route) => false,
+              (route) => false,
         );
       } else if (authState.error != null) {
         _showSnackBar(
@@ -327,27 +315,27 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   ),
                   child: authState.isLoading
                       ? SizedBox(
-                          height: 24.h, // ریسپانسیو
-                          width: 24.w, // ریسپانسیو
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
+                    height: 24.h, // ریسپانسیو
+                    width: 24.w, // ریسپانسیو
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
                       : Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              l10n.login,
-                              style: TextStyle(
-                                fontSize: 18.sp, // ریسپانسیو
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            SizedBox(width: 8.w), // ریسپانسیو
-                            Icon(Icons.login, size: 20.sp), // ریسپانسیو
-                          ],
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        l10n.login,
+                        style: TextStyle(
+                          fontSize: 18.sp, // ریسپانسیو
+                          fontWeight: FontWeight.bold,
                         ),
+                      ),
+                      SizedBox(width: 8.w), // ریسپانسیو
+                      Icon(Icons.login, size: 20.sp), // ریسپانسیو
+                    ],
+                  ),
                 ),
               ),
 
@@ -467,14 +455,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               prefixIcon: Icon(icon, size: 20.sp), // ریسپانسیو
               suffixIcon: isPassword
                   ? IconButton(
-                      icon: Icon(
-                        isPasswordVisible
-                            ? Icons.visibility_off
-                            : Icons.visibility,
-                        size: 20.sp, // ریسپانسیو
-                      ),
-                      onPressed: onToggleVisibility,
-                    )
+                icon: Icon(
+                  isPasswordVisible
+                      ? Icons.visibility_off
+                      : Icons.visibility,
+                  size: 20.sp, // ریسپانسیو
+                ),
+                onPressed: onToggleVisibility,
+              )
                   : null,
             ),
           ),

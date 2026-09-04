@@ -1,5 +1,6 @@
+// مسیر پیشنهادی: lib/src/domain/entity/providers.dart
 class ProviderCompany {
-  final int? id;
+  final String? id;
   final String shopId;
   final String name;
   final double balance;
@@ -14,7 +15,7 @@ class ProviderCompany {
   });
 
   ProviderCompany copyWith({
-    int? id,
+    String? id,
     String? shopId,
     String? name,
     double? balance,
@@ -31,7 +32,7 @@ class ProviderCompany {
 
   factory ProviderCompany.fromMap(Map<String, dynamic> map) {
     return ProviderCompany(
-      id: map['id'] as int?,
+      id: map['id']?.toString(),
       shopId: map['shop_id'] as String? ?? '',
       name: map['name'] as String? ?? '',
       balance: (map['balance'] as num? ?? 0.0).toDouble(),
@@ -41,7 +42,7 @@ class ProviderCompany {
 
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
+      if (id != null) 'id': id,
       'shop_id': shopId,
       'name': name,
       'balance': balance,
